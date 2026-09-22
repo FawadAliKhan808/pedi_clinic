@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
 import { ParentAuth } from "@/components/parent/parent-auth";
+import { ParentTabs } from "@/components/parent/parent-tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -91,7 +92,7 @@ export default function ParentHome() {
   }
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <div className="flex flex-1 flex-col pb-[calc(11rem+env(safe-area-inset-bottom))]">
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Pedi Clinic</h1>
         <button
@@ -175,8 +176,9 @@ export default function ParentHome() {
         )}
       </section>
 
+      {/* Sits directly above the tab bar. */}
       {children.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md border-t border-border bg-surface px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mx-auto w-full max-w-md border-t border-border bg-surface px-5 py-3">
           <Link href="/check-in">
             <Button fullWidth variant="accent">
               Check in
@@ -190,6 +192,8 @@ export default function ParentHome() {
         onClose={() => setAddChildOpen(false)}
         onAdded={(child) => setChildren((current) => [...current, child])}
       />
+
+      <ParentTabs />
     </div>
   );
 }

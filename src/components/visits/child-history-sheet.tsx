@@ -18,7 +18,7 @@ import {
   visitReasonLabels,
 } from "@/lib/format";
 
-export function ChildSheet({
+export function ChildHistorySheet({
   childId,
   childName,
   childDob,

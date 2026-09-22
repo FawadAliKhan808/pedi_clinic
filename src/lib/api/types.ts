@@ -123,6 +123,24 @@ export interface PrescriptionImage {
   order: number;
 }
 
+/** Everything the parent's post-visit screen shows. */
+export interface VisitSummary {
+  visitId: UUID;
+  childId: UUID;
+  childName: string;
+  visitDate: ISODateString;
+  seq: number;
+  status: VisitStatus;
+  reason: VisitReason;
+  /** Null when the caller may not see money (the pharmacist), or none was recorded. */
+  feeTotal: number | null;
+  followUpDate: ISODateString | null;
+  completedAt: ISODateTimeString | null;
+  storageKeys: string[];
+  /** The parent's own rating, so they aren't asked twice. */
+  ratingStars: number | null;
+}
+
 export interface ChildVisitHistoryEntry {
   visitId: UUID;
   visitDate: ISODateString;

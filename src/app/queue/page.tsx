@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { ParentTabs } from "@/components/parent/parent-tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -83,7 +84,7 @@ export default function QueuePage() {
   }, [clinicId, refresh]);
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
         <Link
           href="/"
@@ -146,6 +147,14 @@ export default function QueuePage() {
                 <p className="text-lg font-semibold text-foreground">
                   {statusCopy(entry)}
                 </p>
+
+                {entry.status === "completed" && (
+                  <Link href={`/visits/${entry.visitId}`}>
+                    <Button fullWidth variant="accent">
+                      View visit summary
+                    </Button>
+                  </Link>
+                )}
               </div>
             </section>
           ))}
@@ -155,6 +164,8 @@ export default function QueuePage() {
           </Card>
         </div>
       )}
+
+      <ParentTabs />
     </div>
   );
 }

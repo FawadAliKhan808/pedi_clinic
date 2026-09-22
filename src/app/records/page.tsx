@@ -1,0 +1,98 @@
+"use client";
+
+import { ChevronRight, FolderClock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ParentTabs } from "@/components/parent/parent-tabs";
+import { Card } from "@/components/ui/card";
+import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { useToast } from "@/components/ui/toast";
+import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
+import type { Child } from "@/lib/api";
+import { getBrowserApi } from "@/lib/api/browser";
+import { errorMessage, formatAge } from "@/lib/format";
+
+export default function RecordsPage() {
+  const router = useRouter();
+  const toast = useToast();
+  const [children, setChildren] = useState<Child[] | null>(null);
+  const [openChild, setOpenChild] = useState<Child | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadChildren()
+      .then((result) => {
+        if (cancelled) return;
+        if (result === null) router.replace("/");
+        else setChildren(result);
+      })
+      .catch((caught) => toast(errorMessage(caught), "error"));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, toast]);
+
+  return (
+    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+      <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+        <h1 className="text-2xl font-bold text-foreground">Records</h1>
+        <p className="text-sm text-foreground-muted">
+          Past visits and prescriptions for each child.
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-3 px-5 py-3">
+        {children === null ? (
+          <>
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </>
+        ) : children.length === 0 ? (
+          <EmptyState
+            icon={<FolderClock className="size-8" />}
+            title="No records yet"
+            description="Visits appear here once your child has been seen."
+          />
+        ) : (
+          children.map((child) => (
+            <button
+              key={child.id}
+              type="button"
+              onClick={() => setOpenChild(child)}
+              className="text-left"
+            >
+              <Card className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <p className="truncate font-semibold text-foreground">{child.name}</p>
+                  <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
+                </div>
+                <ChevronRight className="size-5 shrink-0 text-foreground-muted" />
+              </Card>
+            </button>
+          ))
+        )}
+      </div>
+
+      {openChild && (
+        <ChildHistorySheet
+          open
+          childId={openChild.id}
+          childName={openChild.name}
+          childDob={openChild.dob}
+          onClose={() => setOpenChild(null)}
+        />
+      )}
+
+      <ParentTabs />
+    </div>
+  );
+}
+
+/** Null when there's no session, so the caller can send them home. */
+async function loadChildren(): Promise<Child[] | null> {
+  const api = getBrowserApi();
+  const userId = await api.auth.getCurrentUserId();
+  if (!userId) return null;
+  return api.parents.listMyChildren();
+}

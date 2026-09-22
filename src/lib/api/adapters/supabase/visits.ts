@@ -1,4 +1,9 @@
-import { ApiError, type ChildVisitHistoryEntry, type UUID, type Visit } from "../../types";
+import type {
+  ChildVisitHistoryEntry,
+  UUID,
+  Visit,
+  VisitSummary,
+} from "../../types";
 import type { CompleteVisitInput, VisitsApi } from "../../visits";
 import type { TypedSupabaseClient } from "./client.browser";
 import { toApiError } from "./errors";
@@ -16,6 +21,31 @@ export class SupabaseVisitsApi implements VisitsApi {
 
     if (error) throw toApiError(error, "VISIT_LOOKUP_FAILED");
     return mapVisitRow(data);
+  }
+
+  async getVisitSummary(visitId: UUID): Promise<VisitSummary | null> {
+    const { data, error } = await this.client.rpc("visit_summary", {
+      p_visit_id: visitId,
+    });
+    if (error) throw toApiError(error, "VISIT_SUMMARY_FAILED");
+
+    const row = data?.[0];
+    if (!row) return null;
+
+    return {
+      visitId: row.visit_id,
+      childId: row.child_id,
+      childName: row.child_name,
+      visitDate: row.visit_date,
+      seq: row.seq,
+      status: row.status,
+      reason: row.reason,
+      feeTotal: row.fee_total,
+      followUpDate: row.follow_up_date,
+      completedAt: row.completed_at,
+      storageKeys: row.storage_keys ?? [],
+      ratingStars: row.rating_stars,
+    };
   }
 
   async getChildHistory(childId: UUID): Promise<ChildVisitHistoryEntry[]> {
@@ -51,10 +81,13 @@ export class SupabaseVisitsApi implements VisitsApi {
     return mapVisitRow(data);
   }
 
-  async submitRating(): Promise<void> {
-    throw new ApiError(
-      "VisitsApi.submitRating() is not implemented yet.",
-      "NOT_IMPLEMENTED"
-    );
+  async submitRating(visitId: UUID, stars: 1 | 2 | 3 | 4 | 5): Promise<void> {
+    // Insert, not upsert: a visit is rated once, and the prompt is only shown
+    // while `ratingStars` is still null.
+    const { error } = await this.client
+      .from("ratings")
+      .insert({ visit_id: visitId, stars });
+
+    if (error) throw toApiError(error, "SUBMIT_RATING_FAILED");
   }
 }

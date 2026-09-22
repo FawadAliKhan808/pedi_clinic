@@ -246,6 +246,65 @@ async function main() {
     pharmacistHistory[0]?.fee_total === null
   );
 
+  // --- parent's post-visit screen ------------------------------------------
+  const summaryRows = unwrap(
+    "visit summary",
+    await parent.rpc("visit_summary", { p_visit_id: visit.id })
+  );
+  const summary = summaryRows[0];
+  check(
+    "the summary carries fee, follow-up and photo",
+    Number(summary?.fee_total) === 500 &&
+      summary?.follow_up_date === "2026-10-06" &&
+      summary?.storage_keys?.length === 1
+  );
+  check("no rating yet", summary?.rating_stars === null);
+
+  unwrap(
+    "submit rating",
+    await parent.from("ratings").insert({ visit_id: visit.id, stars: 5 })
+  );
+  const ratedRows = unwrap(
+    "summary after rating",
+    await parent.rpc("visit_summary", { p_visit_id: visit.id })
+  );
+  check("the rating is echoed back to the parent", ratedRows[0]?.rating_stars === 5);
+
+  check(
+    "the doctor cannot read ratings",
+    unwrap(
+      "doctor ratings",
+      await doctor.from("ratings").select("*").eq("visit_id", visit.id)
+    ).length === 0
+  );
+  check(
+    "the pharmacist cannot read ratings",
+    unwrap(
+      "pharmacist ratings",
+      await pharmacist.from("ratings").select("*").eq("visit_id", visit.id)
+    ).length === 0
+  );
+
+  const owner = await signIn(
+    process.env.DEMO_OWNER_EMAIL ?? "owner@pediclinic.test",
+    process.env.DEMO_OWNER_PASSWORD ?? "pedi-owner-demo"
+  );
+  check(
+    "the owner can read ratings",
+    unwrap("owner ratings", await owner.from("ratings").select("*").eq("visit_id", visit.id))
+      .length === 1
+  );
+
+  const pharmacistSummary = unwrap(
+    "pharmacist summary",
+    await pharmacist.rpc("visit_summary", { p_visit_id: visit.id })
+  );
+  check(
+    "the pharmacist's summary hides fee and rating",
+    pharmacistSummary[0]?.fee_total === null &&
+      pharmacistSummary[0]?.rating_stars === null
+  );
+
   // --- private bucket ------------------------------------------------------
   const parentSigned = await parent.storage
     .from("prescriptions")

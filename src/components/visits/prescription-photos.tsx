@@ -1,7 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download, Share2, X } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Skeleton } from "@/components/ui/feedback";
 import { getBrowserApi } from "@/lib/api/browser";
 
@@ -81,6 +81,8 @@ export function PrescriptionThumbs({ storageKeys }: { storageKeys: string[] }) {
 
 /** Full-screen viewer. Page pinch-zoom is deliberately left enabled app-wide. */
 export function PhotoViewer({ url, onClose }: { url: string; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -88,6 +90,37 @@ export function PhotoViewer({ url, onClose }: { url: string; onClose: () => void
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  async function withFile(action: (file: File) => Promise<void> | void) {
+    setBusy(true);
+    try {
+      const blob = await fetch(url).then((response) => response.blob());
+      await action(new File([blob], "prescription.jpg", { type: blob.type }));
+    } catch {
+      // Signed URLs expire; reopening the photo gets a fresh one.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function download() {
+    return withFile((file) => {
+      const objectUrl = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    });
+  }
+
+  function share() {
+    return withFile(async (file) => {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Prescription" });
+      }
+    });
+  }
 
   return (
     <div
@@ -103,12 +136,51 @@ export function PhotoViewer({ url, onClose }: { url: string; onClose: () => void
       >
         <X className="size-5" />
       </button>
+
       {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
       <img
         src={url}
         alt="Prescription"
         className="max-h-full max-w-full object-contain"
       />
+
+      <div className="absolute inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] flex justify-center gap-3">
+        <button
+          onClick={() => void download()}
+          disabled={busy}
+          className="flex min-h-12 items-center gap-2 rounded-lg bg-neutral-800/80 px-5 font-semibold text-neutral-0 disabled:opacity-50"
+        >
+          <Download className="size-4" />
+          Download
+        </button>
+        <ShareButton onShare={() => void share()} busy={busy} />
+      </div>
     </div>
+  );
+}
+
+const noopSubscribe = () => () => {};
+
+/** Web Share with files isn't available everywhere, so the button only appears where it works. */
+function ShareButton({ onShare, busy }: { onShare: () => void; busy: boolean }) {
+  // Read through useSyncExternalStore so the server snapshot is false and
+  // hydration can't mismatch on a capability the server can't see.
+  const supported = useSyncExternalStore(
+    noopSubscribe,
+    () => Boolean(navigator.canShare),
+    () => false
+  );
+
+  if (!supported) return null;
+
+  return (
+    <button
+      onClick={onShare}
+      disabled={busy}
+      className="flex min-h-12 items-center gap-2 rounded-lg bg-neutral-800/80 px-5 font-semibold text-neutral-0 disabled:opacity-50"
+    >
+      <Share2 className="size-4" />
+      Share
+    </button>
   );
 }

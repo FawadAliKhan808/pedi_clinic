@@ -114,14 +114,24 @@ changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
 (re)subscribe, which is what recovers state after a dropped connection.
 
-## VisitsApi — Implemented (rating lands in Phase 5)
+## VisitsApi — Implemented
 
 | Method | Input | Output | Errors | Auth |
 |---|---|---|---|---|
 | `getVisit` | `visitId` | `Visit` | `VISIT_LOOKUP_FAILED` | Parent of that child, or clinic staff |
+| `getVisitSummary` | `visitId` | `VisitSummary \| null` | `VISIT_SUMMARY_FAILED` | Parent of that child, or clinic staff |
 | `getChildHistory` | `childId` | `ChildVisitHistoryEntry[]`, newest first | `CHILD_HISTORY_FAILED` | Parent of that child, or clinic staff |
 | `completeVisit` | `CompleteVisitInput` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `INVALID_FEE_AMOUNT`, `PAYMENT_TOTAL_MISMATCH` | Clinic doctor |
-| `submitRating` | `visitId, stars` | throws `NOT_IMPLEMENTED` (Phase 5) | | |
+| `submitRating` | `visitId, stars` (1–5) | `void` | `SUBMIT_RATING_FAILED` | Parent of that child |
+
+`getVisitSummary` is what the parent's post-visit screen reads: fee total,
+follow-up date, prescription keys, and their own rating. The pharmacist gets
+the same row with `feeTotal` and `ratingStars` nulled out.
+
+**Ratings are owner-only.** A rating is of the *app*, not the doctor, so RLS
+lets the parent who left it and the owner team read it — clinic staff never
+can. `submitRating` inserts (rather than upserts) because a visit is rated
+once and the prompt only appears while `ratingStars` is null.
 
 **Completion is one transaction.** `complete_visit` locks the visit row, then
 writes the fee lines, the split payments, the prescription image rows and the

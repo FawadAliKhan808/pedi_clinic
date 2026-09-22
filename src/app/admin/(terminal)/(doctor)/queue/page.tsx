@@ -3,7 +3,7 @@
 import { CalendarCheck, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
-import { ChildSheet } from "@/components/admin/child-sheet";
+import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
 import { SearchChildrenSheet } from "@/components/admin/search-children-sheet";
 import { Button } from "@/components/ui/button";
@@ -222,7 +222,7 @@ export default function DoctorQueuePage() {
       </div>
 
       {childSheetFor && (
-        <ChildSheet
+        <ChildHistorySheet
           open
           {...childSheetFor}
           onClose={() => setChildSheetFor(null)}

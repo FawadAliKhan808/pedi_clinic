@@ -358,6 +358,32 @@ export type Database = {
           },
         ]
       }
+      ratings: {
+        Row: {
+          created_at: string
+          stars: number
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          stars: number
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          stars?: number
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           clinic_id: string
@@ -725,6 +751,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_own_child: { Args: { p_child_id: string }; Returns: boolean }
       is_staff: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
@@ -902,6 +929,23 @@ export type Database = {
         }
       }
       visit_id_from_storage_path: { Args: { p_name: string }; Returns: string }
+      visit_summary: {
+        Args: { p_visit_id: string }
+        Returns: {
+          child_id: string
+          child_name: string
+          completed_at: string
+          fee_total: number
+          follow_up_date: string
+          rating_stars: number
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          storage_keys: string[]
+          visit_date: string
+          visit_id: string
+        }[]
+      }
     }
     Enums: {
       payment_mode: "cash" | "upi" | "card"

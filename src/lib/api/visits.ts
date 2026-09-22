@@ -4,6 +4,7 @@ import type {
   PaymentMode,
   UUID,
   Visit,
+  VisitSummary,
 } from "./types";
 
 export interface CompleteVisitInput {
@@ -19,6 +20,8 @@ export interface CompleteVisitInput {
 
 export interface VisitsApi {
   getVisit(visitId: UUID): Promise<Visit>;
+  /** Null if the visit isn't visible to the caller. */
+  getVisitSummary(visitId: UUID): Promise<VisitSummary | null>;
   /** Newest first. Serves the doctor's child sheet and the parent's records. */
   getChildHistory(childId: UUID): Promise<ChildVisitHistoryEntry[]>;
 
@@ -30,5 +33,6 @@ export interface VisitsApi {
    */
   completeVisit(input: CompleteVisitInput): Promise<Visit>;
 
+  /** Rates the app, not the doctor. Clinic staff can never read these back. */
   submitRating(visitId: UUID, stars: 1 | 2 | 3 | 4 | 5): Promise<void>;
 }
