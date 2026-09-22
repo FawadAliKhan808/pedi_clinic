@@ -12,9 +12,17 @@ export class SupabaseRealtimeApi implements RealtimeApi {
    * after a dropped connection.
    */
   subscribeToQueue(clinicId: UUID, onChange: () => void): Unsubscribe {
+    return this.subscribeToBroadcast(`queue:${clinicId}`, "queue_changed", onChange);
+  }
+
+  private subscribeToBroadcast(
+    topic: string,
+    event: string,
+    onChange: () => void
+  ): Unsubscribe {
     const channel = this.client
-      .channel(`queue:${clinicId}`)
-      .on("broadcast", { event: "queue_changed" }, () => onChange())
+      .channel(topic)
+      .on("broadcast", { event }, () => onChange())
       .subscribe((status) => {
         if (status === "SUBSCRIBED") onChange();
       });
@@ -24,10 +32,11 @@ export class SupabaseRealtimeApi implements RealtimeApi {
     };
   }
 
-  subscribeToPharmacyFeed(): Unsubscribe {
-    throw new ApiError(
-      "RealtimeApi.subscribeToPharmacyFeed() is not implemented yet.",
-      "NOT_IMPLEMENTED"
+  subscribeToPharmacyFeed(clinicId: UUID, onChange: () => void): Unsubscribe {
+    return this.subscribeToBroadcast(
+      `pharmacy:${clinicId}`,
+      "pharmacy_changed",
+      onChange
     );
   }
 

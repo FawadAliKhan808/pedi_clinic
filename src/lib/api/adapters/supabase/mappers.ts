@@ -1,9 +1,18 @@
-import type { Child, Parent, StaffRole, Visit } from "../../types";
+import type {
+  Child,
+  Medicine,
+  Parent,
+  PharmacyOrder,
+  StaffRole,
+  Visit,
+} from "../../types";
 import type { Database } from "./database.types";
 
 type ChildRow = Database["public"]["Tables"]["children"]["Row"];
 type ParentRow = Database["public"]["Tables"]["parents"]["Row"];
 type VisitRow = Database["public"]["Tables"]["visits"]["Row"];
+type MedicineRow = Database["public"]["Tables"]["medicines"]["Row"];
+type PharmacyOrderRow = Database["public"]["Tables"]["pharmacy_orders"]["Row"];
 
 export function mapParentRow(row: ParentRow): Parent {
   return {
@@ -37,6 +46,29 @@ export function mapVisitRow(row: VisitRow): Visit {
     completedAt: row.completed_at,
     followUpDate: row.follow_up_date,
     createdAt: row.created_at,
+  };
+}
+
+export function mapMedicineRow(row: MedicineRow): Medicine {
+  return {
+    id: row.id,
+    clinicId: row.clinic_id,
+    name: row.name,
+    unit: row.unit,
+    unitPrice: row.unit_price,
+    stock: row.stock,
+    lowStockThreshold: row.low_stock_threshold,
+  };
+}
+
+export function mapPharmacyOrderRow(row: PharmacyOrderRow): PharmacyOrder {
+  return {
+    id: row.id,
+    visitId: row.visit_id,
+    clinicId: row.clinic_id,
+    status: row.status,
+    total: row.total,
+    dispensedAt: row.dispensed_at,
   };
 }
 

@@ -60,9 +60,10 @@ npm run db:types   # regenerate database.types.ts after a schema change
 
 ```bash
 npm run provision         # clinic + settings + doctor/pharmacist/owner logins (idempotent)
-npm run test:concurrency  # proves token assignment is race-safe
+npm run test:concurrency  # proves tokens can't duplicate and stock can't oversell
 npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
 npm run test:visit        # end-to-end: complete a visit, and who may see the money
+npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
 ```
 
 The test scripts run against the live project. They create only their own data,
@@ -82,7 +83,9 @@ code instead of sending a real SMS.
 ```
 src/
   app/                    Routes (App Router), PWA manifest/icons
-    admin/(terminal)/     Doctor terminal, guarded server-side by staff role
+    admin/(terminal)/     Staff terminal, guarded server-side by staff role
+      (doctor)/           Queue, appointments, analytics, availability
+      (pharmacist)/       Pharmacy feed and stock
   components/
     admin/ parent/ ui/    Role-specific screens and the shared design system
   fonts/                  Self-hosted variable font (next/font/local)

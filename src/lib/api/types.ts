@@ -137,10 +137,16 @@ export interface ChildVisitHistoryEntry {
 
 export interface Medicine {
   id: UUID;
+  clinicId: UUID;
   name: string;
   unit: string;
+  unitPrice: number;
   stock: number;
   lowStockThreshold: number;
+}
+
+export function isLowStock(medicine: Medicine): boolean {
+  return medicine.stock <= medicine.lowStockThreshold;
 }
 
 export type PharmacyOrderStatus = "pending" | "dispensed" | "skipped";
@@ -148,8 +154,22 @@ export type PharmacyOrderStatus = "pending" | "dispensed" | "skipped";
 export interface PharmacyOrder {
   id: UUID;
   visitId: UUID;
+  clinicId: UUID;
   status: PharmacyOrderStatus;
   total: number;
+  dispensedAt: ISODateTimeString | null;
+}
+
+/** A visit waiting on the pharmacy, with what it needs to be filled. */
+export interface PharmacyFeedEntry {
+  orderId: UUID;
+  visitId: UUID;
+  seq: number;
+  childName: string;
+  childDob: ISODateString;
+  reason: VisitReason;
+  completedAt: ISODateTimeString | null;
+  storageKeys: string[];
 }
 
 export interface OrderItem {

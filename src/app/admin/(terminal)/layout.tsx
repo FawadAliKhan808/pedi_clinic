@@ -1,38 +1,28 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { BottomTabs } from "@/components/admin/bottom-tabs";
-import { EmptyState } from "@/components/ui/feedback";
-import { getServerApi } from "@/lib/api/server";
+import { getStaffContext } from "@/lib/auth/staff";
 
 /**
- * Server-side role guard. Role comes from the `staff` table via the API layer
- * — never from the email address or anything the client could set.
+ * Server-side role guard for the whole staff terminal. Role comes from the
+ * `staff` table via the API layer — never from the email address or anything
+ * the client could set. Owner belongs to a separate dashboard, not here.
  */
 export default async function TerminalLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const api = await getServerApi();
-  const staff = await api.auth.getStaffRole();
+  const staff = await getStaffContext();
 
   if (!staff || staff.role === "owner") {
     redirect("/admin/login");
   }
 
-  if (staff.role === "pharmacist") {
-    return (
-      <EmptyState
-        title="Pharmacy console coming soon"
-        description="The pharmacy feed and stock screens arrive in the next build phase."
-      />
-    );
-  }
-
   return (
     <div className="flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
       {children}
-      <BottomTabs />
+      <BottomTabs role={staff.role} />
     </div>
   );
 }

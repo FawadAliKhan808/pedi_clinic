@@ -100,16 +100,16 @@ The per-phone daily token limit applies to parent self-service check-in only.
 A walk-in entered by the doctor in person deliberately bypasses it: the
 safeguard exists to stop remote over-booking, not to block the doctor.
 
-## RealtimeApi — `subscribeToQueue` implemented (Phase 2)
+## RealtimeApi — queue and pharmacy implemented
 
 | Method | Input | Output |
 |---|---|---|
 | `subscribeToQueue` | `clinicId, onChange` | `Unsubscribe` |
-| `subscribeToPharmacyFeed` | — | throws `NOT_IMPLEMENTED` (Phase 4) |
+| `subscribeToPharmacyFeed` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToNotifications` | — | throws `NOT_IMPLEMENTED` (Phase 6) |
 
-A database trigger on `visits` broadcasts to the `queue:{clinic_id}` channel
-on every change. The payload carries **no personal data** — only which clinic
+Database triggers broadcast to `queue:{clinic_id}` and `pharmacy:{clinic_id}`
+on every change. The payloads carry **no personal data** — only which clinic
 changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
 (re)subscribe, which is what recovers state after a dropped connection.
@@ -154,16 +154,37 @@ short-lived signed URLs — the objects are not publicly readable.
 Photos are compressed client-side before upload (longest edge 1600px, JPEG
 q0.8), since clinic phones are on mobile data.
 
-## PharmacyApi — Not implemented (Phase 4)
+## PharmacyApi — Implemented
 
-| Method | Input | Output |
-|---|---|---|
-| `getFeed` | `clinicId` | `PharmacyOrder[]` |
-| `searchMedicines` | `clinicId, query` | `Medicine[]` |
-| `dispense` | `{ visitId, items[] }` | `PharmacyOrder` (single atomic transaction; rejects on insufficient stock) |
-| `skipOrder` | `visitId` | `void` |
-| `restock` | `medicineId, quantity` | `Medicine` |
-| `addMedicine` | `{ name, unit, initialStock, lowStockThreshold }` | `Medicine` |
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `getFeed` | `clinicId` | `PharmacyFeedEntry[]`, oldest first | `PHARMACY_FEED_FAILED` | Clinic doctor/pharmacist |
+| `listMedicines` / `searchMedicines` | `clinicId[, query]` | `Medicine[]` | `MEDICINE_LIST_FAILED`, `MEDICINE_SEARCH_FAILED` | Clinic doctor/pharmacist |
+| `dispense` | `{ visitId, items[] }` | `PharmacyOrder` | `FORBIDDEN`, `ORDER_NOT_FOUND`, `INVALID_ORDER_STATUS`, `NO_ITEMS`, `MEDICINE_NOT_FOUND`, `INSUFFICIENT_STOCK:<name>` | Clinic **pharmacist** |
+| `skipOrder` | `visitId` | `PharmacyOrder` | `FORBIDDEN`, `ORDER_NOT_FOUND`, `INVALID_ORDER_STATUS` | Clinic pharmacist |
+| `restock` | `medicineId, quantity` | `Medicine` | `FORBIDDEN`, `MEDICINE_NOT_FOUND`, `INVALID_QUANTITY` | Clinic pharmacist |
+| `addMedicine` | `{ clinicId, name, unit, unitPrice, initialStock, lowStockThreshold }` | `Medicine` | `FORBIDDEN`, `INVALID_INPUT` | Clinic pharmacist |
+
+**Dispensing is one transaction.** `dispense_order` walks the requested lines in
+medicine-id order — so two concurrent dispenses take locks in the same order and
+can't deadlock — locking each medicine row, checking stock, deducting it and
+pricing the line from the locked row. Any line that can't be filled aborts the
+whole call, so stock cannot go negative and a half-filled order can never be
+recorded. This is the fix for the prototype's non-atomic read-then-write.
+`scripts/test-concurrency.mjs` proves it: 8 simultaneous dispenses against stock
+of 5 yield exactly 5 fills and 3 `INSUFFICIENT_STOCK` refusals.
+
+Prices are copied onto `order_items` at dispensing time, so later price changes
+don't rewrite past bills. `restock` increments rather than sets, so two
+restocks can't overwrite each other.
+
+An order is created by `complete_visit` in the same transaction that completes
+the visit — that's what "appears instantly in the pharmacy feed" means. The feed
+is the pending orders; dispensing or skipping clears it.
+
+Dispensing and stock are **pharmacist-only**, including against the doctor —
+mirroring the rule that fees are doctor-only. The pharmacist does get the
+prescription photos they need to fill the order.
 
 ## AppointmentsApi — Not implemented (Phase 7)
 

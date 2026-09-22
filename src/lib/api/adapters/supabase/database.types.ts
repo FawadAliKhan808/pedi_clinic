@@ -133,6 +133,92 @@ export type Database = {
           },
         ]
       }
+      medicines: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          name: string
+          stock: number
+          unit: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          name: string
+          stock?: number
+          unit: string
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          name?: string
+          stock?: number
+          unit?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicines_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          medicine_id: string
+          order_id: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          medicine_id: string
+          order_id: string
+          quantity: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          medicine_id?: string
+          order_id?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_medicine_id_fkey"
+            columns: ["medicine_id"]
+            isOneToOne: false
+            referencedRelation: "medicines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parents: {
         Row: {
           created_at: string
@@ -187,6 +273,54 @@ export type Database = {
             foreignKeyName: "payments_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_orders: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          dispensed_at: string | null
+          id: string
+          status: Database["public"]["Enums"]["pharmacy_order_status"]
+          total: number
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          dispensed_at?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["pharmacy_order_status"]
+          total?: number
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          dispensed_at?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["pharmacy_order_status"]
+          total?: number
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_orders_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -353,6 +487,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_medicine: {
+        Args: {
+          p_clinic_id: string
+          p_initial_stock: number
+          p_low_stock_threshold: number
+          p_name: string
+          p_unit: string
+          p_unit_price: number
+        }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          name: string
+          stock: number
+          unit: string
+          unit_price: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "medicines"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_walk_in: {
         Args: {
           p_child_dob: string
@@ -521,6 +682,25 @@ export type Database = {
         }[]
       }
       default_clinic_id: { Args: never; Returns: string }
+      dispense_order: {
+        Args: { p_items: Json; p_visit_id: string }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          dispensed_at: string | null
+          id: string
+          status: Database["public"]["Enums"]["pharmacy_order_status"]
+          total: number
+          updated_at: string
+          visit_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pharmacy_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       doctor_queue: {
         Args: { p_clinic_id: string }
         Returns: {
@@ -564,6 +744,19 @@ export type Database = {
           visit_id: string
         }[]
       }
+      pharmacy_feed: {
+        Args: { p_clinic_id: string }
+        Returns: {
+          child_dob: string
+          child_name: string
+          completed_at: string
+          order_id: string
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          storage_keys: string[]
+          visit_id: string
+        }[]
+      }
       remove_visit: {
         Args: { p_visit_id: string }
         Returns: {
@@ -588,6 +781,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      restock_medicine: {
+        Args: { p_medicine_id: string; p_quantity: number }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          name: string
+          stock: number
+          unit: string
+          unit_price: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "medicines"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       search_children: {
         Args: { p_clinic_id: string; p_query: string }
         Returns: {
@@ -603,6 +816,25 @@ export type Database = {
       setting_int: {
         Args: { p_clinic_id: string; p_key: string }
         Returns: number
+      }
+      skip_pharmacy_order: {
+        Args: { p_visit_id: string }
+        Returns: {
+          clinic_id: string
+          created_at: string
+          dispensed_at: string | null
+          id: string
+          status: Database["public"]["Enums"]["pharmacy_order_status"]
+          total: number
+          updated_at: string
+          visit_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pharmacy_orders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       skip_visit: {
         Args: { p_visit_id: string }
@@ -673,6 +905,7 @@ export type Database = {
     }
     Enums: {
       payment_mode: "cash" | "upi" | "card"
+      pharmacy_order_status: "pending" | "dispensed" | "skipped"
       staff_role: "doctor" | "pharmacist" | "owner"
       visit_reason: "vaccination" | "general_checkup"
       visit_status:
@@ -813,6 +1046,7 @@ export const Constants = {
   public: {
     Enums: {
       payment_mode: ["cash", "upi", "card"],
+      pharmacy_order_status: ["pending", "dispensed", "skipped"],
       staff_role: ["doctor", "pharmacist", "owner"],
       visit_reason: ["vaccination", "general_checkup"],
       visit_status: [
