@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import type { Child, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatAge } from "@/lib/format";
+import { sessionFlag, SHOW_INSTALL_AFTER_TOKEN } from "@/lib/pwa/environment";
 
 const reasons: { value: VisitReason; label: string; icon: typeof Syringe }[] = [
   { value: "general_checkup", label: "General checkup", icon: Stethoscope },
@@ -42,7 +43,12 @@ export default function CheckInPage() {
     if (!childId || !reason) return;
     setBusy(true);
     try {
-      await getBrowserApi().queue.checkIn({ childId, visitReason: reason });
+      const api = getBrowserApi();
+      await api.queue.checkIn({ childId, visitReason: reason });
+      // A new token can put this child 3rd in line straight away.
+      void api.notifications.dispatchPending();
+      // The brief asks for the install popup again right after a token.
+      sessionFlag.set(SHOW_INSTALL_AFTER_TOKEN, true);
       router.replace("/queue");
     } catch (caught) {
       toast(errorMessage(caught), "error");

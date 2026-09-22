@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
 import { ParentTabs } from "@/components/parent/parent-tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -158,6 +159,8 @@ export default function QueuePage() {
               </div>
             </section>
           ))}
+
+          <InstallAndNotifications />
 
           <Card className="text-center text-sm text-foreground-muted">
             This screen updates on its own — no need to refresh.

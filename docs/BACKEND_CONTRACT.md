@@ -100,15 +100,15 @@ The per-phone daily token limit applies to parent self-service check-in only.
 A walk-in entered by the doctor in person deliberately bypasses it: the
 safeguard exists to stop remote over-booking, not to block the doctor.
 
-## RealtimeApi — queue and pharmacy implemented
+## RealtimeApi — Implemented
 
 | Method | Input | Output |
 |---|---|---|
 | `subscribeToQueue` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToPharmacyFeed` | `clinicId, onChange` | `Unsubscribe` |
-| `subscribeToNotifications` | — | throws `NOT_IMPLEMENTED` (Phase 6) |
+| `subscribeToNotifications` | `userId, onChange` | `Unsubscribe` |
 
-Database triggers broadcast to `queue:{clinic_id}` and `pharmacy:{clinic_id}`
+Database triggers broadcast to `queue:{clinic_id}`, `pharmacy:{clinic_id}` and `notifications:{user_id}`
 on every change. The payloads carry **no personal data** — only which clinic
 changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
@@ -213,14 +213,46 @@ prescription photos they need to fill the order.
 Booking/cancel must be race-safe transactional Postgres functions (brief
 Section 3).
 
-## NotificationsApi — Not implemented (Phase 6)
+## NotificationsApi — Implemented
 
-| Method | Input | Output |
-|---|---|---|
-| `listMine` | — | `AppNotification[]` |
-| `markRead` | `notificationId` | `void` |
-| `registerPushSubscription` | `PushSubscriptionJSON` | `void` |
-| `recordInstall` | — | `void` (fires once per parent) |
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `listMine` | — | `AppNotification[]`, newest first | `NOTIFICATIONS_LIST_FAILED` | Signed-in user; own only |
+| `markRead` | `notificationIds?` (all when omitted) | `void` | `NOTIFICATIONS_MARK_READ_FAILED` | Signed-in user; own only |
+| `registerPushSubscription` | `{ endpoint, keys: { p256dh, auth } }` | `void` | `PUSH_SUBSCRIPTION_FAILED` | Signed-in user |
+| `recordInstall` | — | `void` | `RECORD_INSTALL_FAILED` | Signed-in parent (idempotent) |
+| `recordNotificationsEnabled` | — | `void` | `RECORD_NOTIFICATIONS_ENABLED_FAILED` | Signed-in parent |
+| `getMyInstallStatus` | — | `InstallStatus \| null` | `INSTALL_STATUS_FAILED` | Signed-in parent |
+| `dispatchPending` | — | `void` (never throws) | — | Signed-in user |
+
+**Notifications are created by the database, not the app.** A trigger on
+`visits` writes "it's your turn" on every transition into `called` — including
+Recall, which refreshes `called_at` — and "you're 3rd in line" whenever a
+waiting child has exactly two waiting children ahead. A partial unique index
+makes the latter once-per-visit however the queue shuffles. Because it's a
+trigger, no code path that moves the queue can forget to notify. Walk-in
+parents without an account yet have nobody to notify.
+
+Rows carry a **type and data only** (`child_name`, `seq`); every word the parent
+sees is rendered by `src/lib/notifications/templates.ts`, shared by push
+delivery and the in-app list. Changing the copy never touches delivery logic.
+
+**Delivery.** `dispatchPending` POSTs to `/api/notifications/dispatch`, which
+needs the VAPID private key and so runs in the app server. It claims pending
+rows with `claim_pending_pushes` (`FOR UPDATE SKIP LOCKED`, service-role only),
+so two dispatches running at once take disjoint batches and nothing is pushed
+twice. A 404/410 from the push service deletes that subscription. Queue alerts
+older than an hour are never pushed — "it's your turn" hours late is noise —
+but stay in the in-app list. The route accepts either a user session (the
+browser, right after a queue action) or `Bearer NOTIFICATIONS_DISPATCH_SECRET`
+(for the scheduled jobs in Phase 7).
+
+The in-app list is always written, so a parent without notifications turned on
+— or whose push never arrived — sees everything the next time they open the app.
+
+`installs` is adoption data: readable by the owner team and the parent
+themselves (the browser needs it to swap the install popup for an "open from
+your home screen" note), never by clinic staff.
 
 ## AnalyticsApi — Not implemented (Phase 8)
 

@@ -1,4 +1,5 @@
 import type {
+  AppNotification,
   Child,
   Medicine,
   Parent,
@@ -7,6 +8,8 @@ import type {
   Visit,
 } from "../../types";
 import type { Database } from "./database.types";
+
+type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 
 type ChildRow = Database["public"]["Tables"]["children"]["Row"];
 type ParentRow = Database["public"]["Tables"]["parents"]["Row"];
@@ -69,6 +72,22 @@ export function mapPharmacyOrderRow(row: PharmacyOrderRow): PharmacyOrder {
     status: row.status,
     total: row.total,
     dispensedAt: row.dispensed_at,
+  };
+}
+
+export function mapNotificationRow(row: NotificationRow): AppNotification {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    type: row.type,
+    visitId: row.visit_id,
+    payload:
+      row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+        ? (row.payload as Record<string, unknown>)
+        : {},
+    createdAt: row.created_at,
+    sentAt: row.sent_at,
+    readAt: row.read_at,
   };
 }
 

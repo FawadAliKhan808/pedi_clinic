@@ -133,6 +133,32 @@ export type Database = {
           },
         ]
       }
+      installs: {
+        Row: {
+          installed_at: string
+          notifications_enabled_at: string | null
+          parent_id: string
+        }
+        Insert: {
+          installed_at?: string
+          notifications_enabled_at?: string | null
+          parent_id: string
+        }
+        Update: {
+          installed_at?: string
+          notifications_enabled_at?: string | null
+          parent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installs_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: true
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicines: {
         Row: {
           clinic_id: string
@@ -173,6 +199,50 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          push_attempted_at: string | null
+          read_at: string | null
+          sent_at: string | null
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          push_attempted_at?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          push_attempted_at?: string | null
+          read_at?: string | null
+          sent_at?: string | null
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -357,6 +427,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       ratings: {
         Row: {
@@ -667,6 +767,26 @@ export type Database = {
           visit_id: string
         }[]
       }
+      claim_pending_pushes: {
+        Args: { p_limit?: number }
+        Returns: {
+          created_at: string
+          id: string
+          payload: Json
+          push_attempted_at: string | null
+          read_at: string | null
+          sent_at: string | null
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+          visit_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notifications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       clinic_today: { Args: { p_clinic_id: string }; Returns: string }
       complete_visit: {
         Args: {
@@ -756,6 +876,11 @@ export type Database = {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
       }
+      mark_notifications_read: {
+        Args: { p_ids?: string[] }
+        Returns: undefined
+      }
+      mark_pushes_sent: { Args: { p_ids: string[] }; Returns: undefined }
       parent_queue_view: {
         Args: never
         Returns: {
@@ -783,6 +908,38 @@ export type Database = {
           storage_keys: string[]
           visit_id: string
         }[]
+      }
+      record_install: {
+        Args: never
+        Returns: {
+          installed_at: string
+          notifications_enabled_at: string | null
+          parent_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "installs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      record_notifications_enabled: {
+        Args: never
+        Returns: {
+          installed_at: string
+          notifications_enabled_at: string | null
+          parent_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "installs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      register_push_subscription: {
+        Args: { p_auth: string; p_endpoint: string; p_p256dh: string }
+        Returns: undefined
       }
       remove_visit: {
         Args: { p_visit_id: string }
@@ -948,6 +1105,13 @@ export type Database = {
       }
     }
     Enums: {
+      notification_type:
+        | "third_in_line"
+        | "your_turn"
+        | "follow_up_reminder"
+        | "appointment_tomorrow"
+        | "appointment_today"
+        | "appointment_changed"
       payment_mode: "cash" | "upi" | "card"
       pharmacy_order_status: "pending" | "dispensed" | "skipped"
       staff_role: "doctor" | "pharmacist" | "owner"
@@ -1089,6 +1253,14 @@ export const Constants = {
   },
   public: {
     Enums: {
+      notification_type: [
+        "third_in_line",
+        "your_turn",
+        "follow_up_reminder",
+        "appointment_tomorrow",
+        "appointment_today",
+        "appointment_changed",
+      ],
       payment_mode: ["cash", "upi", "card"],
       pharmacy_order_status: ["pending", "dispensed", "skipped"],
       staff_role: ["doctor", "pharmacist", "owner"],

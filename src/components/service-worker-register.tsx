@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+// Side effect: starts listening for Chrome's one-shot install prompt as early
+// as possible, since this component is mounted from the root layout.
+import "@/lib/pwa/install-prompt";
 
 /**
  * Registers the app-shell service worker. Skipped in development so Next's

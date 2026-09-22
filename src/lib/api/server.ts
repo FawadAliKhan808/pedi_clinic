@@ -3,6 +3,10 @@ import "server-only";
 import type { Api } from ".";
 import { createSupabaseApi } from "./adapters/supabase";
 import { createServerSupabaseClient } from "./adapters/supabase/client.server";
+import {
+  dispatchPendingPushes,
+  type DispatchResult,
+} from "./adapters/supabase/push-dispatch";
 
 /**
  * For Server Components, Route Handlers, and Server Actions. Creates a
@@ -13,3 +17,10 @@ export async function getServerApi(): Promise<Api> {
   const client = await createServerSupabaseClient();
   return createSupabaseApi(client);
 }
+
+/** Server-only: pushes notifications waiting to go out. See push-dispatch. */
+export function dispatchPendingNotifications(): Promise<DispatchResult> {
+  return dispatchPendingPushes();
+}
+
+export type { DispatchResult };

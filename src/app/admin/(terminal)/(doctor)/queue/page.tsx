@@ -82,7 +82,11 @@ export default function DoctorQueuePage() {
   async function act(visitId: UUID, action: QueueAction) {
     setPendingVisitId(visitId);
     try {
-      await getBrowserApi().queue[action](visitId);
+      const api = getBrowserApi();
+      await api.queue[action](visitId);
+      // Calling, recalling, skipping or removing can each create a
+      // "your turn" / "3rd in line" notification; push it out now.
+      void api.notifications.dispatchPending();
       await refresh();
     } catch (caught) {
       toast(errorMessage(caught), "error");

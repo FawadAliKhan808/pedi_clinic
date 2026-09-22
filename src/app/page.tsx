@@ -4,6 +4,8 @@ import { ChevronRight, LogOut, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
+import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
+import { NotificationBell } from "@/components/parent/notification-bell";
 import { ParentAuth } from "@/components/parent/parent-auth";
 import { ParentTabs } from "@/components/parent/parent-tabs";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,7 @@ const activeStatuses = new Set(["waiting", "called", "in_consultation"]);
 
 type ParentState =
   | { stage: "signed-out" | "needs-name" }
-  | { stage: "ready"; children: Child[]; tokens: ParentQueueEntry[] };
+  | { stage: "ready"; userId: string; children: Child[]; tokens: ParentQueueEntry[] };
 
 async function loadParentState(): Promise<ParentState> {
   const api = getBrowserApi();
@@ -40,6 +42,7 @@ async function loadParentState(): Promise<ParentState> {
 
   return {
     stage: "ready",
+    userId,
     children,
     tokens: queue.filter((entry) => activeStatuses.has(entry.status)),
   };
@@ -50,6 +53,7 @@ export default function ParentHome() {
   const [stage, setStage] = useState<Stage>("loading");
   const [children, setChildren] = useState<Child[]>([]);
   const [tokens, setTokens] = useState<ParentQueueEntry[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [addChildOpen, setAddChildOpen] = useState(false);
 
   const bootstrap = useCallback(
@@ -58,6 +62,7 @@ export default function ParentHome() {
         .then((state) => {
           setStage(state.stage);
           if (state.stage === "ready") {
+            setUserId(state.userId);
             setChildren(state.children);
             setTokens(state.tokens);
           }
@@ -95,6 +100,8 @@ export default function ParentHome() {
     <div className="flex flex-1 flex-col pb-[calc(11rem+env(safe-area-inset-bottom))]">
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Pedi Clinic</h1>
+        <div className="flex items-center">
+        {userId && <NotificationBell userId={userId} />}
         <button
           aria-label="Sign out"
           onClick={async () => {
@@ -105,7 +112,12 @@ export default function ParentHome() {
         >
           <LogOut className="size-5" />
         </button>
+        </div>
       </header>
+
+      <div className="px-5 py-2 empty:hidden">
+        <InstallAndNotifications />
+      </div>
 
       {tokens.length > 0 && (
         <section className="flex flex-col gap-3 px-5 py-3">

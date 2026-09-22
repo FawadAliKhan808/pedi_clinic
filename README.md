@@ -42,6 +42,10 @@ Supabase project's dashboard (Project Settings → API):
 | `NEXT_PUBLIC_SUPABASE_URL` | browser + server | safe to expose |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | safe to expose, RLS enforces access |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | **never** expose to the client bundle; bypasses RLS |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | browser + server | Web Push public key; safe to expose |
+| `VAPID_PRIVATE_KEY` | server only | Web Push signing key; generate with `npx web-push generate-vapid-keys` |
+| `VAPID_SUBJECT` | server only | contact for push services, e.g. `mailto:team@example.com` |
+| `NOTIFICATIONS_DISPATCH_SECRET` | server only | lets scheduled jobs trigger push delivery without a session |
 
 ## Database
 
@@ -64,6 +68,7 @@ npm run test:concurrency  # proves tokens can't duplicate and stock can't overse
 npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
 npm run test:visit        # end-to-end: complete a visit, and who may see the money
 npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
+npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
 ```
 
 The test scripts run against the live project. They create only their own data,

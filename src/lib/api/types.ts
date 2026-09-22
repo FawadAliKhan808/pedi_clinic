@@ -5,6 +5,10 @@
  * shapes.
  */
 
+import type { NotificationType } from "@/lib/notifications/templates";
+
+export type { NotificationType };
+
 export type UUID = string;
 /** 'YYYY-MM-DD', always an Asia/Kolkata calendar date. */
 export type ISODateString = string;
@@ -220,10 +224,17 @@ export interface Appointment {
 export interface AppNotification {
   id: UUID;
   userId: UUID;
-  type: string;
+  type: NotificationType;
+  visitId: UUID | null;
   payload: Record<string, unknown>;
+  createdAt: ISODateTimeString;
   sentAt: ISODateTimeString | null;
   readAt: ISODateTimeString | null;
+}
+
+export interface InstallStatus {
+  installedAt: ISODateTimeString;
+  notificationsEnabledAt: ISODateTimeString | null;
 }
 
 /** Error thrown by every adapter method on failure — pages branch on `code`, never on message text. */

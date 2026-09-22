@@ -1,5 +1,5 @@
 import type { RealtimeApi, Unsubscribe } from "../../realtime";
-import { ApiError, type UUID } from "../../types";
+import type { UUID } from "../../types";
 import type { TypedSupabaseClient } from "./client.browser";
 
 export class SupabaseRealtimeApi implements RealtimeApi {
@@ -40,10 +40,11 @@ export class SupabaseRealtimeApi implements RealtimeApi {
     );
   }
 
-  subscribeToNotifications(): Unsubscribe {
-    throw new ApiError(
-      "RealtimeApi.subscribeToNotifications() is not implemented yet.",
-      "NOT_IMPLEMENTED"
+  subscribeToNotifications(userId: UUID, onChange: () => void): Unsubscribe {
+    return this.subscribeToBroadcast(
+      `notifications:${userId}`,
+      "notifications_changed",
+      onChange
     );
   }
 }
