@@ -1,0 +1,89 @@
+# Pedi Clinic
+
+A phone-first, installable web app for a pediatric clinic. Parents check in
+and follow a live queue; the doctor runs the day from their phone; the
+in-house pharmacy dispenses against every completed visit.
+
+See [`CLAUDE_CODE_BRIEF.md`](./CLAUDE_CODE_BRIEF.md) for the full product
+brief and [`docs/BACKEND_CONTRACT.md`](./docs/BACKEND_CONTRACT.md) for the
+API layer's method-by-method contract.
+
+## Stack
+
+- **Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS v4, built as
+  an installable PWA.
+- **Backend:** Supabase (Postgres, Auth, Storage, Realtime), project region
+  `ap-south-1` (Mumbai).
+- **Backend portability:** no page or component imports the Supabase client
+  directly — everything goes through the typed API layer in `src/lib/api/`,
+  implemented today by the single adapter in
+  `src/lib/api/adapters/supabase/`.
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+There is no local Supabase stack in this setup (no Docker on this machine) —
+`npm run dev` talks directly to the hosted Mumbai project defined in
+`.env.local`. Be mindful that schema/data changes affect that shared project.
+
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in the values from the
+Supabase project's dashboard (Project Settings → API):
+
+| Variable | Used by | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | browser + server | safe to expose |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | safe to expose, RLS enforces access |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | **never** expose to the client bundle; bypasses RLS |
+
+## Database
+
+Schema lives in `supabase/migrations/`. `supabase/config.toml` mirrors the
+hosted project's actual auth/api/storage settings (pulled via
+`supabase config pull`, not hand-edited) — including the demo's phone-OTP
+test numbers under `[auth.sms.test_otp]`, which are dashboard-configured,
+not hardcoded in app code.
+
+```bash
+# Apply pending migrations to the linked hosted project
+npx supabase db push
+
+# Regenerate src/lib/api/adapters/supabase/database.types.ts after a schema change
+npx supabase gen types typescript --linked > src/lib/api/adapters/supabase/database.types.ts
+```
+
+Seed and reset scripts land in the polish phase (see brief, Section 9,
+Phase 9) — there's no demo data yet.
+
+## Project structure
+
+```
+src/
+  app/                    Routes (App Router), PWA manifest/icons
+  components/             Shared UI (not yet role-specific)
+  fonts/                  Self-hosted variable font (next/font/local)
+  lib/api/                Backend-agnostic interfaces (Auth, Parents, Queue, ...)
+    adapters/supabase/    The one implementation, today
+docs/
+  BACKEND_CONTRACT.md     Every src/lib/api/ method: inputs, outputs, errors, auth rules
+supabase/
+  migrations/             SQL migrations (source of truth for schema + RLS)
+  config.toml             Mirrors the hosted project's auth/api/storage config
+```
+
+## Design system
+
+Colour, radius, shadow, and type tokens live in `src/app/globals.css` as CSS
+custom properties mapped into Tailwind's `@theme`. Light theme is default;
+dark follows `prefers-color-scheme` automatically. Icon set: `lucide-react`.
+
+## Deploy
+
+Vercel, default `vercel.app` domain. Not yet wired up in this phase.

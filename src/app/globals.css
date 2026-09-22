@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/*
+ * Pedi Clinic design tokens.
+ * Calm pediatric palette: teal-blue primary, one warm coral accent.
+ * Light theme is default; dark follows system (prefers-color-scheme).
+ * See docs/DESIGN_SYSTEM.md for usage conventions.
+ */
+
+:root {
+  /* Primary — calm teal/blue */
+  --color-primary-50: #eff9f8;
+  --color-primary-100: #d8f0ee;
+  --color-primary-200: #b4e1dd;
+  --color-primary-300: #86ccc5;
+  --color-primary-400: #55afa8;
+  --color-primary-500: #338f89;
+  --color-primary-600: #23716d;
+  --color-primary-700: #1d5a58;
+  --color-primary-800: #1a4948;
+  --color-primary-900: #173c3c;
+
+  /* Accent — warm coral (used sparingly: primary CTAs, "your turn" states) */
+  --color-accent-50: #fff4ed;
+  --color-accent-100: #ffe6d5;
+  --color-accent-200: #ffc9a8;
+  --color-accent-300: #ffa871;
+  --color-accent-400: #ff8a4c;
+  --color-accent-500: #f2703a;
+  --color-accent-600: #d85a2a;
+  --color-accent-700: #b24623;
+  --color-accent-800: #8f3820;
+  --color-accent-900: #742f1d;
+
+  /* Neutral — warm-tinted gray, avoids a cold/clinical feel */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #fafaf9;
+  --color-neutral-100: #f4f3f1;
+  --color-neutral-200: #e7e5e2;
+  --color-neutral-300: #d3d0cb;
+  --color-neutral-400: #a7a39c;
+  --color-neutral-500: #7c7972;
+  --color-neutral-600: #5c5952;
+  --color-neutral-700: #423f3a;
+  --color-neutral-800: #2c2a27;
+  --color-neutral-900: #1a1917;
+
+  /* Semantic status colours — queue/visit states need to read at a glance */
+  --color-status-waiting: var(--color-neutral-500);
+  --color-status-called: var(--color-accent-500);
+  --color-status-in-consultation: var(--color-primary-600);
+  --color-status-completed: #2f9e6e;
+  --color-status-skipped: #d69300;
+  --color-status-removed: #c24444;
+
+  /* Generic semantic aliases (forms, toasts, badges) */
+  --color-success: #2f9e6e;
+  --color-warning: #d69300;
+  --color-danger: #d23b3b;
+
+  /* Surfaces & text — light theme */
+  --color-surface: var(--color-neutral-0);
+  --color-surface-raised: var(--color-neutral-0);
+  --color-surface-sunken: var(--color-neutral-50);
+  --color-border: var(--color-neutral-200);
+  --color-foreground: var(--color-neutral-900);
+  --color-foreground-muted: var(--color-neutral-600);
+  --color-foreground-on-primary: var(--color-neutral-0);
+  --color-foreground-on-accent: var(--color-neutral-0);
+
+  /* Radii — generous, rounded-corner product feel */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+
+  /* Shadows — soft, low-contrast */
+  --shadow-color: 23 22 20;
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.06);
+  --shadow-md: 0 4px 12px rgb(var(--shadow-color) / 0.08);
+  --shadow-lg: 0 12px 32px rgb(var(--shadow-color) / 0.12);
+
+  /* Type scale extension — the queue/token screen is the visual centerpiece */
+  --text-token-display: 6rem;
+  --text-token-display--line-height: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: var(--color-neutral-900);
+    --color-surface-raised: var(--color-neutral-800);
+    --color-surface-sunken: #131211;
+    --color-border: var(--color-neutral-700);
+    --color-foreground: var(--color-neutral-50);
+    --color-foreground-muted: var(--color-neutral-400);
+
+    --shadow-color: 0 0 0;
+    --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.4);
+    --shadow-md: 0 4px 12px rgb(var(--shadow-color) / 0.45);
+    --shadow-lg: 0 12px 32px rgb(var(--shadow-color) / 0.5);
+  }
+}
+
+@theme inline {
+  --color-primary-50: var(--color-primary-50);
+  --color-primary-100: var(--color-primary-100);
+  --color-primary-200: var(--color-primary-200);
+  --color-primary-300: var(--color-primary-300);
+  --color-primary-400: var(--color-primary-400);
+  --color-primary-500: var(--color-primary-500);
+  --color-primary-600: var(--color-primary-600);
+  --color-primary-700: var(--color-primary-700);
+  --color-primary-800: var(--color-primary-800);
+  --color-primary-900: var(--color-primary-900);
+
+  --color-accent-50: var(--color-accent-50);
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
+
+  --color-neutral-0: var(--color-neutral-0);
+  --color-neutral-50: var(--color-neutral-50);
+  --color-neutral-100: var(--color-neutral-100);
+  --color-neutral-200: var(--color-neutral-200);
+  --color-neutral-300: var(--color-neutral-300);
+  --color-neutral-400: var(--color-neutral-400);
+  --color-neutral-500: var(--color-neutral-500);
+  --color-neutral-600: var(--color-neutral-600);
+  --color-neutral-700: var(--color-neutral-700);
+  --color-neutral-800: var(--color-neutral-800);
+  --color-neutral-900: var(--color-neutral-900);
+
+  --color-status-waiting: var(--color-status-waiting);
+  --color-status-called: var(--color-status-called);
+  --color-status-in-consultation: var(--color-status-in-consultation);
+  --color-status-completed: var(--color-status-completed);
+  --color-status-skipped: var(--color-status-skipped);
+  --color-status-removed: var(--color-status-removed);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-sunken: var(--color-surface-sunken);
+  --color-border: var(--color-border);
+  --color-foreground: var(--color-foreground);
+  --color-foreground-muted: var(--color-foreground-muted);
+  --color-foreground-on-primary: var(--color-foreground-on-primary);
+  --color-foreground-on-accent: var(--color-foreground-on-accent);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --text-token-display: var(--text-token-display);
+  --text-token-display--line-height: var(--text-token-display--line-height);
+
+  --font-sans: var(--font-nunito);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
