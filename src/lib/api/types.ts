@@ -26,7 +26,8 @@ export interface StaffMembership {
 
 export interface Parent {
   id: UUID;
-  userId: UUID;
+  /** Null for a doctor-created walk-in record, until that parent first signs in. */
+  userId: UUID | null;
   phone: string;
   name: string | null;
 }
@@ -60,6 +61,45 @@ export interface Visit {
   completedAt: ISODateTimeString | null;
   followUpDate: ISODateString | null;
   createdAt: ISODateTimeString;
+}
+
+/** A parent's own view of one of their tokens — position counts, no other family's data. */
+export interface ParentQueueEntry {
+  visitId: UUID;
+  clinicId: UUID;
+  childId: UUID;
+  childName: string;
+  visitDate: ISODateString;
+  seq: number;
+  status: VisitStatus;
+  reason: VisitReason;
+  nowServingSeq: number | null;
+  patientsAhead: number;
+}
+
+export interface DoctorQueueEntry {
+  visitId: UUID;
+  seq: number;
+  status: VisitStatus;
+  reason: VisitReason;
+  childId: UUID;
+  childName: string;
+  childDob: ISODateString;
+  parentPhone: string;
+  isReturning: boolean;
+  hasAppointment: boolean;
+  calledAt: ISODateTimeString | null;
+  createdAt: ISODateTimeString;
+}
+
+export interface ChildSearchResult {
+  childId: UUID;
+  childName: string;
+  dob: ISODateString;
+  parentId: UUID;
+  parentName: string | null;
+  parentPhone: string;
+  lastVisitDate: ISODateString | null;
 }
 
 export type PaymentMode = "cash" | "upi" | "card";

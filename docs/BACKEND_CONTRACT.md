@@ -43,10 +43,18 @@ from email or a client-stored value.
 
 | Method | Input | Output | Errors | Auth |
 |---|---|---|---|---|
-| `getMyProfile` | — | `Parent \| null` (`null` until first-login name step is done) | `PARENT_PROFILE_LOOKUP_FAILED` | Signed-in parent |
-| `completeProfile` | `{ name }` | `Parent` | `NOT_AUTHENTICATED`, `MISSING_PHONE`, `PARENT_PROFILE_SAVE_FAILED` | Signed-in parent; upserts the row for `auth.uid()` |
+| `ensureProfile` | `{ name? }` | `Parent` | `NOT_AUTHENTICATED`, `MISSING_PHONE`, `PARENT_PROFILE_SAVE_FAILED` | Signed-in parent |
+| `getMyProfile` | — | `Parent \| null` | `PARENT_PROFILE_LOOKUP_FAILED` | Signed-in parent |
+| `completeProfile` | `{ name }` | `Parent` | same as `ensureProfile` | Signed-in parent |
 | `listMyChildren` | — | `Child[]` | `CHILDREN_LIST_FAILED` | Signed-in parent; own children only |
 | `addChild` | `{ name, dob }` | `Child` | `PROFILE_INCOMPLETE`, `CHILD_ADD_FAILED` | Signed-in parent; own children only |
+
+`ensureProfile` calls the `upsert_parent_profile` database function, which keys
+off the **verified phone number in the caller's JWT**. If the doctor already
+created a walk-in record for that number, this is the step that claims it —
+linking the existing parent row, its children, and their visit history to the
+new account. It's idempotent, so the app calls it right after OTP verification;
+`name` may still be null afterwards (that's the first-login name step).
 
 RLS (`parents_select_own` / `parents_insert_own` / `parents_update_own`,
 `children_select_own` / `children_insert_own` / `children_update_own`)
@@ -56,25 +64,55 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 
 ---
 
-## QueueApi — Not implemented (Phase 2)
+## QueueApi — Implemented
+
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
+| `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
+| `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` | `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child |
+| `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
+| `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
+| `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
+| `searchChildren` | `clinicId, query` | `ChildSearchResult[]` | `CHILD_SEARCH_FAILED` | Clinic doctor/pharmacist |
+| `addWalkIn` | `{ clinicId, name, dob, parentPhone, visitReason }` | `Visit` | `FORBIDDEN`, `INVALID_INPUT`, `ACTIVE_TOKEN_EXISTS` | Clinic doctor |
+
+**Token assignment.** `checkIn` and `addWalkIn` both go through the
+`assign_token` database function, which takes a transaction-scoped advisory
+lock per clinic-day before reading the next `seq` — so concurrent check-ins
+can't be handed the same token. "One active token per child per day" is a
+partial unique index, not an application check, so it holds under a true
+race. `scripts/test-concurrency.mjs` proves both properties against the live
+database.
+
+**Parent position counts.** Parents can't read each other's rows, so
+"now serving" and "patients ahead" are computed inside `parent_queue_view`
+rather than by reading the queue. "Patients ahead" counts only *waiting*
+children with a lower token; skipped and removed tokens are excluded.
+
+**Walk-ins.** `add_walk_in` finds or creates the parent by phone number —
+`parents.user_id` is nullable precisely so a record can exist before that
+parent has an account — then finds or creates the child by name + date of
+birth, then assigns a token, all in one transaction. The record is claimed on
+that parent's first OTP login via `ParentsApi.ensureProfile`.
+
+The per-phone daily token limit applies to parent self-service check-in only.
+A walk-in entered by the doctor in person deliberately bypasses it: the
+safeguard exists to stop remote over-booking, not to block the doctor.
+
+## RealtimeApi — `subscribeToQueue` implemented (Phase 2)
 
 | Method | Input | Output |
 |---|---|---|
-| `getTodayQueue` | `clinicId` | `Visit[]` |
-| `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` |
-| `call` / `skip` / `recall` / `remove` | `visitId` | `Visit` |
-| `searchChildren` | `clinicId, query` | `Child[]` |
-| `addWalkIn` | `{ name, dob, parentPhone, visitReason }` | `Visit` |
+| `subscribeToQueue` | `clinicId, onChange` | `Unsubscribe` |
+| `subscribeToPharmacyFeed` | — | throws `NOT_IMPLEMENTED` (Phase 4) |
+| `subscribeToNotifications` | — | throws `NOT_IMPLEMENTED` (Phase 6) |
 
-`checkIn` must be backed by a race-safe Postgres function assigning the
-next sequential token per `(clinic_id, visit_date)` inside a transaction —
-see brief Section 3 ("Race-sensitive logic must live in the database").
-
-`addWalkIn` needs a parent record that can exist before any `auth.users`
-row does (attaches to a phone number, auto-claimed on that parent's first
-OTP login). The current `parents` schema requires `user_id`; this needs a
-schema change (e.g. a nullable `user_id` with a claim step) before this
-method can be implemented — flagged here rather than built silently.
+A database trigger on `visits` broadcasts to the `queue:{clinic_id}` channel
+on every change. The payload carries **no personal data** — only which clinic
+changed — because parents can't be granted read access to each other's rows;
+each side refetches its own read model instead. `onChange` also fires on
+(re)subscribe, which is what recovers state after a dropped connection.
 
 ## VisitsApi — Not implemented (Phase 3)
 
@@ -146,14 +184,6 @@ Doctor analytics never include ratings or install/notification adoption
 
 Prescription images live in a private bucket; only short-lived signed URLs
 are ever handed to a client.
-
-## RealtimeApi — Not implemented (Phase 2/4/6)
-
-| Method | Input | Output |
-|---|---|---|
-| `subscribeToQueue` | `clinicId, onChange` | `Unsubscribe` |
-| `subscribeToPharmacyFeed` | `clinicId, onChange` | `Unsubscribe` |
-| `subscribeToNotifications` | `userId, onChange` | `Unsubscribe` |
 
 ---
 

@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --linked > src/lib/api/adapters/supabase/database.types.ts",
+    "provision": "node --env-file=.env.local scripts/provision-demo.mjs",
+    "test:concurrency": "node --env-file=.env.local scripts/test-concurrency.mjs",
+    "test:queue": "node --env-file=.env.local scripts/smoke-test-queue.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

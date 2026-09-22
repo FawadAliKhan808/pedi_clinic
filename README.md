@@ -52,31 +52,50 @@ test numbers under `[auth.sms.test_otp]`, which are dashboard-configured,
 not hardcoded in app code.
 
 ```bash
-# Apply pending migrations to the linked hosted project
-npx supabase db push
-
-# Regenerate src/lib/api/adapters/supabase/database.types.ts after a schema change
-npx supabase gen types typescript --linked > src/lib/api/adapters/supabase/database.types.ts
+npm run db:push    # apply pending migrations to the linked hosted project
+npm run db:types   # regenerate database.types.ts after a schema change
 ```
 
-Seed and reset scripts land in the polish phase (see brief, Section 9,
-Phase 9) — there's no demo data yet.
+## Scripts
+
+```bash
+npm run provision         # clinic + settings + doctor/pharmacist/owner logins (idempotent)
+npm run test:concurrency  # proves token assignment is race-safe
+npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
+```
+
+`provision` is the minimum a demo needs; the full seed (medicines, past
+visits, ratings) and a reset script land in Phase 9. Default staff logins are
+printed when it runs, and can be overridden with `DEMO_*` env vars.
+
+Parents sign in with a phone number — the demo uses the Supabase test numbers
+in `supabase/config.toml` under `[auth.sms.test_otp]`, which accept a fixed
+code instead of sending a real SMS.
 
 ## Project structure
 
 ```
 src/
   app/                    Routes (App Router), PWA manifest/icons
-  components/             Shared UI (not yet role-specific)
+    admin/(terminal)/     Doctor terminal, guarded server-side by staff role
+  components/
+    admin/ parent/ ui/    Role-specific screens and the shared design system
   fonts/                  Self-hosted variable font (next/font/local)
   lib/api/                Backend-agnostic interfaces (Auth, Parents, Queue, ...)
     adapters/supabase/    The one implementation, today
+  proxy.ts                Refreshes the auth session on every navigation
 docs/
   BACKEND_CONTRACT.md     Every src/lib/api/ method: inputs, outputs, errors, auth rules
+scripts/                  Provisioning and test scripts
 supabase/
   migrations/             SQL migrations (source of truth for schema + RLS)
   config.toml             Mirrors the hosted project's auth/api/storage config
 ```
+
+Race-sensitive logic (token assignment, queue transitions, walk-ins) lives in
+PostgreSQL functions, not application code. `visits` has no client-facing
+write policy at all — every mutation goes through a `SECURITY DEFINER`
+function that checks authorization itself.
 
 ## Design system
 

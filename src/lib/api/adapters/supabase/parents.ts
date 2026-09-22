@@ -1,6 +1,7 @@
 import type { ParentsApi } from "../../parents";
 import { ApiError, type Child, type ISODateString, type Parent } from "../../types";
 import type { TypedSupabaseClient } from "./client.browser";
+import { toApiError } from "./errors";
 import { mapChildRow, mapParentRow } from "./mappers";
 
 export class SupabaseParentsApi implements ParentsApi {
@@ -20,24 +21,16 @@ export class SupabaseParentsApi implements ParentsApi {
     return data ? mapParentRow(data) : null;
   }
 
-  async completeProfile({ name }: { name: string }): Promise<Parent> {
-    const { data: userData, error: userError } = await this.client.auth.getUser();
-    const user = userData?.user;
-    if (userError || !user) {
-      throw new ApiError("Not authenticated", "NOT_AUTHENTICATED", userError);
-    }
-    if (!user.phone) {
-      throw new ApiError("No verified phone on this account", "MISSING_PHONE");
-    }
-
-    const { data, error } = await this.client
-      .from("parents")
-      .upsert({ user_id: user.id, phone: user.phone, name }, { onConflict: "user_id" })
-      .select("*")
-      .single();
-
-    if (error) throw new ApiError(error.message, "PARENT_PROFILE_SAVE_FAILED", error);
+  async ensureProfile(input?: { name?: string }): Promise<Parent> {
+    const { data, error } = await this.client.rpc("upsert_parent_profile", {
+      p_name: input?.name ?? undefined,
+    });
+    if (error) throw toApiError(error, "PARENT_PROFILE_SAVE_FAILED");
     return mapParentRow(data);
+  }
+
+  async completeProfile({ name }: { name: string }): Promise<Parent> {
+    return this.ensureProfile({ name });
   }
 
   async listMyChildren(): Promise<Child[]> {

@@ -105,7 +105,7 @@ export type Database = {
           name: string | null
           phone: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -113,7 +113,7 @@ export type Database = {
           name?: string | null
           phone: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -121,7 +121,7 @@ export type Database = {
           name?: string | null
           phone?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -186,11 +186,187 @@ export type Database = {
           },
         ]
       }
+      visits: {
+        Row: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        Insert: {
+          appointment_id?: string | null
+          called_at?: string | null
+          child_id: string
+          clinic_id: string
+          completed_at?: string | null
+          created_at?: string
+          follow_up_date?: string | null
+          id?: string
+          seq: number
+          status?: Database["public"]["Enums"]["visit_status"]
+          updated_at?: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        Update: {
+          appointment_id?: string | null
+          called_at?: string | null
+          child_id?: string
+          clinic_id?: string
+          completed_at?: string | null
+          created_at?: string
+          follow_up_date?: string | null
+          id?: string
+          seq?: number
+          status?: Database["public"]["Enums"]["visit_status"]
+          updated_at?: string
+          visit_date?: string
+          visit_reason?: Database["public"]["Enums"]["visit_reason"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      add_walk_in: {
+        Args: {
+          p_child_dob: string
+          p_child_name: string
+          p_clinic_id: string
+          p_parent_phone: string
+          p_visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assign_token: {
+        Args: {
+          p_appointment_id: string
+          p_child_id: string
+          p_clinic_id: string
+          p_enforce_parent_id: string
+          p_visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      call_visit: {
+        Args: { p_visit_id: string }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      check_in: {
+        Args: {
+          p_appointment_id?: string
+          p_child_id: string
+          p_visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      clinic_today: { Args: { p_clinic_id: string }; Returns: string }
       current_staff_roles: {
         Args: never
         Returns: {
@@ -198,13 +374,166 @@ export type Database = {
           role: Database["public"]["Enums"]["staff_role"]
         }[]
       }
+      default_clinic_id: { Args: never; Returns: string }
+      doctor_queue: {
+        Args: { p_clinic_id: string }
+        Returns: {
+          called_at: string
+          child_dob: string
+          child_id: string
+          child_name: string
+          created_at: string
+          has_appointment: boolean
+          is_returning: boolean
+          parent_phone: string
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          visit_id: string
+        }[]
+      }
+      is_clinic_staff: {
+        Args: {
+          p_clinic_id: string
+          p_roles: Database["public"]["Enums"]["staff_role"][]
+        }
+        Returns: boolean
+      }
       is_staff: {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
       }
+      parent_queue_view: {
+        Args: never
+        Returns: {
+          child_id: string
+          child_name: string
+          clinic_id: string
+          now_serving_seq: number
+          patients_ahead: number
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          visit_date: string
+          visit_id: string
+        }[]
+      }
+      remove_visit: {
+        Args: { p_visit_id: string }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      search_children: {
+        Args: { p_clinic_id: string; p_query: string }
+        Returns: {
+          child_id: string
+          child_name: string
+          dob: string
+          last_visit_date: string
+          parent_id: string
+          parent_name: string
+          parent_phone: string
+        }[]
+      }
+      setting_int: {
+        Args: { p_clinic_id: string; p_key: string }
+        Returns: number
+      }
+      skip_visit: {
+        Args: { p_visit_id: string }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      start_consultation: {
+        Args: { p_visit_id: string }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      upsert_parent_profile: {
+        Args: { p_name?: string }
+        Returns: {
+          created_at: string
+          id: string
+          name: string | null
+          phone: string
+          updated_at: string
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "parents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       staff_role: "doctor" | "pharmacist" | "owner"
+      visit_reason: "vaccination" | "general_checkup"
+      visit_status:
+        | "waiting"
+        | "called"
+        | "in_consultation"
+        | "completed"
+        | "skipped"
+        | "removed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -336,6 +665,15 @@ export const Constants = {
   public: {
     Enums: {
       staff_role: ["doctor", "pharmacist", "owner"],
+      visit_reason: ["vaccination", "general_checkup"],
+      visit_status: [
+        "waiting",
+        "called",
+        "in_consultation",
+        "completed",
+        "skipped",
+        "removed",
+      ],
     },
   },
 } as const

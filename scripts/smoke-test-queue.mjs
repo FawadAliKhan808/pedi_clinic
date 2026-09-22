@@ -1,0 +1,188 @@
+/**
+ * End-to-end check of the Phase 2 queue flow against the live project, as a
+ * real parent and a real doctor (so RLS and the SECURITY DEFINER functions
+ * are all exercised for real):
+ *
+ *   parent OTP sign-in → profile → child → check-in
+ *   doctor sign-in → queue → call → skip → recall
+ *   parent sees the status change and their queue position
+ *
+ *   node --env-file=.env.local scripts/smoke-test-queue.mjs
+ *
+ * Uses a Supabase test phone number with a fixed OTP, and cleans up after.
+ */
+import { createClient } from "@supabase/supabase-js";
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!url || !anonKey || !serviceRoleKey) {
+  console.error("Run with: node --env-file=.env.local scripts/smoke-test-queue.mjs");
+  process.exit(1);
+}
+
+const TEST_PHONE = process.env.DEMO_TEST_PHONE ?? "8088509302";
+const TEST_OTP = process.env.DEMO_TEST_OTP ?? "123456";
+const DOCTOR_EMAIL = process.env.DEMO_DOCTOR_EMAIL ?? "doctor@pediclinic.test";
+const DOCTOR_PASSWORD = process.env.DEMO_DOCTOR_PASSWORD ?? "pedi-doctor-demo";
+
+const admin = createClient(url, serviceRoleKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+function newClient() {
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+let failures = 0;
+function check(description, passed, detail) {
+  console.log(`${passed ? "✓" : "✗"} ${description}${detail ? ` — ${detail}` : ""}`);
+  if (!passed) failures += 1;
+}
+
+function unwrap(step, { data, error }) {
+  if (error) {
+    console.error(`✗ ${step}:`, error.message);
+    process.exit(1);
+  }
+  return data;
+}
+
+// --- parent ---------------------------------------------------------------
+const parent = newClient();
+await parent.auth.signInWithOtp({ phone: TEST_PHONE });
+const session = unwrap(
+  "parent OTP verify",
+  await parent.auth.verifyOtp({ phone: TEST_PHONE, token: TEST_OTP, type: "sms" })
+);
+check("parent signed in with phone OTP", Boolean(session.user));
+
+const profile = unwrap(
+  "parent profile",
+  await parent.rpc("upsert_parent_profile", { p_name: "Smoke Test Parent" })
+);
+check("parent profile claimed/created", profile.phone === TEST_PHONE);
+
+const child = unwrap(
+  "add child",
+  await parent
+    .from("children")
+    .insert({ parent_id: profile.id, name: "Smoke Test Child", dob: "2022-03-15" })
+    .select("*")
+    .single()
+);
+check("parent added a child under RLS", child.parent_id === profile.id);
+
+const visit = unwrap(
+  "check in",
+  await parent.rpc("check_in", {
+    p_child_id: child.id,
+    p_visit_reason: "general_checkup",
+  })
+);
+check("check-in assigned a token", Number.isInteger(visit.seq), `token ${visit.seq}`);
+
+const duplicate = await parent.rpc("check_in", {
+  p_child_id: child.id,
+  p_visit_reason: "general_checkup",
+});
+check(
+  "second token for the same child today is refused",
+  Boolean(duplicate.error),
+  duplicate.error?.message
+);
+
+// A parent must not be able to read the visits table directly beyond their own.
+const otherRows = unwrap(
+  "parent visit visibility",
+  await parent.from("visits").select("id, child_id")
+);
+check(
+  "parent sees only their own children's visits",
+  otherRows.every((row) => row.child_id === child.id),
+  `${otherRows.length} row(s) visible`
+);
+
+// --- doctor ---------------------------------------------------------------
+const doctor = newClient();
+unwrap(
+  "doctor sign-in",
+  await doctor.auth.signInWithPassword({
+    email: DOCTOR_EMAIL,
+    password: DOCTOR_PASSWORD,
+  })
+);
+
+const staff = unwrap(
+  "doctor staff row",
+  await doctor.from("staff").select("role, clinic_id").single()
+);
+check("doctor role resolved server-side", staff.role === "doctor");
+
+const queue = unwrap(
+  "doctor queue",
+  await doctor.rpc("doctor_queue", { p_clinic_id: staff.clinic_id })
+);
+const queued = queue.find((row) => row.visit_id === visit.id);
+check("the token appears in the doctor's queue", Boolean(queued));
+check(
+  "queue row carries child, age and new/returning",
+  queued?.child_name === "Smoke Test Child" &&
+    queued?.child_dob === "2022-03-15" &&
+    queued?.is_returning === false
+);
+
+const called = unwrap("call", await doctor.rpc("call_visit", { p_visit_id: visit.id }));
+check("doctor called the child", called.status === "called");
+
+const skipped = unwrap("skip", await doctor.rpc("skip_visit", { p_visit_id: visit.id }));
+check("doctor skipped the child", skipped.status === "skipped");
+
+const skippedQueue = unwrap(
+  "queue after skip",
+  await doctor.rpc("doctor_queue", { p_clinic_id: staff.clinic_id })
+);
+check(
+  "a skipped card sorts to the end of the queue",
+  skippedQueue.at(-1)?.visit_id === visit.id
+);
+
+const recalled = unwrap(
+  "recall",
+  await doctor.rpc("call_visit", { p_visit_id: visit.id })
+);
+check("doctor recalled the skipped child", recalled.status === "called");
+
+// --- parent sees it live --------------------------------------------------
+const parentView = unwrap("parent queue view", await parent.rpc("parent_queue_view"));
+const mine = parentView.find((row) => row.visit_id === visit.id);
+check("parent's queue view reflects the doctor's action", mine?.status === "called");
+check(
+  "parent's queue view reports now-serving and position",
+  mine?.now_serving_seq === visit.seq && mine?.patients_ahead === 0,
+  `now serving ${mine?.now_serving_seq}, ${mine?.patients_ahead} ahead`
+);
+
+// --- a pharmacist must not be able to run doctor-only actions -------------
+const walkInAsParent = await parent.rpc("add_walk_in", {
+  p_clinic_id: staff.clinic_id,
+  p_child_name: "Should Not Exist",
+  p_child_dob: "2021-01-01",
+  p_parent_phone: "9999999999",
+  p_visit_reason: "vaccination",
+});
+check(
+  "a parent cannot create a walk-in",
+  Boolean(walkInAsParent.error),
+  walkInAsParent.error?.message
+);
+
+// --- cleanup --------------------------------------------------------------
+await admin.from("visits").delete().eq("id", visit.id);
+await admin.from("children").delete().eq("id", child.id);
+console.log("• cleaned up test data");
+
+process.exit(failures === 0 ? 0 : 1);

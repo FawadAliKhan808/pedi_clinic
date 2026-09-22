@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { nunito } from "@/fonts";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,8 +33,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${nunito.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-surface text-foreground">
-        {children}
+      <body className="min-h-full flex flex-col bg-surface-sunken text-foreground">
+        {/* Phone-first: the app stays a phone-width column, centred on larger screens. */}
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col bg-surface shadow-sm">
+          <ToastProvider>{children}</ToastProvider>
+        </div>
         <ServiceWorkerRegister />
       </body>
     </html>
