@@ -10,4 +10,7 @@ export interface StorageApi {
 
   /** Short-lived signed URL for a private storage key. */
   getSignedUrl(storageKey: string, expiresInSeconds?: number): Promise<string>;
+
+  /** Discards a photo the doctor retook before completing the visit. */
+  removePrescriptionImage(storageKey: string): Promise<void>;
 }

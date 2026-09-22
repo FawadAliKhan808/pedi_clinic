@@ -98,6 +98,41 @@ export type Database = {
         }
         Relationships: []
       }
+      fees: {
+        Row: {
+          consultation: number
+          created_at: string
+          other: number
+          updated_at: string
+          vaccination: number
+          visit_id: string
+        }
+        Insert: {
+          consultation?: number
+          created_at?: string
+          other?: number
+          updated_at?: string
+          vaccination?: number
+          visit_id: string
+        }
+        Update: {
+          consultation?: number
+          created_at?: string
+          other?: number
+          updated_at?: string
+          vaccination?: number
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parents: {
         Row: {
           created_at: string
@@ -124,6 +159,70 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          mode: Database["public"]["Enums"]["payment_mode"]
+          visit_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          mode: Database["public"]["Enums"]["payment_mode"]
+          visit_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          mode?: Database["public"]["Enums"]["payment_mode"]
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prescription_images: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          storage_key: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order: number
+          storage_key: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          storage_key?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_images_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
@@ -338,6 +437,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      can_access_visit: { Args: { p_visit_id: string }; Returns: boolean }
+      can_edit_visit: { Args: { p_visit_id: string }; Returns: boolean }
       check_in: {
         Args: {
           p_appointment_id?: string
@@ -366,7 +467,52 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      child_visit_history: {
+        Args: { p_child_id: string }
+        Returns: {
+          completed_at: string
+          fee_total: number
+          follow_up_date: string
+          reason: Database["public"]["Enums"]["visit_reason"]
+          status: Database["public"]["Enums"]["visit_status"]
+          storage_keys: string[]
+          visit_date: string
+          visit_id: string
+        }[]
+      }
       clinic_today: { Args: { p_clinic_id: string }; Returns: string }
+      complete_visit: {
+        Args: {
+          p_consultation: number
+          p_follow_up_date?: string
+          p_other: number
+          p_payments: Json
+          p_prescription_keys?: string[]
+          p_vaccination: number
+          p_visit_id: string
+        }
+        Returns: {
+          appointment_id: string | null
+          called_at: string | null
+          child_id: string
+          clinic_id: string
+          completed_at: string | null
+          created_at: string
+          follow_up_date: string | null
+          id: string
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string
+          visit_date: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_staff_roles: {
         Args: never
         Returns: {
@@ -523,8 +669,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      visit_id_from_storage_path: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
+      payment_mode: "cash" | "upi" | "card"
       staff_role: "doctor" | "pharmacist" | "owner"
       visit_reason: "vaccination" | "general_checkup"
       visit_status:
@@ -664,6 +812,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      payment_mode: ["cash", "upi", "card"],
       staff_role: ["doctor", "pharmacist", "owner"],
       visit_reason: ["vaccination", "general_checkup"],
       visit_status: [

@@ -11,7 +11,8 @@
     "db:types": "supabase gen types typescript --linked > src/lib/api/adapters/supabase/database.types.ts",
     "provision": "node --env-file=.env.local scripts/provision-demo.mjs",
     "test:concurrency": "node --env-file=.env.local scripts/test-concurrency.mjs",
-    "test:queue": "node --env-file=.env.local scripts/smoke-test-queue.mjs"
+    "test:queue": "node --env-file=.env.local scripts/smoke-test-queue.mjs",
+    "test:visit": "node --env-file=.env.local scripts/smoke-test-visit.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

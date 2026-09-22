@@ -62,7 +62,12 @@ npm run db:types   # regenerate database.types.ts after a schema change
 npm run provision         # clinic + settings + doctor/pharmacist/owner logins (idempotent)
 npm run test:concurrency  # proves token assignment is race-safe
 npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
+npm run test:visit        # end-to-end: complete a visit, and who may see the money
 ```
+
+The test scripts run against the live project. They create only their own data,
+delete it afterwards, and restore anything they had to move out of the way — so
+they're safe to run while someone else is demoing.
 
 `provision` is the minimum a demo needs; the full seed (medicines, past
 visits, ratings) and a reset script land in Phase 9. Default staff logins are

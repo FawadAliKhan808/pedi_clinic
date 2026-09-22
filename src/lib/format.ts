@@ -1,4 +1,4 @@
-import type { ISODateString, VisitReason, VisitStatus } from "@/lib/api";
+import type { ISODateString, PaymentMode, VisitReason, VisitStatus } from "@/lib/api";
 
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
@@ -35,6 +35,29 @@ export function formatDate(date: ISODateString): string {
     year: "numeric",
   });
 }
+
+const currencyFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+export function formatCurrency(amount: number): string {
+  return currencyFormatter.format(amount);
+}
+
+/** Tolerates empty/partial input from a money field; never returns NaN. */
+export function parseAmount(input: string): number {
+  const value = Number.parseFloat(input);
+  return Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : 0;
+}
+
+export const paymentModeLabels: Record<PaymentMode, string> = {
+  cash: "Cash",
+  upi: "UPI",
+  card: "Card",
+};
 
 export const visitReasonLabels: Record<VisitReason, string> = {
   vaccination: "Vaccination",
@@ -88,6 +111,10 @@ export function errorMessage(error: unknown): string {
       return "You've reached today's token limit for this phone number. Please check with reception.";
     case "ACTIVE_CONSULTATION_EXISTS":
       return "Finish or skip the current consultation first.";
+    case "PAYMENT_TOTAL_MISMATCH":
+      return "The payment amounts must add up to the total exactly.";
+    case "PRESCRIPTION_UPLOAD_FAILED":
+      return "That photo didn't upload. Check your connection and retake it.";
     case "INVALID_STATUS_TRANSITION":
       return "That action isn't available for this token any more.";
     case "FORBIDDEN":

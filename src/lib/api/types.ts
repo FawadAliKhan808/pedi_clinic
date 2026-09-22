@@ -123,6 +123,18 @@ export interface PrescriptionImage {
   order: number;
 }
 
+export interface ChildVisitHistoryEntry {
+  visitId: UUID;
+  visitDate: ISODateString;
+  status: VisitStatus;
+  reason: VisitReason;
+  /** Null when the caller may not see money (the pharmacist) or no fee was recorded. */
+  feeTotal: number | null;
+  followUpDate: ISODateString | null;
+  completedAt: ISODateTimeString | null;
+  storageKeys: string[];
+}
+
 export interface Medicine {
   id: UUID;
   name: string;

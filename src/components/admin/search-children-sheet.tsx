@@ -14,10 +14,12 @@ export function SearchChildrenSheet({
   clinicId,
   open,
   onClose,
+  onSelectChild,
 }: {
   clinicId: UUID;
   open: boolean;
   onClose: () => void;
+  onSelectChild: (result: ChildSearchResult) => void;
 }) {
   const toast = useToast();
   const [query, setQuery] = useState("");
@@ -70,18 +72,25 @@ export function SearchChildrenSheet({
         )}
 
         {(results ?? []).map((result) => (
-          <Card key={result.childId} className="flex flex-col gap-1">
-            <p className="font-semibold text-foreground">{result.childName}</p>
-            <p className="text-sm text-foreground-muted">
-              {formatAge(result.dob)} · {formatPhone(result.parentPhone)}
-              {result.parentName ? ` · ${result.parentName}` : ""}
-            </p>
-            <p className="text-sm text-foreground-muted">
-              {result.lastVisitDate
-                ? `Last visit ${formatDate(result.lastVisitDate)}`
-                : "No visits yet"}
-            </p>
-          </Card>
+          <button
+            key={result.childId}
+            type="button"
+            onClick={() => onSelectChild(result)}
+            className="text-left"
+          >
+            <Card className="flex flex-col gap-1">
+              <p className="font-semibold text-foreground">{result.childName}</p>
+              <p className="text-sm text-foreground-muted">
+                {formatAge(result.dob)} · {formatPhone(result.parentPhone)}
+                {result.parentName ? ` · ${result.parentName}` : ""}
+              </p>
+              <p className="text-sm text-foreground-muted">
+                {result.lastVisitDate
+                  ? `Last visit ${formatDate(result.lastVisitDate)}`
+                  : "No visits yet"}
+              </p>
+            </Card>
+          </button>
         ))}
       </div>
     </Sheet>

@@ -114,17 +114,45 @@ changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
 (re)subscribe, which is what recovers state after a dropped connection.
 
-## VisitsApi — Not implemented (Phase 3)
+## VisitsApi — Implemented (rating lands in Phase 5)
 
-| Method | Input | Output |
-|---|---|---|
-| `getVisit` / `getChildHistory` | `visitId` / `childId` | `Visit` / `Visit[]` |
-| `addPrescriptionImages` | `visitId, storageKeys[]` | `void` |
-| `setFees` | `visitId, fees` | `Fees` |
-| `recordPayments` | `visitId, payments[]` | `Payment[]` (amounts must sum exactly to the fee total — enforced server-side) |
-| `setFollowUpDate` | `visitId, date \| null` | `Visit` |
-| `completeVisit` | `visitId` | `Visit` (transactional: locks fees/payments, advances queue, notifies pharmacy) |
-| `submitRating` | `visitId, stars` | `void` |
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `getVisit` | `visitId` | `Visit` | `VISIT_LOOKUP_FAILED` | Parent of that child, or clinic staff |
+| `getChildHistory` | `childId` | `ChildVisitHistoryEntry[]`, newest first | `CHILD_HISTORY_FAILED` | Parent of that child, or clinic staff |
+| `completeVisit` | `CompleteVisitInput` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `INVALID_FEE_AMOUNT`, `PAYMENT_TOTAL_MISMATCH` | Clinic doctor |
+| `submitRating` | `visitId, stars` | throws `NOT_IMPLEMENTED` (Phase 5) | | |
+
+**Completion is one transaction.** `complete_visit` locks the visit row, then
+writes the fee lines, the split payments, the prescription image rows and the
+follow-up date together before marking the visit completed — so a visit can
+never end up billed but unpaid, or completed with half its photos. Payments are
+summed per mode and must equal the fee total to the paisa; the database rejects
+the call otherwise, independently of what the billing wizard allows.
+
+The earlier draft of this interface had separate `addPrescriptionImages`,
+`setFees`, `recordPayments` and `setFollowUpDate` methods. They were folded into
+`completeVisit` precisely because each one on its own is a partial state the
+brief's "complete-visit transaction" is meant to rule out.
+
+`getChildHistory` withholds `feeTotal` (returns null) from the pharmacist, who
+can see the visit and its prescription photos but never the money.
+
+## StorageApi — Implemented
+
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `uploadPrescriptionImage` | `visitId, file, order` | storage key | `PRESCRIPTION_UPLOAD_FAILED` | Clinic doctor |
+| `getSignedUrl` | `storageKey, expiresInSeconds?` (default 300) | URL | `SIGNED_URL_FAILED` | Parent of that child, or clinic staff |
+| `removePrescriptionImage` | `storageKey` | `void` | `PRESCRIPTION_DELETE_FAILED` | Clinic doctor |
+
+The `prescriptions` bucket is private; objects are keyed `<visitId>/<file>` and
+the storage policies parse that first path segment to decide access, so the
+prefix is load-bearing rather than cosmetic. Clients only ever receive
+short-lived signed URLs — the objects are not publicly readable.
+
+Photos are compressed client-side before upload (longest edge 1600px, JPEG
+q0.8), since clinic phones are on mobile data.
 
 ## PharmacyApi — Not implemented (Phase 4)
 
@@ -174,16 +202,6 @@ Section 3).
 
 Doctor analytics never include ratings or install/notification adoption
 (owner-only data, per brief Section 5.2/5.4).
-
-## StorageApi — Not implemented (Phase 3)
-
-| Method | Input | Output |
-|---|---|---|
-| `uploadPrescriptionImage` | `visitId, file, order` | `string` (opaque storage key, not a URL) |
-| `getSignedUrl` | `storageKey, expiresInSeconds?` | `string` |
-
-Prescription images live in a private bucket; only short-lived signed URLs
-are ever handed to a client.
 
 ---
 

@@ -3,6 +3,8 @@
 import { CalendarCheck, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
+import { ChildSheet } from "@/components/admin/child-sheet";
+import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
 import { SearchChildrenSheet } from "@/components/admin/search-children-sheet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,6 +33,11 @@ function primaryAction(
   }
 }
 
+/** Completing is its own flow, not a one-tap action, so it sits outside `act`. */
+function opensCompletion(status: DoctorQueueEntry["status"]): boolean {
+  return status === "in_consultation";
+}
+
 export default function DoctorQueuePage() {
   const toast = useToast();
   const [clinicId, setClinicId] = useState<UUID | null>(null);
@@ -38,6 +45,13 @@ export default function DoctorQueuePage() {
   const [pendingVisitId, setPendingVisitId] = useState<UUID | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
+  const [childSheetFor, setChildSheetFor] = useState<{
+    childId: UUID;
+    childName: string;
+    childDob: string;
+    parentPhone: string;
+  } | null>(null);
+  const [completingVisit, setCompletingVisit] = useState<DoctorQueueEntry | null>(null);
 
   useEffect(() => {
     void getBrowserApi()
@@ -114,7 +128,18 @@ export default function DoctorQueuePage() {
         ) : (
           entries.map((entry) => (
             <Card key={entry.visitId} className="flex flex-col gap-3">
-              <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setChildSheetFor({
+                    childId: entry.childId,
+                    childName: entry.childName,
+                    childDob: entry.childDob,
+                    parentPhone: entry.parentPhone,
+                  })
+                }
+                className="flex items-start gap-3 text-left"
+              >
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-lg font-bold tabular-nums text-foreground">
                   {entry.seq}
                 </div>
@@ -139,9 +164,18 @@ export default function DoctorQueuePage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </button>
 
               <div className="flex flex-col gap-2">
+                {opensCompletion(entry.status) && (
+                  <Button
+                    fullWidth
+                    variant="accent"
+                    onClick={() => setCompletingVisit(entry)}
+                  >
+                    Complete visit
+                  </Button>
+                )}
                 {primaryAction(entry.status) && (
                   <Button
                     fullWidth
@@ -187,12 +221,39 @@ export default function DoctorQueuePage() {
         )}
       </div>
 
+      {childSheetFor && (
+        <ChildSheet
+          open
+          {...childSheetFor}
+          onClose={() => setChildSheetFor(null)}
+        />
+      )}
+
+      {completingVisit && (
+        <CompleteVisitFlow
+          open
+          visitId={completingVisit.visitId}
+          childName={completingVisit.childName}
+          onClose={() => setCompletingVisit(null)}
+          onCompleted={() => void refresh()}
+        />
+      )}
+
       {clinicId && (
         <>
           <SearchChildrenSheet
             clinicId={clinicId}
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
+            onSelectChild={(result) => {
+              setSearchOpen(false);
+              setChildSheetFor({
+                childId: result.childId,
+                childName: result.childName,
+                childDob: result.dob,
+                parentPhone: result.parentPhone,
+              });
+            }}
           />
           <AddWalkInSheet
             clinicId={clinicId}
