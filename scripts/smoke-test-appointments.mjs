@@ -135,8 +135,39 @@ async function main() {
   // Use a day past any real bookings: the last day of the window.
   const day = addDays(today, 5);
 
+  // --- live updates --------------------------------------------------------
+  // An open booking screen listens on the clinic's appointments channel.
+  let liveEvents = 0;
+  const liveChannel = parent.channel(`appointments:${clinicId}`);
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("realtime subscribe timed out")), 15000);
+    liveChannel
+      .on("broadcast", { event: "appointments_changed" }, () => {
+        liveEvents += 1;
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+  });
+  cleanups.push(() => parent.removeChannel(liveChannel));
+  async function receivedLiveUpdate(since) {
+    for (let waited = 0; waited < 10000; waited += 250) {
+      if (liveEvents > since) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
+  }
+
   // --- availability -------------------------------------------------------
+  const beforeSession = liveEvents;
   const morning = await createSession(day, "09:00", "10:00");
+  check(
+    "a new session reaches open booking screens live",
+    await receivedLiveUpdate(beforeSession)
+  );
   const afternoon = await createSession(day, "15:00", "15:30");
   check(
     "a session's capacity is its length in 30-minute slots",
@@ -246,6 +277,7 @@ async function main() {
       )
   );
 
+  const beforeBooking = liveEvents;
   const bookB = unwrap(
     "book B",
     await parent.rpc("book_appointment", {
@@ -255,6 +287,10 @@ async function main() {
     })
   );
   check("another child can take the remaining time", bookB.slot_time === "09:00:00", bookB.slot_time);
+  check(
+    "a booking reaches other open screens live (the time drops off their grid)",
+    await receivedLiveUpdate(beforeBooking)
+  );
   check(
     "a full session refuses further bookings",
     refusedWith(

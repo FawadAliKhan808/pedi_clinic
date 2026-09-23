@@ -1,7 +1,7 @@
 "use client";
 
-import { useId } from "react";
-import { cn } from "@/lib/format";
+import { ChevronDown } from "lucide-react";
+import { useId, type ReactNode } from "react";
 
 /** A wall-clock time in 12-hour parts, as the doctor picks it. */
 export interface TimeParts {
@@ -21,8 +21,44 @@ export function minutesOfDay(parts: TimeParts): number {
   return ((parts.hour % 12) + (parts.period === "pm" ? 12 : 0)) * 60 + parts.minute;
 }
 
-const selectClass =
-  "min-h-12 min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500";
+/**
+ * One dropdown. The native arrow is replaced by our own chevron so the
+ * padding is predictable: text gets the left of the box, the chevron a fixed
+ * lane on the right, and a minimum width keeps "12", ":30" and "PM" whole.
+ */
+function Dropdown({
+  id,
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string | number;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative min-w-[4.75rem] flex-1">
+      <label htmlFor={id} className="sr-only">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-12 w-full appearance-none rounded-lg border border-border bg-surface py-2 pl-3 pr-8 text-base font-semibold tabular-nums text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+      >
+        {children}
+      </select>
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-foreground-muted"
+      />
+    </div>
+  );
+}
 
 /**
  * Hour, minute and AM/PM as three dropdowns. Minutes only offer whole slots
@@ -46,53 +82,42 @@ export function TimeSelect({
   );
 
   return (
-    <fieldset className="flex min-w-0 flex-col gap-1.5">
+    <fieldset className="flex min-w-0 flex-col">
       <legend className="mb-1.5 text-sm font-semibold text-foreground">{label}</legend>
-      <div className="flex gap-1.5">
-        <label htmlFor={`${id}-hour`} className="sr-only">
-          {label} hour
-        </label>
-        <select
+      <div className="flex gap-2">
+        <Dropdown
           id={`${id}-hour`}
+          label={`${label} hour`}
           value={value.hour}
-          onChange={(event) => onChange({ ...value, hour: Number(event.target.value) })}
-          className={selectClass}
+          onChange={(hour) => onChange({ ...value, hour: Number(hour) })}
         >
           {Array.from({ length: 12 }, (_, index) => index + 1).map((hour) => (
             <option key={hour} value={hour}>
               {hour}
             </option>
           ))}
-        </select>
-        <label htmlFor={`${id}-minute`} className="sr-only">
-          {label} minutes
-        </label>
-        <select
+        </Dropdown>
+        <Dropdown
           id={`${id}-minute`}
+          label={`${label} minutes`}
           value={value.minute}
-          onChange={(event) => onChange({ ...value, minute: Number(event.target.value) })}
-          className={selectClass}
+          onChange={(minute) => onChange({ ...value, minute: Number(minute) })}
         >
           {minutes.map((minute) => (
             <option key={minute} value={minute}>
               :{String(minute).padStart(2, "0")}
             </option>
           ))}
-        </select>
-        <label htmlFor={`${id}-period`} className="sr-only">
-          {label} AM or PM
-        </label>
-        <select
+        </Dropdown>
+        <Dropdown
           id={`${id}-period`}
+          label={`${label} AM or PM`}
           value={value.period}
-          onChange={(event) =>
-            onChange({ ...value, period: event.target.value as TimeParts["period"] })
-          }
-          className={cn(selectClass, "uppercase")}
+          onChange={(period) => onChange({ ...value, period: period as TimeParts["period"] })}
         >
           <option value="am">AM</option>
           <option value="pm">PM</option>
-        </select>
+        </Dropdown>
       </div>
     </fieldset>
   );

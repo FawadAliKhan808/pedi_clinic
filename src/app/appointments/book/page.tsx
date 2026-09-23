@@ -3,14 +3,19 @@
 import { ArrowLeft, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
+import {
+  SessionPicker,
+  reconcileSelection,
+  type SlotSelection,
+} from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { Button } from "@/components/ui/button";
 import { SelectableCard } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
-import type { AvailabilitySession, Child } from "@/lib/api";
+import type { AvailabilitySession, BookingWindow, Child } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 import {
   errorMessage,
   formatAge,
@@ -19,6 +24,7 @@ import {
 } from "@/lib/format";
 
 interface BookingData {
+  window: BookingWindow;
   children: Child[];
   sessions: AvailabilitySession[];
 }
@@ -33,7 +39,7 @@ async function loadBookingData(): Promise<BookingData | null> {
     api.parents.listMyChildren(),
     api.appointments.listSessions(window.clinicId, window.fromDate, window.toDate),
   ]);
-  return { children, sessions };
+  return { window, children, sessions };
 }
 
 /** Child → date → time → confirm, all on one scrolling screen. */
@@ -62,6 +68,26 @@ export default function BookAppointmentPage() {
       cancelled = true;
     };
   }, [router, toast]);
+
+  // Sessions the doctor opens or cancels, and times other parents take,
+  // appear here as they happen.
+  const bookingWindow = data?.window;
+  useLiveRefresh("appointments", bookingWindow?.clinicId, () => {
+    if (!bookingWindow) return;
+    return getBrowserApi()
+      .appointments.listSessions(
+        bookingWindow.clinicId,
+        bookingWindow.fromDate,
+        bookingWindow.toDate
+      )
+      .then((sessions) => {
+        setData((current) => current && { ...current, sessions });
+        const next = reconcileSelection(selection, sessions);
+        if (selection && !next) toast("That time was just taken. Please pick another.", "error");
+        setSelection(next);
+      })
+      .catch(() => undefined);
+  });
 
   async function book() {
     if (!childId || !selection) return;

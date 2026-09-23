@@ -189,6 +189,29 @@ check each one:
       tapping it removes the notification, and it stays gone after reopening
       the app. Tapping the card itself still opens it.
 
+## Live updates, slot grid and time pickers
+
+Broadcasts are verified by `npm run test:appointments`; these need two
+real devices (or a phone and a laptop) side by side:
+
+- [ ] Doctor adds a session → the parent's open booking screen shows its
+      times without a refresh.
+- [ ] Parent A selects a time, parent B books that same time → A's
+      selection clears with "That time was just taken".
+- [ ] Parent books → the doctor's Availability grid turns that slot amber
+      (Requested) live; approving turns it red (Booked) and the parent's
+      Appointments list shows Confirmed live.
+- [ ] Doctor calls a token → the parent's home screen token card and Your
+      queue update live; the pharmacist feed updates when a visit completes.
+- [ ] Lock the phone for a few minutes, unlock → screens catch up on their
+      own.
+- [ ] **Availability session cards**: every 30-minute slot shows as a tile
+      (green Free, amber Requested, red Booked/Arrived, grey Past); tapping a
+      booked tile shows the child, age, parent name, a tappable phone number
+      and a link to manage it; tapping again (or ×) closes it.
+- [ ] **Add a session** dropdowns: hour, minutes and AM/PM show in full
+      ("12", ":30", "PM") on a phone, a tablet and a laptop.
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.

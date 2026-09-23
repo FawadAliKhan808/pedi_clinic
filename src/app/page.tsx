@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import type { Child, ParentQueueEntry } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
+import { useDefaultClinicId, useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 type Stage = "loading" | "signed-out" | "needs-name" | "ready";
 
@@ -78,6 +79,15 @@ export default function ParentHome() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Token cards follow the queue live: "now serving", position, being called.
+  const clinicId = useDefaultClinicId(stage === "ready");
+  useLiveRefresh("queue", clinicId, () =>
+    getBrowserApi()
+      .queue.getParentQueueView()
+      .then((queue) => setTokens(queue.filter((entry) => activeStatuses.has(entry.status))))
+      .catch(() => undefined)
+  );
 
   if (loadError) {
     return (

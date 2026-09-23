@@ -106,13 +106,31 @@ safeguard exists to stop remote over-booking, not to block the doctor.
 |---|---|---|
 | `subscribeToQueue` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToPharmacyFeed` | `clinicId, onChange` | `Unsubscribe` |
+| `subscribeToAppointments` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToNotifications` | `userId, onChange` | `Unsubscribe` |
 
-Database triggers broadcast to `queue:{clinic_id}`, `pharmacy:{clinic_id}` and `notifications:{user_id}`
-on every change. The payloads carry **no personal data** — only which clinic
+Database triggers broadcast to `queue:{clinic_id}`, `pharmacy:{clinic_id}`,
+`appointments:{clinic_id}` (any session or booking change) and
+`notifications:{user_id}` on every change. The payloads carry **no personal data** — only which clinic
 changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
-(re)subscribe, which is what recovers state after a dropped connection.
+(re)subscribe and whenever the page becomes visible again, which is what
+recovers state after a dropped connection or a sleeping phone. Screens use
+`useLiveRefresh(channel, clinicId, refresh)` (`src/lib/realtime/`):
+
+| Screen | Live on |
+|---|---|
+| Parent home (token cards), Your queue | queue |
+| Parent booking, Appointments list, reschedule sheet | appointments |
+| Parent notification bell | notifications |
+| Doctor queue | queue |
+| Doctor Appointments (and its reschedule sheet), Availability | appointments |
+| Doctor Alerts and nav badge | notifications |
+| Pharmacist feed | pharmacy |
+
+A booking screen whose selected time is taken meanwhile clears the
+selection and says so. `npm run test:appointments` checks that a new session
+and a new booking reach a subscribed client.
 
 ## VisitsApi — Implemented
 

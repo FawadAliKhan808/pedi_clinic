@@ -12,6 +12,21 @@ export interface SlotSelection {
 }
 
 /**
+ * After a live refresh: the same selection against the fresh sessions, or
+ * null if that time was just taken (or its session cancelled).
+ */
+export function reconcileSelection(
+  selection: SlotSelection | null,
+  sessions: AvailabilitySession[]
+): SlotSelection | null {
+  if (!selection) return null;
+  const fresh = sessions.find((session) => session.id === selection.session.id);
+  return fresh?.freeSlots.includes(selection.slotTime)
+    ? { session: fresh, slotTime: selection.slotTime }
+    : null;
+}
+
+/**
  * Pick a date, then one of the free 30-minute times in any of that day's
  * sessions. Only free times are offered; the server still has the final say
  * (SLOT_TAKEN if someone took it in the meantime).

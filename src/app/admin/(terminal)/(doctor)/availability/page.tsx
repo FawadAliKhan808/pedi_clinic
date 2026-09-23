@@ -11,10 +11,12 @@ import {
   toClockTime,
   type TimeParts,
 } from "@/components/appointments/time-select";
+import { SessionSlotGrid } from "@/components/appointments/session-slot-grid";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 import {
   addDays,
   cn,
@@ -67,6 +69,9 @@ export default function AvailabilityPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Parents booking or cancelling fill and free slots here as it happens.
+  useLiveRefresh("appointments", clinicId, refresh);
 
   /** Runs a doctor change, then pushes any "your appointment changed" notices. */
   async function change<T>(
@@ -168,16 +173,13 @@ export default function AvailabilityPage() {
             />
           ) : (
             sessions.map((session) => (
-              <Card key={session.sessionId} className="flex flex-col gap-3">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    {formatTimeRange(session.startTime, session.endTime)}
-                  </p>
-                  <p className="text-sm text-foreground-muted">
-                    {session.bookedCount} of {session.maxBookings} slots booked ·{" "}
-                    {slotMinutes}-minute appointments
-                  </p>
-                </div>
+              <Card key={session.sessionId} className="@container flex flex-col gap-3">
+                <p className="font-semibold text-foreground">
+                  {formatTimeRange(session.startTime, session.endTime)}
+                </p>
+                {today && (
+                  <SessionSlotGrid session={session} slotMinutes={slotMinutes} today={today} />
+                )}
                 <ConfirmButton
                   variant="ghost"
                   label="Cancel session"
@@ -248,7 +250,7 @@ function AddSessionForm({
   return (
     <Card className="flex flex-col gap-4">
       <p className="font-semibold text-foreground">Add a session</p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <TimeSelect label="Starts" value={start} slotMinutes={slotMinutes} onChange={setStart} />
         <TimeSelect label="Ends" value={end} slotMinutes={slotMinutes} onChange={setEnd} />
       </div>

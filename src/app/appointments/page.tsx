@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
+import {
+  SessionPicker,
+  reconcileSelection,
+  type SlotSelection,
+} from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import type { AvailabilitySession, ParentAppointment } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { useDefaultClinicId, useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 import {
   errorMessage,
   formatAppointmentTime,
@@ -55,6 +60,10 @@ export default function MyAppointmentsPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Approvals, rejections and the doctor's changes show up without a refresh.
+  const clinicId = useDefaultClinicId();
+  useLiveRefresh("appointments", clinicId, refresh);
 
   async function cancel(appointment: ParentAppointment) {
     try {
@@ -171,6 +180,7 @@ function RescheduleSheet({
   const [sessions, setSessions] = useState<AvailabilitySession[] | null>(null);
   const [selected, setSelected] = useState<SlotSelection | null>(null);
   const [busy, setBusy] = useState(false);
+  const clinicId = useDefaultClinicId();
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +196,21 @@ function RescheduleSheet({
       cancelled = true;
     };
   }, [toast]);
+
+  // Times other parents take (or the doctor opens) update while the sheet is open.
+  useLiveRefresh("appointments", clinicId, () => {
+    const api = getBrowserApi().appointments;
+    return api
+      .getBookingWindow()
+      .then((window) => api.listSessions(window.clinicId, window.fromDate, window.toDate))
+      .then((list) => {
+        setSessions(list);
+        const next = reconcileSelection(selected, list);
+        if (selected && !next) toast("That time was just taken. Please pick another.", "error");
+        setSelected(next);
+      })
+      .catch(() => undefined);
+  });
 
   async function confirm() {
     if (!selected) return;

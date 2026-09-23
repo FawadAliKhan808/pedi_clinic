@@ -3,7 +3,11 @@
 import { CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
+import {
+  SessionPicker,
+  reconcileSelection,
+  type SlotSelection,
+} from "@/components/appointments/session-picker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -18,6 +22,7 @@ import type {
 } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { onNotificationsChanged } from "@/lib/notifications/unread";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 import {
   addDays,
   errorMessage,
@@ -81,6 +86,9 @@ export default function DoctorAppointmentsPage() {
     // A new booking request arriving (see the Alerts tab) refreshes this too.
     return onNotificationsChanged(() => void refresh());
   }, [refresh]);
+
+  // Bookings, cancellations and moves from any device appear as they happen.
+  useLiveRefresh("appointments", range?.clinicId, refresh);
 
   /** Every change here notifies the affected parents immediately. */
   async function change(action: () => Promise<unknown>, success: string) {
@@ -323,6 +331,16 @@ function DoctorRescheduleSheet({
       cancelled = true;
     };
   }, [range, toast]);
+
+  useLiveRefresh("appointments", range.clinicId, () =>
+    getBrowserApi()
+      .appointments.listSessions(range.clinicId, range.today, range.to)
+      .then((list) => {
+        setSessions(list);
+        setSelected((current) => reconcileSelection(current, list));
+      })
+      .catch(() => undefined)
+  );
 
   return (
     <Sheet
