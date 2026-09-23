@@ -213,6 +213,20 @@ prescription photos they need to fill the order.
 | `closeDay` | `clinicId, date` | bookings affected | `FORBIDDEN` | Clinic doctor |
 | `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | sessions created | `FORBIDDEN` | Clinic doctor |
 
+| `approve` / `reject` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `SESSION_CANCELLED` (approve), `FORBIDDEN` | Clinic doctor |
+
+**Approval workflow.** A parent's booking is a *request*: it starts `pending`,
+and every doctor of the clinic gets a `booking_request` notification. The
+doctor approves (→ `booked`, shown as "Confirmed") or rejects (→ `rejected`);
+`decide_appointment` locks the row, so a request is decided exactly once even
+if two doctors tap at the same moment (proved in `test-concurrency.mjs`). The
+parent gets a `booking_update` either way, and every doctor's copy of the
+request is marked read. A pending request **holds its slot** — approving can
+never overbook, rejecting frees it. A parent moving a booking sends it back to
+`pending` for re-approval; the doctor moving one confirms it. Reminders and
+arrival-linking only apply to confirmed (`booked`) appointments. The walk-in
+queue has no approval step: tokens stay first-come-first-served.
+
 **Booking is race-safe.** `book_appointment` locks the session row before
 counting its bookings, so concurrent taps can't overbook: 8 simultaneous
 bookings for a 3-slot session yield exactly 3 (`scripts/test-concurrency.mjs`).
@@ -257,6 +271,7 @@ deployed. Until then reminders wait in the in-app list.
 |---|---|---|---|---|
 | `listMine` | — | `AppNotification[]`, newest first | `NOTIFICATIONS_LIST_FAILED` | Signed-in user; own only |
 | `markRead` | `notificationIds?` (all when omitted) | `void` | `NOTIFICATIONS_MARK_READ_FAILED` | Signed-in user; own only |
+| `delete` | `notificationId` | `void` | `NOTIFICATION_DELETE_FAILED` | Signed-in user; own only (RLS) |
 | `registerPushSubscription` | `{ endpoint, keys: { p256dh, auth } }` | `void` | `PUSH_SUBSCRIPTION_FAILED` | Signed-in user |
 | `recordInstall` | — | `void` | `RECORD_INSTALL_FAILED` | Signed-in parent (idempotent) |
 | `recordNotificationsEnabled` | — | `void` | `RECORD_NOTIFICATIONS_ENABLED_FAILED` | Signed-in parent |
@@ -284,6 +299,18 @@ older than an hour are never pushed — "it's your turn" hours late is noise —
 but stay in the in-app list. The route accepts either a user session (the
 browser, right after a queue action) or `Bearer NOTIFICATIONS_DISPATCH_SECRET`
 (for the scheduled jobs in Phase 7).
+
+`listMine` also returns the referenced appointment's *current* status
+(`appointmentStatus`), so the doctor's notification center can show Approve /
+Reject only while a request is still pending, and the outcome once decided.
+
+**About the requested `notifications` shape.** The approval spec asked for a
+notifications table with `title`, `message`, `reference_id` and `is_read`. The
+existing table already covers it: `appointment_id` is the reference, `read_at`
+is `is_read` (plus when), and delete is allowed on your own rows. Title and
+message are deliberately *not* stored — the brief requires notification wording
+to live in one place (`templates.ts`) so it can change without touching data or
+logic; they're rendered from the stored type + data instead.
 
 The in-app list is always written, so a parent without notifications turned on
 — or whose push never arrived — sees everything the next time they open the app.

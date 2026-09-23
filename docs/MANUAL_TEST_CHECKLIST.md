@@ -97,6 +97,13 @@ on real hardware:
 - [ ] An appointment with no check-in shows as **missed** the next day.
 - [ ] Doctor reschedules / cancels a booking (or cancels a session or day) →
       the parent's phone gets the push notification.
+- [ ] Approval workflow across two devices: parent requests on a phone → the
+      doctor's **Alerts** badge appears live on another device → Approve →
+      the parent's phone gets "Appointment confirmed" as a push notification.
+      Repeat with Reject.
+- [ ] Doctor push: booking requests reach the doctor in-app only (the staff
+      terminal has no "turn on notifications" flow yet) — decide if the doctor
+      should also get push.
 - [ ] A parent arriving with a booking and checking in: the doctor's queue card
       shows the **Appointment** badge, and the token keeps its normal place.
 

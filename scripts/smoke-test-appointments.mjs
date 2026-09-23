@@ -118,7 +118,7 @@ async function main() {
   }
 
   const children = {};
-  for (const name of ["A", "B", "C", "D", "E", "F", "G"]) {
+  for (const name of ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]) {
     children[name] = unwrap(
       `child ${name}`,
       await parent
@@ -171,7 +171,10 @@ async function main() {
     "book A",
     await parent.rpc("book_appointment", { p_session_id: morning.id, p_child_id: children.A.id })
   );
-  check("a parent can book an open session", bookA.status === "booked");
+  check(
+    "a parent's booking starts as a request awaiting approval",
+    bookA.status === "pending"
+  );
 
   check(
     "one appointment per child per day",
@@ -235,7 +238,7 @@ async function main() {
             .from("appointments")
             .select("id")
             .eq("child_id", children.B.id)
-            .eq("status", "booked")
+            .in("status", ["pending", "booked"])
             .single()
         )
       ).id,
@@ -267,6 +270,7 @@ async function main() {
     })
   );
   check("the doctor isn't held to the booking window", aMoved.session_id === outside.id);
+  check("the doctor moving a request confirms it", aMoved.status === "booked");
 
   const moved = unwrap(
     "A notifications",
@@ -360,6 +364,164 @@ async function main() {
         (s) => s.date === addDays(day, 7) && s.start_time.startsWith("15:00")
       ),
     `${copied} created`
+  );
+
+  // --- approval workflow -----------------------------------------------------
+  const approvalSession = await createSession(addDays(today, 3), "09:00", "10:00", 2);
+
+  const requestH = unwrap(
+    "book H",
+    await parent.rpc("book_appointment", {
+      p_session_id: approvalSession.id,
+      p_child_id: children.H.id,
+    })
+  );
+  const doctorInbox = unwrap(
+    "doctor inbox",
+    await doctor
+      .from("notifications")
+      .select("id, type, read_at")
+      .eq("appointment_id", requestH.id)
+  );
+  check(
+    "the doctor gets a booking request",
+    doctorInbox.length === 1 && doctorInbox[0].type === "booking_request"
+  );
+
+  check(
+    "a parent cannot approve their own request",
+    refusedWith(
+      await parent.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: true }),
+      "FORBIDDEN"
+    )
+  );
+
+  const approved = unwrap(
+    "approve H",
+    await doctor.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: true })
+  );
+  check("approving confirms the booking", approved.status === "booked");
+
+  const parentApproval = unwrap(
+    "parent approval notice",
+    await parent
+      .from("notifications")
+      .select("type, payload")
+      .eq("appointment_id", requestH.id)
+  );
+  check(
+    "the parent is told it was approved",
+    parentApproval.some(
+      (row) => row.type === "booking_update" && row.payload.decision === "approved"
+    )
+  );
+  check(
+    "the doctor's request is marked read once decided",
+    unwrap(
+      "request read",
+      await doctor.from("notifications").select("read_at").eq("id", doctorInbox[0].id).single()
+    ).read_at !== null
+  );
+  check(
+    "a request can only be decided once",
+    refusedWith(
+      await doctor.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: false }),
+      "INVALID_APPOINTMENT_STATUS"
+    )
+  );
+
+  const requestI = unwrap(
+    "book I",
+    await parent.rpc("book_appointment", {
+      p_session_id: approvalSession.id,
+      p_child_id: children.I.id,
+    })
+  );
+  check(
+    "a pending request holds its slot",
+    refusedWith(
+      await parent.rpc("book_appointment", {
+        p_session_id: approvalSession.id,
+        p_child_id: children.J.id,
+      }),
+      "SESSION_FULL"
+    )
+  );
+
+  const rejected = unwrap(
+    "reject I",
+    await doctor.rpc("decide_appointment", { p_appointment_id: requestI.id, p_approve: false })
+  );
+  check("rejecting marks the request not approved", rejected.status === "rejected");
+  check(
+    "the parent is told it was rejected",
+    unwrap(
+      "parent rejection notice",
+      await parent
+        .from("notifications")
+        .select("payload")
+        .eq("appointment_id", requestI.id)
+        .eq("type", "booking_update")
+    ).some((row) => row.payload.decision === "rejected")
+  );
+  check(
+    "rejecting frees the slot",
+    unwrap(
+      "book J after rejection",
+      await parent.rpc("book_appointment", {
+        p_session_id: approvalSession.id,
+        p_child_id: children.J.id,
+      })
+    ).status === "pending"
+  );
+  check(
+    "the parent still sees a rejected request, labelled",
+    unwrap("my appointments after rejection", await parent.rpc("my_appointments")).some(
+      (row) => row.appointment_id === requestI.id && row.status === "rejected"
+    )
+  );
+
+  // A parent moving a confirmed booking sends it back for approval.
+  const movedBack = unwrap(
+    "parent moves H",
+    await parent.rpc("reschedule_appointment", {
+      p_appointment_id: requestH.id,
+      p_new_session_id: morning.id,
+    })
+  );
+  check(
+    "a parent moving a confirmed booking needs re-approval",
+    movedBack.status === "pending" &&
+      unwrap(
+        "new request",
+        await doctor
+          .from("notifications")
+          .select("id")
+          .eq("appointment_id", requestH.id)
+          .eq("type", "booking_request")
+      ).length === 2
+  );
+
+  // Deleting: only your own notifications.
+  const [firstRequest] = unwrap(
+    "doctor requests",
+    await doctor.from("notifications").select("id").eq("appointment_id", requestH.id)
+  );
+  await parent.from("notifications").delete().eq("id", firstRequest.id);
+  check(
+    "a parent cannot delete the doctor's notification",
+    unwrap(
+      "still there",
+      await admin.from("notifications").select("id").eq("id", firstRequest.id)
+    ).length === 1
+  );
+  unwrap("doctor deletes", await doctor.from("notifications").delete().eq("id", firstRequest.id));
+  check(
+    "the doctor can delete their own notification",
+    unwrap(
+      "gone",
+      await admin.from("notifications").select("id").eq("id", firstRequest.id)
+    ).length === 0
   );
 
   // --- arrival links the appointment ---------------------------------------

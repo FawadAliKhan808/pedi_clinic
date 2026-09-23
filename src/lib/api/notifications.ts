@@ -11,6 +11,8 @@ export interface NotificationsApi {
   listMine(): Promise<AppNotification[]>;
   /** Marks the given notifications read, or all of the caller's when omitted. */
   markRead(notificationIds?: string[]): Promise<void>;
+  /** Removes one of the caller's own notifications from their list. */
+  delete(notificationId: string): Promise<void>;
 
   /** Stores this device's Web Push subscription for the signed-in user. */
   registerPushSubscription(subscription: PushSubscriptionInput): Promise<void>;

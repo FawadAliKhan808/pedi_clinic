@@ -62,9 +62,11 @@ export default function BookAppointmentPage() {
     if (!childId || !session) return;
     setBusy(true);
     try {
-      await getBrowserApi().appointments.book({ sessionId: session.id, childId });
+      const api = getBrowserApi();
+      await api.appointments.book({ sessionId: session.id, childId });
+      void api.notifications.dispatchPending();
       toast(
-        `Booked for ${formatDayShort(session.date)}, ${formatTimeRange(session.startTime, session.endTime)}`,
+        `Request sent for ${formatDayShort(session.date)}, ${formatTimeRange(session.startTime, session.endTime)} — the doctor will confirm it`,
         "success"
       );
       router.replace("/appointments");
@@ -141,7 +143,7 @@ export default function BookAppointmentPage() {
           disabled={!childId || !session}
           onClick={() => void book()}
         >
-          Confirm booking
+          Request appointment
         </Button>
       </StickyActionBar>
     </div>

@@ -17,6 +17,7 @@ import type {
   UUID,
 } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { onNotificationsChanged } from "@/lib/notifications/unread";
 import {
   addDays,
   errorMessage,
@@ -67,6 +68,8 @@ export default function DoctorAppointmentsPage() {
 
   useEffect(() => {
     void refresh();
+    // A new booking request arriving (see the Alerts tab) refreshes this too.
+    return onNotificationsChanged(() => void refresh());
   }, [refresh]);
 
   /** Every change here notifies the affected parents immediately. */
@@ -185,6 +188,39 @@ export default function DoctorAppointmentsPage() {
                                         appointment.appointmentId
                                       ),
                                     "Appointment cancelled — parent notified"
+                                  )
+                                }
+                              />
+                            </div>
+                          )}
+
+                          {appointment.status === "pending" && (
+                            <div className="flex gap-2">
+                              <Button
+                                className="flex-1"
+                                onClick={() =>
+                                  change(
+                                    () =>
+                                      getBrowserApi().appointments.approve(
+                                        appointment.appointmentId
+                                      ),
+                                    "Approved — parent notified"
+                                  )
+                                }
+                              >
+                                Approve
+                              </Button>
+                              <ConfirmButton
+                                className="flex-1"
+                                label="Reject"
+                                confirmLabel="Tap again to reject"
+                                onConfirm={() =>
+                                  change(
+                                    () =>
+                                      getBrowserApi().appointments.reject(
+                                        appointment.appointmentId
+                                      ),
+                                    "Rejected — parent notified"
                                   )
                                 }
                               />

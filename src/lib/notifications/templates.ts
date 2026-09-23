@@ -10,7 +10,9 @@ export type NotificationType =
   | "follow_up_reminder"
   | "appointment_tomorrow"
   | "appointment_today"
-  | "appointment_changed";
+  | "appointment_changed"
+  | "booking_request"
+  | "booking_update";
 
 export interface RenderedNotification {
   title: string;
@@ -90,6 +92,24 @@ export function renderNotification(
         body: `${sessionLabel(payload)}. Check in with the app when you arrive.`,
         url: "/appointments",
       };
+    case "booking_request":
+      return {
+        title: `Booking request: ${child}`,
+        body: `${sessionLabel(payload)}. Approve or reject it.`,
+        url: "/admin/notifications",
+      };
+    case "booking_update":
+      return payload.decision === "approved"
+        ? {
+            title: `Appointment confirmed for ${child}`,
+            body: `${sessionLabel(payload)}. Check in with the app when you arrive.`,
+            url: "/appointments",
+          }
+        : {
+            title: `Appointment not approved for ${child}`,
+            body: `The doctor couldn't take the ${sessionLabel(payload)} slot. Please book another time.`,
+            url: "/appointments",
+          };
     case "appointment_changed":
       return payload.change === "cancelled"
         ? {

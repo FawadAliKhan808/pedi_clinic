@@ -29,6 +29,13 @@ export interface AppointmentsApi {
   /** No cutoff. When the doctor cancels, the parent is notified. */
   cancel(appointmentId: UUID): Promise<Appointment>;
 
+  /**
+   * Doctor decides a pending request; the parent is notified either way.
+   * Decided exactly once — a second decision throws INVALID_APPOINTMENT_STATUS.
+   */
+  approve(appointmentId: UUID): Promise<Appointment>;
+  reject(appointmentId: UUID): Promise<Appointment>;
+
   // --- Doctor -------------------------------------------------------------
 
   listClinicSchedule(

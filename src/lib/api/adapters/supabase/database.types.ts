@@ -1094,6 +1094,25 @@ export type Database = {
           role: Database["public"]["Enums"]["staff_role"]
         }[]
       }
+      decide_appointment: {
+        Args: { p_appointment_id: string; p_approve: boolean }
+        Returns: {
+          appointment_date: string
+          cancelled_at: string | null
+          child_id: string
+          created_at: string
+          id: string
+          session_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       default_clinic_id: { Args: never; Returns: string }
       dispense_order: {
         Args: { p_items: Json; p_visit_id: string }
@@ -1167,6 +1186,14 @@ export type Database = {
       }
       notify_appointment_change: {
         Args: { p_appointment_id: string; p_change: string }
+        Returns: undefined
+      }
+      notify_booking_decision: {
+        Args: { p_appointment_id: string; p_decision: string }
+        Returns: undefined
+      }
+      notify_booking_request: {
+        Args: { p_appointment_id: string }
         Returns: undefined
       }
       parent_queue_view: {
@@ -1450,7 +1477,13 @@ export type Database = {
       }
     }
     Enums: {
-      appointment_status: "booked" | "cancelled" | "missed" | "attended"
+      appointment_status:
+        | "pending"
+        | "booked"
+        | "cancelled"
+        | "missed"
+        | "attended"
+        | "rejected"
       notification_type:
         | "third_in_line"
         | "your_turn"
@@ -1458,6 +1491,8 @@ export type Database = {
         | "appointment_tomorrow"
         | "appointment_today"
         | "appointment_changed"
+        | "booking_request"
+        | "booking_update"
       payment_mode: "cash" | "upi" | "card"
       pharmacy_order_status: "pending" | "dispensed" | "skipped"
       staff_role: "doctor" | "pharmacist" | "owner"
@@ -1599,7 +1634,14 @@ export const Constants = {
   },
   public: {
     Enums: {
-      appointment_status: ["booked", "cancelled", "missed", "attended"],
+      appointment_status: [
+        "pending",
+        "booked",
+        "cancelled",
+        "missed",
+        "attended",
+        "rejected",
+      ],
       notification_type: [
         "third_in_line",
         "your_turn",
@@ -1607,6 +1649,8 @@ export const Constants = {
         "appointment_tomorrow",
         "appointment_today",
         "appointment_changed",
+        "booking_request",
+        "booking_update",
       ],
       payment_mode: ["cash", "upi", "card"],
       pharmacy_order_status: ["pending", "dispensed", "skipped"],

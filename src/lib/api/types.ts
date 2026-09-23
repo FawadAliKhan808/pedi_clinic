@@ -222,7 +222,14 @@ export interface BookingWindow {
   toDate: ISODateString;
 }
 
-export type AppointmentStatus = "booked" | "cancelled" | "missed" | "attended";
+/** A parent's booking is a request ('pending') until the doctor approves it ('booked') or rejects it. */
+export type AppointmentStatus =
+  | "pending"
+  | "booked"
+  | "rejected"
+  | "cancelled"
+  | "missed"
+  | "attended";
 
 export interface Appointment {
   id: UUID;
@@ -272,6 +279,10 @@ export interface AppNotification {
   userId: UUID;
   type: NotificationType;
   visitId: UUID | null;
+  /** The appointment it's about, if any (the "reference"). */
+  appointmentId: UUID | null;
+  /** That appointment's current status — lets an inbox show whether a request is still open. */
+  appointmentStatus: AppointmentStatus | null;
   payload: Record<string, unknown>;
   createdAt: ISODateTimeString;
   sentAt: ISODateTimeString | null;

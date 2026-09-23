@@ -4,6 +4,7 @@ import { CalendarDays } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
 import { SessionPicker } from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { ParentShell } from "@/components/parent/parent-shell";
@@ -80,13 +81,29 @@ export default function MyAppointmentsPage() {
         ) : (
           appointments.map((appointment) => (
             <Card key={appointment.appointmentId} className="flex flex-col gap-3">
-              <div>
-                <p className="font-semibold text-foreground">{appointment.childName}</p>
-                <p className="text-sm text-foreground-muted">
-                  {formatDayShort(appointment.date)} ·{" "}
-                  {formatTimeRange(appointment.startTime, appointment.endTime)}
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">{appointment.childName}</p>
+                  <p className="text-sm text-foreground-muted">
+                    {formatDayShort(appointment.date)} ·{" "}
+                    {formatTimeRange(appointment.startTime, appointment.endTime)}
+                  </p>
+                </div>
+                <AppointmentStatusPill status={appointment.status} />
               </div>
+
+              {appointment.status === "pending" && (
+                <p className="rounded-lg bg-status-skipped/10 px-3 py-2 text-sm text-foreground">
+                  Under review — waiting for the doctor&apos;s approval. We&apos;ll let
+                  you know as soon as it&apos;s decided.
+                </p>
+              )}
+
+              {appointment.status === "rejected" ? (
+                <p className="rounded-lg bg-status-removed/10 px-3 py-2 text-sm text-foreground">
+                  The doctor couldn&apos;t take this slot. Please book another time.
+                </p>
+              ) : (
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
@@ -103,6 +120,7 @@ export default function MyAppointmentsPage() {
                   onConfirm={() => cancel(appointment)}
                 />
               </div>
+              )}
             </Card>
           ))
         )}
@@ -161,7 +179,11 @@ function RescheduleSheet({
     setBusy(true);
     try {
       await getBrowserApi().appointments.reschedule(appointment.appointmentId, selected.id);
-      toast(`Moved to ${formatDayShort(selected.date)}`, "success");
+      void getBrowserApi().notifications.dispatchPending();
+      toast(
+        `Moved to ${formatDayShort(selected.date)} — waiting for the doctor's approval`,
+        "success"
+      );
       onDone();
       onClose();
     } catch (caught) {

@@ -121,6 +121,23 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
     return mapAppointment(data);
   }
 
+  approve(appointmentId: UUID): Promise<Appointment> {
+    return this.decide(appointmentId, true);
+  }
+
+  reject(appointmentId: UUID): Promise<Appointment> {
+    return this.decide(appointmentId, false);
+  }
+
+  private async decide(appointmentId: UUID, approve: boolean): Promise<Appointment> {
+    const { data, error } = await this.client.rpc("decide_appointment", {
+      p_appointment_id: appointmentId,
+      p_approve: approve,
+    });
+    if (error) throw toApiError(error, "DECIDE_APPOINTMENT_FAILED");
+    return mapAppointment(data);
+  }
+
   async listClinicSchedule(
     clinicId: UUID,
     fromDate: ISODateString,

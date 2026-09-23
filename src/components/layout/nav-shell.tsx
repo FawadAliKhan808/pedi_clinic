@@ -10,6 +10,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Unread count shown on the item; hidden when 0. */
+  badge?: number;
 }
 
 /**
@@ -51,7 +53,7 @@ export function NavShell({
           Pedi Clinic
         </p>
 
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon, badge }) => {
           const active = pathname === href;
           return (
             <Link
@@ -67,7 +69,14 @@ export function NavShell({
                   : "text-foreground-muted md:hover:bg-surface-sunken"
               )}
             >
-              <Icon className="size-5" />
+              <span className="relative">
+                <Icon className="size-5" />
+                {badge ? (
+                  <span className="absolute -right-2.5 -top-2 flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold leading-5 text-foreground-on-accent">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                ) : null}
+              </span>
               {label}
             </Link>
           );

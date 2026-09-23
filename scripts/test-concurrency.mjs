@@ -151,7 +151,8 @@ async function testBookingRace() {
       .from("appointments")
       .select("id", { count: "exact", head: true })
       .eq("session_id", session.id)
-      .eq("status", "booked");
+      // New bookings are requests awaiting approval; they still hold their slot.
+      .eq("status", "pending");
 
     check(
       `only ${SLOTS} of ${ATTEMPTS} concurrent bookings succeed`,
@@ -159,6 +160,29 @@ async function testBookingRace() {
       `${booked.length} booked, ${full.length} full`
     );
     check("a session is never overbooked", count === SLOTS, `${count} bookings stored`);
+
+    // Approve and reject landing on the same request at the same instant.
+    const doctorClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    await must(
+      "doctor sign-in",
+      doctorClient.auth.signInWithPassword({
+        email: process.env.DEMO_DOCTOR_EMAIL ?? "doctor@pediclinic.test",
+        password: process.env.DEMO_DOCTOR_PASSWORD ?? "pedi-doctor-demo",
+      })
+    );
+    const contested = booked[0].data.id;
+    const decisions = await Promise.all([
+      doctorClient.rpc("decide_appointment", { p_appointment_id: contested, p_approve: true }),
+      doctorClient.rpc("decide_appointment", { p_appointment_id: contested, p_approve: false }),
+    ]);
+    const decided = decisions.filter((result) => !result.error);
+    check(
+      "two simultaneous decisions on one request: exactly one wins",
+      decided.length === 1,
+      `${decided.length} succeeded, then status ${decided[0]?.data?.status}`
+    );
   } finally {
     await db.from("availability_sessions").delete().eq("id", session.id);
     await db.from("children").delete().in("id", racers.map((child) => child.id));

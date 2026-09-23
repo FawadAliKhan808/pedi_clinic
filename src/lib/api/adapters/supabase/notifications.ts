@@ -8,14 +8,27 @@ export class SupabaseNotificationsApi implements NotificationsApi {
   constructor(private readonly client: TypedSupabaseClient) {}
 
   async listMine(): Promise<AppNotification[]> {
+    // The referenced appointment's current status comes along, so a doctor's
+    // inbox can tell an open request from one already decided.
     const { data, error } = await this.client
       .from("notifications")
-      .select("*")
+      .select("*, appointment:appointments(status)")
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (error) throw toApiError(error, "NOTIFICATIONS_LIST_FAILED");
-    return (data ?? []).map(mapNotificationRow);
+    return (data ?? []).map((row) => ({
+      ...mapNotificationRow(row),
+      appointmentStatus: row.appointment?.status ?? null,
+    }));
+  }
+
+  async delete(notificationId: string): Promise<void> {
+    const { error } = await this.client
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId);
+    if (error) throw toApiError(error, "NOTIFICATION_DELETE_FAILED");
   }
 
   async markRead(notificationIds?: string[]): Promise<void> {

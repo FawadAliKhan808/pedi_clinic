@@ -81,6 +81,8 @@ export function mapNotificationRow(row: NotificationRow): AppNotification {
     userId: row.user_id,
     type: row.type,
     visitId: row.visit_id,
+    appointmentId: row.appointment_id,
+    appointmentStatus: null,
     payload:
       row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
         ? (row.payload as Record<string, unknown>)

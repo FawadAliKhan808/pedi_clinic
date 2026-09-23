@@ -2,7 +2,9 @@ import type { AppointmentStatus } from "@/lib/api";
 import { cn } from "@/lib/format";
 
 const styles: Record<AppointmentStatus, { label: string; className: string }> = {
-  booked: { label: "Booked", className: "bg-primary-600" },
+  pending: { label: "Awaiting approval", className: "bg-status-skipped" },
+  booked: { label: "Confirmed", className: "bg-primary-600" },
+  rejected: { label: "Not approved", className: "bg-status-removed" },
   attended: { label: "Arrived", className: "bg-status-completed" },
   missed: { label: "Missed", className: "bg-status-removed" },
   cancelled: { label: "Cancelled", className: "bg-status-waiting" },
@@ -13,7 +15,7 @@ export function AppointmentStatusPill({ status }: { status: AppointmentStatus })
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-0",
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-0",
         className
       )}
     >
