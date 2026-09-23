@@ -58,6 +58,18 @@
   --color-warning: #d69300;
   --color-danger: #d23b3b;
 
+  /*
+   * Chart series — a validated categorical trio (fixed order, never cycled):
+   * passes lightness, chroma, CVD and normal-vision checks on these surfaces,
+   * light and dark, all pairs. Slot 3 is < 3:1 on light, so every chart ships
+   * a legend and a table view. Brand teal reads too gray to be a series.
+   */
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
+  --color-chart-3: #1baf7a;
+  --color-chart-grid: var(--color-neutral-200);
+  --color-chart-axis: var(--color-neutral-300);
+
   /* Surfaces & text — light theme */
   --color-surface: var(--color-neutral-0);
   --color-surface-raised: var(--color-neutral-0);
@@ -94,6 +106,13 @@
     --color-border: var(--color-neutral-700);
     --color-foreground: var(--color-neutral-50);
     --color-foreground-muted: var(--color-neutral-400);
+
+    /* The same three hues, stepped for the dark surface (validated separately). */
+    --color-chart-1: #3987e5;
+    --color-chart-2: #d95926;
+    --color-chart-3: #199e70;
+    --color-chart-grid: var(--color-neutral-800);
+    --color-chart-axis: var(--color-neutral-700);
 
     --shadow-color: 0 0 0;
     --shadow-sm: 0 1px 2px rgb(var(--shadow-color) / 0.4);
@@ -147,6 +166,12 @@
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
+
+  --color-chart-1: var(--color-chart-1);
+  --color-chart-2: var(--color-chart-2);
+  --color-chart-3: var(--color-chart-3);
+  --color-chart-grid: var(--color-chart-grid);
+  --color-chart-axis: var(--color-chart-axis);
 
   --color-surface: var(--color-surface);
   --color-surface-raised: var(--color-surface-raised);

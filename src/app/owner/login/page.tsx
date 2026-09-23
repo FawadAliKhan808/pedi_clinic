@@ -7,7 +7,7 @@ import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage } from "@/lib/format";
 
-export default function StaffLoginPage() {
+export default function OwnerLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,10 +17,18 @@ export default function StaffLoginPage() {
   async function signIn() {
     setBusy(true);
     setError(null);
+    const api = getBrowserApi();
     try {
-      await getBrowserApi().auth.signInWithPassword(email.trim(), password);
-      // /admin routes each role to its own home (the owner to /owner).
-      router.replace("/admin");
+      await api.auth.signInWithPassword(email.trim(), password);
+      const staff = await api.auth.getStaffRole();
+      if (staff?.role !== "owner") {
+        // Clinic staff have their own terminal; don't leave them signed in here.
+        await api.auth.signOut();
+        setError("This sign-in is for the Pedi Clinic team only. Clinic staff sign in at /admin.");
+        setBusy(false);
+        return;
+      }
+      router.replace("/owner");
       router.refresh();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -37,9 +45,9 @@ export default function StaffLoginPage() {
       }}
     >
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-foreground">Staff sign in</h1>
+        <h1 className="text-2xl font-bold text-foreground">Team sign in</h1>
         <p className="text-foreground-muted">
-          For the doctor and pharmacy team. Parents sign in with their phone number.
+          For the Pedi Clinic product team: ratings, adoption, and usage.
         </p>
       </div>
 

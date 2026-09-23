@@ -164,6 +164,8 @@ export function errorMessage(error: unknown): string {
       return "That overlaps another session on the same day.";
     case "INVALID_SESSION_TIMES":
       return "The end time must be after the start time.";
+    case "INVALID_RANGE":
+      return "Pick a range of one year or less, with the start before the end.";
     case "CAPACITY_BELOW_BOOKINGS":
       return "More appointments are already booked than that.";
     case "INVALID_APPOINTMENT_STATUS":

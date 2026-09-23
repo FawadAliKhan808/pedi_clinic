@@ -319,10 +319,45 @@ The in-app list is always written, so a parent without notifications turned on
 themselves (the browser needs it to swap the install popup for an "open from
 your home screen" note), never by clinic staff.
 
-## AnalyticsApi — Not implemented (Phase 8)
+## AnalyticsApi — Implemented
 
-| Method | Input | Output | Auth |
-|---|---|---|---|
+| Method | Input | Output | Auth | Errors |
+|---|---|---|---|---|
+| `getDoctorAnalytics` | `clinicId, { from, to }` | `DoctorAnalyticsSummary` | Doctor of that clinic | `FORBIDDEN`, `INVALID_RANGE` (reversed, or over 366 days) |
+| `getEndOfDaySummary` | `clinicId, date` | `EndOfDaySummary` | Doctor of that clinic | `FORBIDDEN` |
+| `getOwnerOverview` | — | `OwnerOverview` | Owner only | `FORBIDDEN` |
+
+Backed by the `SECURITY DEFINER` functions `doctor_analytics`,
+`end_of_day_summary` and `owner_overview`, each checking the caller's role
+from `staff` first. Execution is revoked from `anon`.
+
+Definitions:
+
+- **Patients** are completed visits. **Revenue** is consultation money
+  (`fees` by type, `payments` by mode), not pharmacy sales.
+- `daily` has one row per date in the range, zero-filled; week and month
+  views are summed in the browser (weeks start Monday).
+- **New vs returning**: a child is returning if they had a completed visit
+  on an earlier date.
+- **Average consultation**: from `consultation_started_at` (set by
+  `start_consultation`; falls back to `called_at` for older visits) to
+  `completed_at`.
+- **Check-in hours** are clinic-local (`clinics.timezone`).
+- **Same-day vs booked** (`walkInsVsAppointments`): tokens without / with an
+  appointment, excluding removed tokens.
+- **Follow-ups returned**: follow-ups due in the range (up to today) whose
+  child had a completed visit within `follow_up_return_grace_days` (setting,
+  default 7) of the due date.
+- **End of day** `notArrived`: still `booked` with no token — becomes
+  `missed` after the day ends.
+- **Owner usage** uses `visits.source` (`app` | `walk_in`, set by
+  `add_walk_in`), across every clinic. `parentsRegistered` counts parents
+  with a login (walk-in-only parents are excluded).
+
+Doctor analytics never include ratings or install/notification adoption,
+and the owner overview never includes revenue or children (brief 5.2/5.4).
+
+---|---|---|---|
 | `getDoctorSummary` | `clinicId, { from, to }` | `DoctorAnalyticsSummary` | Doctor only |
 | `getEndOfDaySummary` | `clinicId, date` | `EndOfDaySummary` | Doctor only |
 | `getOwnerAdoption` | — | `OwnerAdoptionSummary` | Owner only |

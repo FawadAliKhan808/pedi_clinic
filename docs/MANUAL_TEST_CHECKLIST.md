@@ -107,6 +107,23 @@ on real hardware:
 - [ ] A parent arriving with a booking and checking in: the doctor's queue card
       shows the **Appointment** badge, and the token keeps its normal place.
 
+## Analytics & owner dashboard (Phase 8)
+
+The numbers are verified by `npm run test:analytics`; the doctor's
+Analytics screen was checked in a desktop browser at 390px and 820px.
+
+- [ ] **Owner dashboard** (not viewed during development — signing in needs
+      the owner password): sign in at `/owner/login` with the owner login
+      printed by `npm run provision`; check the rating, distribution,
+      adoption tiles and usage bar on a phone and a laptop.
+- [ ] Doctor or pharmacist signing in at `/owner/login` is refused; the
+      owner signing in at `/admin/login` lands on `/owner`.
+- [ ] Analytics on a real phone: charts readable, tapping a column shows its
+      tooltip, "Table" switches every chart to numbers.
+- [ ] Dark mode: chart colours stay distinguishable.
+- [ ] Once real visits exist, spot-check End of day against the cash drawer
+      and UPI app for one day.
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.

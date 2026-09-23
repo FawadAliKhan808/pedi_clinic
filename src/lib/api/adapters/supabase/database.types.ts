@@ -683,10 +683,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -698,10 +700,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at?: string | null
+          consultation_started_at?: string | null
           created_at?: string
           follow_up_date?: string | null
           id?: string
           seq: number
+          source?: Database["public"]["Enums"]["visit_source"]
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string
           visit_date: string
@@ -713,10 +717,12 @@ export type Database = {
           child_id?: string
           clinic_id?: string
           completed_at?: string | null
+          consultation_started_at?: string | null
           created_at?: string
           follow_up_date?: string | null
           id?: string
           seq?: number
+          source?: Database["public"]["Enums"]["visit_source"]
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string
           visit_date?: string
@@ -792,10 +798,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -841,10 +849,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -893,10 +903,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -943,10 +955,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -1033,10 +1047,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -1133,6 +1149,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      doctor_analytics: {
+        Args: { p_clinic_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
       doctor_queue: {
         Args: { p_clinic_id: string }
         Returns: {
@@ -1149,6 +1169,10 @@ export type Database = {
           status: Database["public"]["Enums"]["visit_status"]
           visit_id: string
         }[]
+      }
+      end_of_day_summary: {
+        Args: { p_clinic_id: string; p_date: string }
+        Returns: Json
       }
       is_clinic_staff: {
         Args: {
@@ -1196,6 +1220,7 @@ export type Database = {
         Args: { p_appointment_id: string }
         Returns: undefined
       }
+      owner_overview: { Args: never; Returns: Json }
       parent_queue_view: {
         Args: never
         Returns: {
@@ -1264,10 +1289,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -1380,10 +1407,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -1404,10 +1433,12 @@ export type Database = {
           child_id: string
           clinic_id: string
           completed_at: string | null
+          consultation_started_at: string | null
           created_at: string
           follow_up_date: string | null
           id: string
           seq: number
+          source: Database["public"]["Enums"]["visit_source"]
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string
           visit_date: string
@@ -1497,6 +1528,7 @@ export type Database = {
       pharmacy_order_status: "pending" | "dispensed" | "skipped"
       staff_role: "doctor" | "pharmacist" | "owner"
       visit_reason: "vaccination" | "general_checkup"
+      visit_source: "app" | "walk_in"
       visit_status:
         | "waiting"
         | "called"
@@ -1656,6 +1688,7 @@ export const Constants = {
       pharmacy_order_status: ["pending", "dispensed", "skipped"],
       staff_role: ["doctor", "pharmacist", "owner"],
       visit_reason: ["vaccination", "general_checkup"],
+      visit_source: ["app", "walk_in"],
       visit_status: [
         "waiting",
         "called",

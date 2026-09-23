@@ -70,6 +70,7 @@ npm run test:visit        # end-to-end: complete a visit, and who may see the mo
 npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
 npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
 npm run test:appointments # booking rules, doctor changes, arrival linking, scheduled jobs
+npm run test:analytics    # role gates, ranges, and every analytics number moving as it should
 npm run configure:dispatch # after deploying: lets scheduled reminders trigger push (APP_URL=https://…)
 ```
 
@@ -93,8 +94,10 @@ src/
     admin/(terminal)/     Staff terminal, guarded server-side by staff role
       (doctor)/           Queue, appointments, analytics, availability
       (pharmacist)/       Pharmacy feed and stock
+    owner/                Owner (team) dashboard: /owner/login, /owner
   components/
     admin/ parent/ ui/    Role-specific screens and the shared design system
+    charts/ analytics/    Chart primitives (plain HTML/CSS) and the analytics views
   fonts/                  Self-hosted variable font (next/font/local)
   lib/api/                Backend-agnostic interfaces (Auth, Parents, Queue, ...)
     adapters/supabase/    The one implementation, today

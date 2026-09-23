@@ -54,6 +54,9 @@ const settings = {
   reminder_morning_time: process.env.DEMO_REMINDER_MORNING_TIME ?? "08:00",
   reminder_evening_time: process.env.DEMO_REMINDER_EVENING_TIME ?? "19:00",
   follow_up_reminder_days_before: Number(process.env.DEMO_FOLLOW_UP_DAYS_BEFORE ?? 2),
+  // Analytics: a follow-up counts as "returned" if the child is seen again
+  // within this many days after the follow-up date.
+  follow_up_return_grace_days: Number(process.env.DEMO_FOLLOW_UP_GRACE_DAYS ?? 7),
 };
 
 function fail(step, error) {

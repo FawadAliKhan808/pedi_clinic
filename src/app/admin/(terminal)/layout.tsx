@@ -15,9 +15,8 @@ export default async function TerminalLayout({
 }) {
   const staff = await getStaffContext();
 
-  if (!staff || staff.role === "owner") {
-    redirect("/admin/login");
-  }
+  if (!staff) redirect("/admin/login");
+  if (staff.role === "owner") redirect("/owner");
 
   return <StaffShell role={staff.role}>{children}</StaffShell>;
 }
