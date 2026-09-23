@@ -3,7 +3,7 @@
 import { ChevronRight, FolderClock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ParentTabs } from "@/components/parent/parent-tabs";
+import { ParentShell } from "@/components/parent/parent-shell";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
@@ -34,7 +34,7 @@ export default function RecordsPage() {
   }, [router, toast]);
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <ParentShell>
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Records</h1>
         <p className="text-sm text-foreground-muted">
@@ -42,7 +42,7 @@ export default function RecordsPage() {
         </p>
       </header>
 
-      <div className="flex flex-col gap-3 px-5 py-3">
+      <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
         {children === null ? (
           <>
             <Skeleton className="h-20 w-full" />
@@ -83,9 +83,7 @@ export default function RecordsPage() {
           onClose={() => setOpenChild(null)}
         />
       )}
-
-      <ParentTabs />
-    </div>
+    </ParentShell>
   );
 }
 

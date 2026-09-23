@@ -37,7 +37,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+    // Spans every column when it sits in a card grid.
+    <div className="col-span-full flex flex-col items-center gap-3 px-6 py-12 text-center">
       {icon && <div className="text-foreground-muted">{icon}</div>}
       <p className="text-lg font-semibold text-foreground">{title}</p>
       {description && (

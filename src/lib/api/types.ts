@@ -201,14 +201,25 @@ export interface OrderItem {
   unitPrice: number;
 }
 
+/** 'HH:MM' or 'HH:MM:SS', clinic-local. */
+export type ClockTime = string;
+
 export interface AvailabilitySession {
   id: UUID;
   clinicId: UUID;
   date: ISODateString;
-  startTime: string;
-  endTime: string;
+  startTime: ClockTime;
+  endTime: ClockTime;
   maxBookings: number;
   bookedCount: number;
+}
+
+/** "Today" and the bookable range, as the clinic's timezone and settings define them. */
+export interface BookingWindow {
+  clinicId: UUID;
+  today: ISODateString;
+  fromDate: ISODateString;
+  toDate: ISODateString;
 }
 
 export type AppointmentStatus = "booked" | "cancelled" | "missed" | "attended";
@@ -217,8 +228,43 @@ export interface Appointment {
   id: UUID;
   sessionId: UUID;
   childId: UUID;
+  appointmentDate: ISODateString;
   status: AppointmentStatus;
   createdAt: ISODateTimeString;
+}
+
+/** One of the signed-in parent's upcoming bookings. */
+export interface ParentAppointment {
+  appointmentId: UUID;
+  childId: UUID;
+  childName: string;
+  sessionId: UUID;
+  date: ISODateString;
+  startTime: ClockTime;
+  endTime: ClockTime;
+  status: AppointmentStatus;
+}
+
+export interface ClinicAppointment {
+  appointmentId: UUID;
+  status: AppointmentStatus;
+  childId: UUID;
+  childName: string;
+  childDob: ISODateString;
+  parentPhone: string;
+  /** The token it was linked to on arrival, if any. */
+  tokenSeq: number | null;
+}
+
+/** A session with its bookings — the doctor's appointments view. */
+export interface ClinicSessionSchedule {
+  sessionId: UUID;
+  date: ISODateString;
+  startTime: ClockTime;
+  endTime: ClockTime;
+  maxBookings: number;
+  bookedCount: number;
+  appointments: ClinicAppointment[];
 }
 
 export interface AppNotification {

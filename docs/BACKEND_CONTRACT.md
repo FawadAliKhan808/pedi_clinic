@@ -196,22 +196,60 @@ Dispensing and stock are **pharmacist-only**, including against the doctor —
 mirroring the rule that fees are doctor-only. The pharmacist does get the
 prescription photos they need to fill the order.
 
-## AppointmentsApi — Not implemented (Phase 7)
+## AppointmentsApi — Implemented
 
-| Method | Input | Output |
+| Method | Input | Output | Errors | Auth |
+|---|---|---|---|---|
+| `getBookingWindow` | — | `BookingWindow` | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
+| `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
+| `listMyAppointments` | — | `ParentAppointment[]` | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, upcoming, booked |
+| `book` | `{ sessionId, childId }` | `Appointment` | `CHILD_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW`, `SESSION_FULL`, `APPOINTMENT_EXISTS_FOR_DAY` | Parent of that child |
+| `reschedule` | `appointmentId, newSessionId` | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
+| `cancel` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
+| `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
+| `createSession` | `{ clinicId, date, startTime, endTime, maxBookings }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES`, `SESSION_OVERLAP` | Clinic doctor |
+| `updateSessionCapacity` | `sessionId, maxBookings` | `AvailabilitySession` | `CAPACITY_BELOW_BOOKINGS`, `FORBIDDEN` | Clinic doctor |
+| `cancelSession` | `sessionId` | bookings affected | `SESSION_NOT_FOUND`, `FORBIDDEN` | Clinic doctor |
+| `closeDay` | `clinicId, date` | bookings affected | `FORBIDDEN` | Clinic doctor |
+| `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | sessions created | `FORBIDDEN` | Clinic doctor |
+
+**Booking is race-safe.** `book_appointment` locks the session row before
+counting its bookings, so concurrent taps can't overbook: 8 simultaneous
+bookings for a 3-slot session yield exactly 3 (`scripts/test-concurrency.mjs`).
+"One appointment per child per day" is a partial unique index.
+
+**The booking window** is today plus the next `booking_window_days − 1` days, in
+the clinic's timezone, from `settings`. Parents are held to it; the doctor
+isn't when rescheduling. `max_bookings` is only the appointment share of a
+session — everyone else is a walk-in, so there's no separate walk-in setting.
+
+**Who gets told.** Any change the *doctor* makes — reschedule, cancel, cancel a
+session, close a day — writes an `appointment_changed` notification for each
+affected parent in the same transaction, and the doctor's screen triggers push
+delivery immediately. A parent's own changes don't notify them.
+
+**Arrival.** `assign_token` (behind both self check-in and walk-ins) links the
+child's booked appointment for today, if any, and marks it `attended`. The
+token still takes its normal place: appointments never change queue order.
+
+## Scheduled jobs (pg_cron)
+
+`run_scheduled_jobs()` runs every 5 minutes. For each clinic, each daily job
+fires once — the first tick after the clinic-local time set in `settings` — and
+catches up if a tick was missed (`scheduled_job_runs` records each run).
+
+| Job | When | What |
 |---|---|---|
-| `listOpenSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` |
-| `book` | `{ sessionId, childId }` | `Appointment` |
-| `reschedule` | `appointmentId, newSessionId` | `Appointment` |
-| `cancel` | `appointmentId` | `void` |
-| `listMyAppointments` | — | `Appointment[]` |
-| `createSession` | `AvailabilitySession` (minus id/bookedCount) | `AvailabilitySession` |
-| `cancelSession` | `sessionId` | `void` |
-| `closeDay` | `clinicId, date` | `void` |
-| `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | `void` |
+| Morning run | `reminder_morning_time` | "Appointment today" + follow-up reminders |
+| Evening run | `reminder_evening_time` | "Appointment tomorrow" |
+| Missed marking | every tick | Past-day bookings with no token → `missed` |
 
-Booking/cancel must be race-safe transactional Postgres functions (brief
-Section 3).
+Follow-up reminders go out `follow_up_reminder_days_before` days ahead; a
+follow-up set at shorter notice is reminded the next morning. Every reminder is
+once-only (partial unique indexes on `notifications`). After a run creates
+notifications, the database asks the app to push them via `pg_net` — the URL
+and secret live in Supabase Vault, set by `npm run configure:dispatch` once
+deployed. Until then reminders wait in the in-app list.
 
 ## NotificationsApi — Implemented
 

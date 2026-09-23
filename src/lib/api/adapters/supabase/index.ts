@@ -1,6 +1,6 @@
 import type { Api } from "../..";
 import type { AnalyticsApi } from "../../analytics";
-import type { AppointmentsApi } from "../../appointments";
+import { SupabaseAppointmentsApi } from "./appointments";
 import { SupabaseAuthApi } from "./auth";
 import type { TypedSupabaseClient } from "./client.browser";
 import { notImplementedApi } from "./not-implemented";
@@ -26,8 +26,8 @@ export function createSupabaseApi(client: TypedSupabaseClient): Api {
     storage: new SupabaseStorageApi(client),
     pharmacy: new SupabasePharmacyApi(client),
     notifications: new SupabaseNotificationsApi(client),
+    appointments: new SupabaseAppointmentsApi(client),
     // Built out phase-by-phase as their tables/DB functions land.
-    appointments: notImplementedApi<AppointmentsApi>("AppointmentsApi"),
     analytics: notImplementedApi<AnalyticsApi>("AnalyticsApi"),
   };
 }

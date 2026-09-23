@@ -53,9 +53,9 @@ export default function StockPage() {
         </button>
       </header>
 
-      <div className="flex flex-col gap-3 px-5 py-3">
+      <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
         {lowStock.length > 0 && (
-          <Card className="flex items-start gap-3 border-warning/40 bg-warning/10">
+          <Card className="col-span-full flex items-start gap-3 border-warning/40 bg-warning/10">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" />
             <div>
               <p className="font-semibold text-foreground">

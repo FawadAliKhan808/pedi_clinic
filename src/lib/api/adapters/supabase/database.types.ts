@@ -39,6 +39,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_date: string
+          cancelled_at: string | null
+          child_id: string
+          created_at: string
+          id: string
+          session_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          cancelled_at?: string | null
+          child_id: string
+          created_at?: string
+          id?: string
+          session_id: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          cancelled_at?: string | null
+          child_id?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "availability_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      availability_sessions: {
+        Row: {
+          cancelled_at: string | null
+          clinic_id: string
+          created_at: string
+          date: string
+          end_time: string
+          id: string
+          max_bookings: number
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          clinic_id: string
+          created_at?: string
+          date: string
+          end_time: string
+          id?: string
+          max_bookings: number
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          clinic_id?: string
+          created_at?: string
+          date?: string
+          end_time?: string
+          id?: string
+          max_bookings?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_sessions_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       children: {
         Row: {
           created_at: string
@@ -205,6 +297,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          appointment_id: string | null
           created_at: string
           id: string
           payload: Json
@@ -216,6 +309,7 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          appointment_id?: string | null
           created_at?: string
           id?: string
           payload?: Json
@@ -227,6 +321,7 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          appointment_id?: string | null
           created_at?: string
           id?: string
           payload?: Json
@@ -238,6 +333,13 @@ export type Database = {
           visit_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_visit_id_fkey"
             columns: ["visit_id"]
@@ -484,6 +586,35 @@ export type Database = {
           },
         ]
       }
+      scheduled_job_runs: {
+        Row: {
+          clinic_id: string
+          job: string
+          ran_at: string
+          run_date: string
+        }
+        Insert: {
+          clinic_id: string
+          job: string
+          ran_at?: string
+          run_date: string
+        }
+        Update: {
+          clinic_id?: string
+          job?: string
+          ran_at?: string
+          run_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_job_runs_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           clinic_id: string
@@ -593,6 +724,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "visits_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "visits_child_id_fkey"
             columns: ["child_id"]
             isOneToOne: false
@@ -670,6 +808,25 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      appointment_sessions: {
+        Args: { p_clinic_id: string; p_from: string; p_to: string }
+        Returns: {
+          booked_count: number
+          clinic_id: string
+          date: string
+          end_time: string
+          max_bookings: number
+          session_id: string
+          start_time: string
+        }[]
+      }
+      assert_session_bookable: {
+        Args: {
+          p_enforce_window: boolean
+          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
+        }
+        Returns: undefined
+      }
       assign_token: {
         Args: {
           p_appointment_id: string
@@ -700,6 +857,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      book_appointment: {
+        Args: { p_child_id: string; p_session_id: string }
+        Returns: {
+          appointment_date: string
+          cancelled_at: string | null
+          child_id: string
+          created_at: string
+          id: string
+          session_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      booking_window: {
+        Args: never
+        Returns: {
+          clinic_id: string
+          from_date: string
+          to_date: string
+          today: string
+        }[]
+      }
       call_visit: {
         Args: { p_visit_id: string }
         Returns: {
@@ -726,6 +911,26 @@ export type Database = {
       }
       can_access_visit: { Args: { p_visit_id: string }; Returns: boolean }
       can_edit_visit: { Args: { p_visit_id: string }; Returns: boolean }
+      cancel_appointment: {
+        Args: { p_appointment_id: string }
+        Returns: {
+          appointment_date: string
+          cancelled_at: string | null
+          child_id: string
+          created_at: string
+          id: string
+          session_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancel_session: { Args: { p_session_id: string }; Returns: number }
       check_in: {
         Args: {
           p_appointment_id?: string
@@ -770,6 +975,7 @@ export type Database = {
       claim_pending_pushes: {
         Args: { p_limit?: number }
         Returns: {
+          appointment_id: string | null
           created_at: string
           id: string
           payload: Json
@@ -787,7 +993,30 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      clinic_appointments: {
+        Args: { p_clinic_id: string; p_from: string; p_to: string }
+        Returns: {
+          appointment_id: string
+          appointment_status: Database["public"]["Enums"]["appointment_status"]
+          booked_count: number
+          child_dob: string
+          child_id: string
+          child_name: string
+          date: string
+          end_time: string
+          max_bookings: number
+          parent_phone: string
+          session_id: string
+          start_time: string
+          token_seq: number
+        }[]
+      }
+      clinic_local_time: { Args: { p_clinic_id: string }; Returns: string }
       clinic_today: { Args: { p_clinic_id: string }; Returns: string }
+      close_day: {
+        Args: { p_clinic_id: string; p_date: string }
+        Returns: number
+      }
       complete_visit: {
         Args: {
           p_consultation: number
@@ -816,6 +1045,44 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "visits"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      configure_notification_dispatch: {
+        Args: { p_secret: string; p_url: string }
+        Returns: undefined
+      }
+      copy_week: {
+        Args: {
+          p_clinic_id: string
+          p_from_week_start: string
+          p_to_week_start: string
+        }
+        Returns: number
+      }
+      create_session: {
+        Args: {
+          p_clinic_id: string
+          p_date: string
+          p_end_time: string
+          p_max_bookings: number
+          p_start_time: string
+        }
+        Returns: {
+          cancelled_at: string | null
+          clinic_id: string
+          created_at: string
+          date: string
+          end_time: string
+          id: string
+          max_bookings: number
+          start_time: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "availability_sessions"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -876,11 +1143,32 @@ export type Database = {
         Args: { roles: Database["public"]["Enums"]["staff_role"][] }
         Returns: boolean
       }
+      mark_missed_appointments: {
+        Args: { p_clinic_id: string; p_today: string }
+        Returns: number
+      }
       mark_notifications_read: {
         Args: { p_ids?: string[] }
         Returns: undefined
       }
       mark_pushes_sent: { Args: { p_ids: string[] }; Returns: undefined }
+      my_appointments: {
+        Args: never
+        Returns: {
+          appointment_id: string
+          child_id: string
+          child_name: string
+          date: string
+          end_time: string
+          session_id: string
+          start_time: string
+          status: Database["public"]["Enums"]["appointment_status"]
+        }[]
+      }
+      notify_appointment_change: {
+        Args: { p_appointment_id: string; p_change: string }
+        Returns: undefined
+      }
       parent_queue_view: {
         Args: never
         Returns: {
@@ -965,6 +1253,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      request_push_dispatch: { Args: never; Returns: undefined }
+      reschedule_appointment: {
+        Args: { p_appointment_id: string; p_new_session_id: string }
+        Returns: {
+          appointment_date: string
+          cancelled_at: string | null
+          child_id: string
+          created_at: string
+          id: string
+          session_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       restock_medicine: {
         Args: { p_medicine_id: string; p_quantity: number }
         Returns: {
@@ -985,6 +1293,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      run_scheduled_jobs: { Args: never; Returns: Json }
       search_children: {
         Args: { p_clinic_id: string; p_query: string }
         Returns: {
@@ -997,9 +1306,25 @@ export type Database = {
           parent_phone: string
         }[]
       }
+      send_appointment_reminders: {
+        Args: {
+          p_clinic_id: string
+          p_date: string
+          p_kind: Database["public"]["Enums"]["notification_type"]
+        }
+        Returns: number
+      }
+      send_follow_up_reminders: {
+        Args: { p_clinic_id: string; p_today: string }
+        Returns: number
+      }
       setting_int: {
         Args: { p_clinic_id: string; p_key: string }
         Returns: number
+      }
+      setting_text: {
+        Args: { p_clinic_id: string; p_key: string }
+        Returns: string
       }
       skip_pharmacy_order: {
         Args: { p_visit_id: string }
@@ -1068,6 +1393,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_session_capacity: {
+        Args: { p_max_bookings: number; p_session_id: string }
+        Returns: {
+          cancelled_at: string | null
+          clinic_id: string
+          created_at: string
+          date: string
+          end_time: string
+          id: string
+          max_bookings: number
+          start_time: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "availability_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       upsert_parent_profile: {
         Args: { p_name?: string }
         Returns: {
@@ -1105,6 +1450,7 @@ export type Database = {
       }
     }
     Enums: {
+      appointment_status: "booked" | "cancelled" | "missed" | "attended"
       notification_type:
         | "third_in_line"
         | "your_turn"
@@ -1253,6 +1599,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      appointment_status: ["booked", "cancelled", "missed", "attended"],
       notification_type: [
         "third_in_line",
         "your_turn",

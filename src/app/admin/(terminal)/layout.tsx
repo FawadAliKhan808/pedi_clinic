@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { BottomTabs } from "@/components/admin/bottom-tabs";
+import { StaffShell } from "@/components/admin/staff-shell";
 import { getStaffContext } from "@/lib/auth/staff";
 
 /**
@@ -19,10 +19,5 @@ export default async function TerminalLayout({
     redirect("/admin/login");
   }
 
-  return (
-    <div className="flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-      {children}
-      <BottomTabs role={staff.role} />
-    </div>
-  );
+  return <StaffShell role={staff.role}>{children}</StaffShell>;
 }

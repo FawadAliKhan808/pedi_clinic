@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
-import { ParentTabs } from "@/components/parent/parent-tabs";
+import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -85,7 +85,7 @@ export default function QueuePage() {
   }, [clinicId, refresh]);
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <ParentShell>
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
         <Link
           href="/"
@@ -98,7 +98,7 @@ export default function QueuePage() {
       </header>
 
       {entries === null ? (
-        <div className="flex flex-col gap-4 px-5 py-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-5 py-6">
           <Skeleton className="h-64 w-full" />
         </div>
       ) : entries.length === 0 ? (
@@ -112,7 +112,7 @@ export default function QueuePage() {
           }
         />
       ) : (
-        <div className="flex flex-col gap-5 px-5 py-4">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-5 px-5 py-4">
           {entries.map((entry) => (
             <section
               key={entry.visitId}
@@ -167,8 +167,6 @@ export default function QueuePage() {
           </Card>
         </div>
       )}
-
-      <ParentTabs />
-    </div>
+    </ParentShell>
   );
 }

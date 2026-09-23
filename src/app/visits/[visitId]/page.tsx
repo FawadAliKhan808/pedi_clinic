@@ -4,7 +4,7 @@ import { ArrowLeft, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ParentTabs } from "@/components/parent/parent-tabs";
+import { ParentShell } from "@/components/parent/parent-shell";
 import { RatingPrompt } from "@/components/parent/rating-prompt";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -39,7 +39,7 @@ export default function VisitSummaryPage() {
   }, [params.visitId, toast]);
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <ParentShell>
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
         <Link
           href="/"
@@ -52,7 +52,7 @@ export default function VisitSummaryPage() {
       </header>
 
       {summary === null ? (
-        <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-5 py-4">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-32 w-full" />
         </div>
@@ -62,7 +62,7 @@ export default function VisitSummaryPage() {
           description="This visit isn't available on your account."
         />
       ) : (
-        <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-5 py-4">
           <Card className="flex flex-col gap-1">
             <p className="text-lg font-bold text-foreground">{summary.childName}</p>
             <p className="text-sm text-foreground-muted">
@@ -117,8 +117,6 @@ export default function VisitSummaryPage() {
           )}
         </div>
       )}
-
-      <ParentTabs />
-    </div>
+    </ParentShell>
   );
 }

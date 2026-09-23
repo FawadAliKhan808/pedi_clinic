@@ -1,13 +1,15 @@
 "use client";
 
-import { ChevronRight, LogOut, Plus, UserRound } from "lucide-react";
+import { ChevronRight, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
 import { NotificationBell } from "@/components/parent/notification-bell";
 import { ParentAuth } from "@/components/parent/parent-auth";
-import { ParentTabs } from "@/components/parent/parent-tabs";
+import { StickyActionBar } from "@/components/layout/nav-shell";
+import { SignOutButton } from "@/components/layout/sign-out-button";
+import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -80,7 +82,7 @@ export default function ParentHome() {
 
   if (stage === "loading") {
     return (
-      <div className="flex flex-1 flex-col gap-4 px-5 py-8">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-5 py-8">
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-20 w-full" />
@@ -97,21 +99,12 @@ export default function ParentHome() {
   }
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(11rem+env(safe-area-inset-bottom))]">
+    <ParentShell>
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Pedi Clinic</h1>
         <div className="flex items-center">
         {userId && <NotificationBell userId={userId} />}
-        <button
-          aria-label="Sign out"
-          onClick={async () => {
-            await getBrowserApi().auth.signOut();
-            setStage("signed-out");
-          }}
-          className="flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
-        >
-          <LogOut className="size-5" />
-        </button>
+        <SignOutButton redirectTo="/" variant="icon" className="md:hidden" />
         </div>
       </header>
 
@@ -121,6 +114,7 @@ export default function ParentHome() {
 
       {tokens.length > 0 && (
         <section className="flex flex-col gap-3 px-5 py-3">
+          <div className="contents @2xl:grid @2xl:grid-cols-2 @2xl:gap-3 @4xl:grid-cols-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
             Today&apos;s tokens
           </h2>
@@ -141,6 +135,7 @@ export default function ParentHome() {
               </Card>
             </Link>
           ))}
+          </div>
         </section>
       )}
 
@@ -168,7 +163,8 @@ export default function ParentHome() {
             }
           />
         ) : (
-          children.map((child) => (
+          <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
+          {children.map((child) => (
             <Card key={child.id} className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-foreground">{child.name}</p>
@@ -184,19 +180,19 @@ export default function ParentHome() {
                 </span>
               )}
             </Card>
-          ))
+          ))}
+          </div>
         )}
       </section>
 
-      {/* Sits directly above the tab bar. */}
       {children.length > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mx-auto w-full max-w-md border-t border-border bg-surface px-5 py-3">
+        <StickyActionBar aboveNav>
           <Link href="/check-in">
             <Button fullWidth variant="accent">
               Check in
             </Button>
           </Link>
-        </div>
+        </StickyActionBar>
       )}
 
       <AddChildSheet
@@ -205,8 +201,7 @@ export default function ParentHome() {
         onAdded={(child) => setChildren((current) => [...current, child])}
       />
 
-      <ParentTabs />
-    </div>
+    </ParentShell>
   );
 }
 
@@ -228,7 +223,7 @@ function NameStep({ onSaved }: { onSaved: () => void }) {
 
   return (
     <form
-      className="flex flex-1 flex-col justify-center gap-6 px-6 py-10"
+      className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-6 py-10"
       onSubmit={(event) => {
         event.preventDefault();
         void save();

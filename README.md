@@ -64,11 +64,13 @@ npm run db:types   # regenerate database.types.ts after a schema change
 
 ```bash
 npm run provision         # clinic + settings + doctor/pharmacist/owner logins (idempotent)
-npm run test:concurrency  # proves tokens can't duplicate and stock can't oversell
+npm run test:concurrency  # proves tokens can't duplicate, stock can't oversell, sessions can't overbook
 npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
 npm run test:visit        # end-to-end: complete a visit, and who may see the money
 npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
 npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
+npm run test:appointments # booking rules, doctor changes, arrival linking, scheduled jobs
+npm run configure:dispatch # after deploying: lets scheduled reminders trigger push (APP_URL=https://…)
 ```
 
 The test scripts run against the live project. They create only their own data,
@@ -115,6 +117,13 @@ function that checks authorization itself.
 Colour, radius, shadow, and type tokens live in `src/app/globals.css` as CSS
 custom properties mapped into Tailwind's `@theme`. Light theme is default;
 dark follows `prefers-color-scheme` automatically. Icon set: `lucide-react`.
+
+**Mobile-first, not mobile-only.** `NavShell` (`src/components/layout/`) gives
+bottom tabs on phones, an icon rail on tablets and a full sidebar on laptops.
+Sheets are full-screen on phones and a right-hand drawer from tablet width up;
+the main action button is pinned to the bottom on phones and sits inline wider
+up. Card grids use container queries (`@2xl:`/`@4xl:`) so the column count
+follows the space actually available beside the nav.
 
 ## Deploy
 

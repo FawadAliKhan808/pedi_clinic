@@ -14,7 +14,9 @@
     "test:queue": "node --env-file=.env.local scripts/smoke-test-queue.mjs",
     "test:visit": "node --env-file=.env.local scripts/smoke-test-visit.mjs",
     "test:pharmacy": "node --env-file=.env.local scripts/smoke-test-pharmacy.mjs",
-    "test:notifications": "node --env-file=.env.local scripts/smoke-test-notifications.mjs"
+    "test:notifications": "node --env-file=.env.local scripts/smoke-test-notifications.mjs",
+    "configure:dispatch": "node --env-file=.env.local scripts/configure-dispatch.mjs",
+    "test:appointments": "node --env-file=.env.local scripts/smoke-test-appointments.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -76,6 +76,96 @@ async function assignToken(childId) {
 }
 
 /**
+ * Eight parents' taps on "Book" landing at once for a session with three
+ * slots. book_appointment locks the session row before counting, so exactly
+ * three succeed and the rest get SESSION_FULL.
+ */
+async function testBookingRace() {
+  const SLOTS = 3;
+  const ATTEMPTS = 8;
+
+  const parentClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const phone = process.env.DEMO_TEST_PHONE ?? "8088509302";
+  await parentClient.auth.signInWithOtp({ phone });
+  await must(
+    "parent OTP verify",
+    parentClient.auth.verifyOtp({
+      phone,
+      token: process.env.DEMO_TEST_OTP ?? "123456",
+      type: "sms",
+    })
+  );
+  const bookingParent = await must(
+    "booking parent",
+    parentClient.rpc("upsert_parent_profile", { p_name: null })
+  );
+
+  const [window] = await must("booking window", parentClient.rpc("booking_window"));
+  const tomorrow = new Date(`${window.today}T00:00:00Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+  const session = await must(
+    "create session",
+    db
+      .from("availability_sessions")
+      .insert({
+        clinic_id: clinic.id,
+        date: tomorrow.toISOString().slice(0, 10),
+        start_time: "09:00",
+        end_time: "10:00",
+        max_bookings: SLOTS,
+      })
+      .select("id")
+      .single()
+  );
+
+  const racers = await must(
+    "create booking children",
+    db
+      .from("children")
+      .insert(
+        Array.from({ length: ATTEMPTS }, (_, index) => ({
+          parent_id: bookingParent.id,
+          name: `Booking Race ${index + 1}`,
+          dob: "2021-01-01",
+        }))
+      )
+      .select("id")
+  );
+
+  try {
+    const attempts = await Promise.all(
+      racers.map((child) =>
+        parentClient.rpc("book_appointment", {
+          p_session_id: session.id,
+          p_child_id: child.id,
+        })
+      )
+    );
+
+    const booked = attempts.filter((result) => !result.error);
+    const full = attempts.filter((result) => result.error?.message.includes("SESSION_FULL"));
+    const { count } = await db
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", session.id)
+      .eq("status", "booked");
+
+    check(
+      `only ${SLOTS} of ${ATTEMPTS} concurrent bookings succeed`,
+      booked.length === SLOTS && full.length === ATTEMPTS - SLOTS,
+      `${booked.length} booked, ${full.length} full`
+    );
+    check("a session is never overbooked", count === SLOTS, `${count} bookings stored`);
+  } finally {
+    await db.from("availability_sessions").delete().eq("id", session.id);
+    await db.from("children").delete().in("id", racers.map((child) => child.id));
+  }
+}
+
+/**
  * Eight pharmacists hitting Dispense at once against stock that covers only
  * five of them. The prototype's read-then-write would let stock go negative;
  * dispense_order locks each medicine row, so exactly five can succeed.
@@ -226,6 +316,9 @@ try {
 
   // 3. Dispensing: eight simultaneous orders against stock that only covers five.
   await testDispenseRace();
+
+  // 4. Booking: eight simultaneous bookings for a session with three slots.
+  await testBookingRace();
 } finally {
   // children/visits/orders cascade from the parent row; medicines can only go
   // once the order_items referencing them are gone.

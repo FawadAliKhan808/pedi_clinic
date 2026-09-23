@@ -36,6 +36,41 @@ export function formatDate(date: ISODateString): string {
   });
 }
 
+/** "Wed, 24 Sept" — for session and appointment lists. */
+export function formatDayShort(date: ISODateString): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** "09:30:00" → "9:30 am". Session times are clinic-local wall-clock times. */
+export function formatClock(time: string): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+export function formatTimeRange(start: string, end: string): string {
+  return `${formatClock(start)} – ${formatClock(end)}`;
+}
+
+/** Adds days to a 'YYYY-MM-DD' date without timezone drift. */
+export function addDays(date: ISODateString, days: number): ISODateString {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+/** The Monday of the week containing `date`. */
+export function weekStart(date: ISODateString): ISODateString {
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return addDays(date, -((weekday + 6) % 7));
+}
+
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -115,6 +150,24 @@ export function errorMessage(error: unknown): string {
       return "The payment amounts must add up to the total exactly.";
     case "PRESCRIPTION_UPLOAD_FAILED":
       return "That photo didn't upload. Check your connection and retake it.";
+    case "SESSION_FULL":
+      return "That session just filled up. Please pick another time.";
+    case "APPOINTMENT_EXISTS_FOR_DAY":
+      return "This child already has an appointment that day.";
+    case "OUTSIDE_BOOKING_WINDOW":
+      return "That date is too far ahead to book yet.";
+    case "SESSION_IN_PAST":
+      return "That session has already finished.";
+    case "SESSION_CANCELLED":
+      return "That session was cancelled. Please pick another time.";
+    case "SESSION_OVERLAP":
+      return "That overlaps another session on the same day.";
+    case "INVALID_SESSION_TIMES":
+      return "The end time must be after the start time.";
+    case "CAPACITY_BELOW_BOOKINGS":
+      return "More appointments are already booked than that.";
+    case "INVALID_APPOINTMENT_STATUS":
+      return "That appointment can't be changed any more.";
     case "INVALID_STATUS_TRANSITION":
       return "That action isn't available for this token any more.";
     case "FORBIDDEN":

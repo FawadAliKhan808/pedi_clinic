@@ -3,6 +3,7 @@
 import { ArrowLeft, Check, Stethoscope, Syringe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { StickyActionBar } from "@/components/layout/nav-shell";
 import { Button } from "@/components/ui/button";
 import { SelectableCard } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/feedback";
@@ -57,7 +58,7 @@ export default function CheckInPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col">
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
         <button
           aria-label="Back"
@@ -69,8 +70,8 @@ export default function CheckInPage() {
         <h1 className="text-xl font-bold text-foreground">Check in</h1>
       </header>
 
-      <section className="flex flex-col gap-3 px-5 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
+      <section className="grid gap-3 px-5 py-3 md:grid-cols-2">
+        <h2 className="col-span-full text-sm font-semibold uppercase tracking-wide text-foreground-muted">
           Who is visiting?
         </h2>
         {children === null ? (
@@ -97,8 +98,8 @@ export default function CheckInPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3 px-5 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
+      <section className="grid gap-3 px-5 py-3 md:grid-cols-2">
+        <h2 className="col-span-full text-sm font-semibold uppercase tracking-wide text-foreground-muted">
           Reason for the visit
         </h2>
         {reasons.map(({ value, label, icon: Icon }) => (
@@ -118,7 +119,7 @@ export default function CheckInPage() {
         ))}
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-md border-t border-border bg-surface px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <StickyActionBar>
         <Button
           fullWidth
           variant="accent"
@@ -128,7 +129,7 @@ export default function CheckInPage() {
         >
           Get token
         </Button>
-      </div>
+      </StickyActionBar>
     </div>
   );
 }

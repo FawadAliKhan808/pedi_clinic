@@ -3,6 +3,7 @@
 import { CalendarCheck, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
 import { SearchChildrenSheet } from "@/components/admin/search-children-sheet";
@@ -114,10 +115,11 @@ export default function DoctorQueuePage() {
           >
             <Plus className="size-5" />
           </button>
+          <SignOutButton redirectTo="/admin/login" variant="icon" className="md:hidden" />
         </div>
       </header>
 
-      <div className="flex flex-col gap-3 px-5 py-3">
+      <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
         {entries === null ? (
           <>
             <Skeleton className="h-32 w-full" />
