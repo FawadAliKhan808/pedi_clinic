@@ -4,7 +4,7 @@ import { AlertTriangle, Package, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
@@ -16,6 +16,7 @@ export default function StockPage() {
   const toast = useToast();
   const [clinicId, setClinicId] = useState<UUID | null>(null);
   const [medicines, setMedicines] = useState<Medicine[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [restocking, setRestocking] = useState<Medicine | null>(null);
 
@@ -23,7 +24,11 @@ export default function StockPage() {
     getBrowserApi()
       .auth.getStaffRole()
       .then((staff) => setClinicId(staff?.clinicId ?? null))
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   const refresh = useCallback(() => {
@@ -31,7 +36,11 @@ export default function StockPage() {
     return getBrowserApi()
       .pharmacy.listMedicines(clinicId)
       .then(setMedicines)
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [clinicId, toast]);
 
   useEffect(() => {
@@ -68,7 +77,11 @@ export default function StockPage() {
           </Card>
         )}
 
-        {medicines === null ? (
+        {medicines === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : medicines === null ? (
           <>
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />

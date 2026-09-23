@@ -12,7 +12,7 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
@@ -51,17 +51,18 @@ async function loadParentState(): Promise<ParentState> {
 }
 
 export default function ParentHome() {
-  const toast = useToast();
   const [stage, setStage] = useState<Stage>("loading");
   const [children, setChildren] = useState<Child[]>([]);
   const [tokens, setTokens] = useState<ParentQueueEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [addChildOpen, setAddChildOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const bootstrap = useCallback(
     () =>
       loadParentState()
         .then((state) => {
+          setLoadError(null);
           setStage(state.stage);
           if (state.stage === "ready") {
             setUserId(state.userId);
@@ -69,16 +70,28 @@ export default function ParentHome() {
             setTokens(state.tokens);
           }
         })
-        .catch((caught) => {
-          toast(errorMessage(caught), "error");
-          setStage("signed-out");
-        }),
-    [toast]
+        // Offline or a server hiccup — not a reason to show the sign-in screen.
+        .catch((caught) => setLoadError(errorMessage(caught))),
+    []
   );
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  if (loadError) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
+        <ErrorState
+          message={loadError}
+          onRetry={() => {
+            setLoadError(null);
+            void bootstrap();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (stage === "loading") {
     return (

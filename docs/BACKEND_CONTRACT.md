@@ -368,6 +368,17 @@ Doctor analytics never include ratings or install/notification adoption
 
 ---
 
+## Maintenance (not part of the app's API)
+
+`reset_clinic_data()` truncates every parent, child, visit, appointment,
+session, medicine, pharmacy, rating, notification, push-subscription and
+install row in one transaction, and returns the counts it cleared. Clinics,
+settings and staff are kept. Execute is granted to `service_role` only, so
+no signed-in user (owner included) can call it; `npm run reset` wraps it and
+also removes prescription photos and parent logins.
+
+---
+
 ## Settings
 
 There is no `SettingsApi` — the brief's interface list doesn't include one.

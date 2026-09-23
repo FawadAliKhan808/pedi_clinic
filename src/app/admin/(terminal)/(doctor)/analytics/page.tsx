@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { EndOfDayView } from "@/components/analytics/end-of-day-view";
 import { TrendsView } from "@/components/analytics/trends-view";
 import { Segmented } from "@/components/charts/chart-card";
-import { Skeleton } from "@/components/ui/feedback";
+import { ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -17,6 +17,7 @@ export default function AnalyticsPage() {
   const [context, setContext] = useState<{ clinicId: UUID; today: string } | null>(null);
   const [view, setView] = useState<View>("day");
   const [day, setDay] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const api = getBrowserApi();
@@ -25,7 +26,11 @@ export default function AnalyticsPage() {
       .then(([staff, window]) => {
         if (staff?.clinicId) setContext({ clinicId: staff.clinicId, today: window.today });
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   return (
@@ -47,7 +52,9 @@ export default function AnalyticsPage() {
       </header>
 
       <div className="flex w-full max-w-6xl flex-col gap-4 px-5 py-3">
-        {!context ? (
+        {!context && loadError ? (
+          <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+        ) : !context ? (
           <Skeleton className="h-64 w-full" />
         ) : view === "day" ? (
           <EndOfDayView

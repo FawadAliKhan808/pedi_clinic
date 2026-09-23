@@ -9,7 +9,7 @@ import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
 import { SearchChildrenSheet } from "@/components/admin/search-children-sheet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useToast } from "@/components/ui/toast";
 import type { DoctorQueueEntry, UUID } from "@/lib/api";
@@ -43,6 +43,7 @@ export default function DoctorQueuePage() {
   const toast = useToast();
   const [clinicId, setClinicId] = useState<UUID | null>(null);
   const [entries, setEntries] = useState<DoctorQueueEntry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingVisitId, setPendingVisitId] = useState<UUID | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
@@ -58,7 +59,11 @@ export default function DoctorQueuePage() {
     void getBrowserApi()
       .auth.getStaffRole()
       .then((staff) => setClinicId(staff?.clinicId ?? null))
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   const refresh = useCallback(() => {
@@ -66,7 +71,11 @@ export default function DoctorQueuePage() {
     return getBrowserApi()
       .queue.getDoctorQueue(clinicId)
       .then(setEntries)
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [clinicId, toast]);
 
   useEffect(() => {
@@ -120,7 +129,11 @@ export default function DoctorQueuePage() {
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {entries === null ? (
+        {entries === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : entries === null ? (
           <>
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />

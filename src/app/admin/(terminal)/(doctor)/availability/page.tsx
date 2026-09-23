@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, UUID } from "@/lib/api";
@@ -27,6 +27,7 @@ export default function AvailabilityPage() {
   const [today, setToday] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ClinicSessionSchedule[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const api = getBrowserApi();
@@ -36,7 +37,11 @@ export default function AvailabilityPage() {
         setToday(window.today);
         setDate(window.today);
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   const refresh = useCallback(() => {
@@ -44,7 +49,11 @@ export default function AvailabilityPage() {
     return getBrowserApi()
       .appointments.listClinicSchedule(clinicId, date, date)
       .then(setSessions)
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [clinicId, date, toast]);
 
   useEffect(() => {
@@ -137,7 +146,11 @@ export default function AvailabilityPage() {
             />
           </div>
 
-          {sessions === null ? (
+          {sessions === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : sessions === null ? (
             <Skeleton className="h-24 w-full" />
           ) : sessions.length === 0 ? (
             <EmptyState

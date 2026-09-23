@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { nunito } from "@/fonts";
+import { OfflineBanner } from "@/components/offline-banner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-surface text-foreground">
         {/* Each screen sets its own width: phone-first, widening on tablets and laptops. */}
         <ToastProvider>{children}</ToastProvider>
+        <OfflineBanner />
         <ServiceWorkerRegister />
       </body>
     </html>

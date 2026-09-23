@@ -7,7 +7,7 @@ import { SessionPicker } from "@/components/appointments/session-picker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import type {
@@ -39,6 +39,7 @@ export default function DoctorAppointmentsPage() {
   const toast = useToast();
   const [range, setRange] = useState<Range | null>(null);
   const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<{
     appointment: ClinicAppointment;
     sessionId: UUID;
@@ -55,7 +56,11 @@ export default function DoctorAppointmentsPage() {
           to: addDays(window.today, DAYS_SHOWN - 1),
         });
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   const refresh = useCallback(() => {
@@ -63,7 +68,11 @@ export default function DoctorAppointmentsPage() {
     return getBrowserApi()
       .appointments.listClinicSchedule(range.clinicId, range.today, range.to)
       .then(setSchedule)
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [range, toast]);
 
   useEffect(() => {
@@ -99,7 +108,11 @@ export default function DoctorAppointmentsPage() {
       </header>
 
       <div className="flex flex-col gap-6 px-5 py-3">
-        {schedule === null ? (
+        {schedule === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : schedule === null ? (
           <>
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />

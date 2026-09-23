@@ -11,7 +11,7 @@ import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import type { AvailabilitySession, ParentAppointment } from "@/lib/api";
@@ -29,6 +29,7 @@ export default function MyAppointmentsPage() {
   const router = useRouter();
   const toast = useToast();
   const [appointments, setAppointments] = useState<ParentAppointment[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<ParentAppointment | null>(null);
 
   const refresh = useCallback(
@@ -38,7 +39,11 @@ export default function MyAppointmentsPage() {
           if (result === null) router.replace("/");
           else setAppointments(result);
         })
-        .catch((caught) => toast(errorMessage(caught), "error")),
+        .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      }),
     [router, toast]
   );
 
@@ -67,7 +72,11 @@ export default function MyAppointmentsPage() {
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {appointments === null ? (
+        {appointments === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : appointments === null ? (
           <>
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />

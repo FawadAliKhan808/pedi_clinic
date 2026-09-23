@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { AppNotification } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -29,6 +29,7 @@ function formatWhen(iso: string): string {
 export default function NotificationsPage() {
   const toast = useToast();
   const [items, setItems] = useState<AppNotification[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -44,7 +45,11 @@ export default function NotificationsPage() {
           return api.markRead(unreadIds).then(announceNotificationsChanged);
         }
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   useEffect(() => {
@@ -92,7 +97,11 @@ export default function NotificationsPage() {
       </header>
 
       <ul className="flex w-full max-w-3xl flex-col gap-3 px-5 py-3">
-        {items === null ? (
+        {items === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : items === null ? (
           <>
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />

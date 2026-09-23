@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { Button } from "@/components/ui/button";
 import { SelectableCard } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/feedback";
+import { ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { Child, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -25,6 +25,7 @@ export default function CheckInPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [reason, setReason] = useState<VisitReason | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -37,8 +38,8 @@ export default function CheckInPage() {
       const list = await api.parents.listMyChildren();
       setChildren(list);
       if (list.length === 1) setChildId(list[0].id);
-    })().catch((caught) => toast(errorMessage(caught), "error"));
-  }, [router, toast]);
+    })().catch((caught) => setLoadError(errorMessage(caught)));
+  }, [router]);
 
   async function getToken() {
     if (!childId || !reason) return;
@@ -74,7 +75,11 @@ export default function CheckInPage() {
         <h2 className="col-span-full text-sm font-semibold uppercase tracking-wide text-foreground-muted">
           Who is visiting?
         </h2>
-        {children === null ? (
+        {children === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : children === null ? (
           <>
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />

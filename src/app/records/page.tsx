@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
-import { useToast } from "@/components/ui/toast";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import type { Child } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -14,9 +13,9 @@ import { errorMessage, formatAge } from "@/lib/format";
 
 export default function RecordsPage() {
   const router = useRouter();
-  const toast = useToast();
   const [children, setChildren] = useState<Child[] | null>(null);
   const [openChild, setOpenChild] = useState<Child | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,12 +25,14 @@ export default function RecordsPage() {
         if (result === null) router.replace("/");
         else setChildren(result);
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        if (!cancelled) setLoadError(errorMessage(caught));
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [router, toast]);
+  }, [router]);
 
   return (
     <ParentShell>
@@ -43,7 +44,11 @@ export default function RecordsPage() {
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {children === null ? (
+        {children === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : children === null ? (
           <>
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />

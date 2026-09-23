@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const APP_SHELL_CACHE = `pedi-clinic-shell-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 
@@ -44,7 +44,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets: cache-first, then fall back to network.
+  // Static assets: cache-first, then fall back to network. Only the app's own
+  // files — never cross-origin responses such as prescription photos (signed
+  // Storage URLs), which must not outlive a sign-out on a shared phone.
+  if (new URL(request.url).origin !== self.location.origin) return;
   if (
     request.destination === "style" ||
     request.destination === "script" ||

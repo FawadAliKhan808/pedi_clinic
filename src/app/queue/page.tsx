@@ -8,9 +8,8 @@ import { InstallAndNotifications } from "@/components/parent/install-and-notific
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { StatusPill } from "@/components/ui/status-pill";
-import { useToast } from "@/components/ui/toast";
 import type { ParentQueueEntry, VisitStatus } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { cn, errorMessage, visitReasonLabels } from "@/lib/format";
@@ -56,18 +55,23 @@ async function loadQueue(): Promise<ParentQueueEntry[] | null> {
 
 export default function QueuePage() {
   const router = useRouter();
-  const toast = useToast();
   const [entries, setEntries] = useState<ParentQueueEntry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(
     () =>
       loadQueue()
         .then((view) => {
           if (view === null) router.replace("/");
-          else setEntries(view);
+          else {
+            setEntries(view);
+            setLoadError(null);
+          }
         })
-        .catch((caught) => toast(errorMessage(caught), "error")),
-    [router, toast]
+        // Shown only until the first load succeeds; after that a failed
+        // refresh keeps the last queue on screen (the offline banner explains).
+        .catch((caught) => setLoadError(errorMessage(caught))),
+    [router]
   );
 
   useEffect(() => {
@@ -97,7 +101,9 @@ export default function QueuePage() {
         <h1 className="text-xl font-bold text-foreground">Your queue</h1>
       </header>
 
-      {entries === null ? (
+      {entries === null && loadError ? (
+        <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+      ) : entries === null ? (
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-5 py-6">
           <Skeleton className="h-64 w-full" />
         </div>

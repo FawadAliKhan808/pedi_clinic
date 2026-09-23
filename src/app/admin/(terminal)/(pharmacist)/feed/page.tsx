@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DispenseSheet } from "@/components/admin/dispense-sheet";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { PharmacyFeedEntry, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -15,13 +15,18 @@ export default function PharmacyFeedPage() {
   const toast = useToast();
   const [clinicId, setClinicId] = useState<UUID | null>(null);
   const [entries, setEntries] = useState<PharmacyFeedEntry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [dispensing, setDispensing] = useState<PharmacyFeedEntry | null>(null);
 
   useEffect(() => {
     getBrowserApi()
       .auth.getStaffRole()
       .then((staff) => setClinicId(staff?.clinicId ?? null))
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [toast]);
 
   const refresh = useCallback(() => {
@@ -29,7 +34,11 @@ export default function PharmacyFeedPage() {
     return getBrowserApi()
       .pharmacy.getFeed(clinicId)
       .then(setEntries)
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        const message = errorMessage(caught);
+        setLoadError(message);
+        toast(message, "error");
+      });
   }, [clinicId, toast]);
 
   useEffect(() => {
@@ -52,7 +61,11 @@ export default function PharmacyFeedPage() {
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {entries === null ? (
+        {entries === null && loadError ? (
+          <div className="col-span-full">
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          </div>
+        ) : entries === null ? (
           <>
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />

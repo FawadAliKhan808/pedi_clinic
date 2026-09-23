@@ -71,6 +71,8 @@ npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role li
 npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
 npm run test:appointments # booking rules, doctor changes, arrival linking, scheduled jobs
 npm run test:analytics    # role gates, ranges, and every analytics number moving as it should
+npm run reset             # dry run: shows what a reset would delete
+npm run reset -- --yes    # clears all clinic data; keeps the clinic, settings and staff logins
 npm run configure:dispatch # after deploying: lets scheduled reminders trigger push (APP_URL=https://…)
 ```
 
@@ -78,9 +80,17 @@ The test scripts run against the live project. They create only their own data,
 delete it afterwards, and restore anything they had to move out of the way — so
 they're safe to run while someone else is demoing.
 
-`provision` is the minimum a demo needs; the full seed (medicines, past
-visits, ratings) and a reset script land in Phase 9. Default staff logins are
+`provision` is the minimum the app needs to run. Default staff logins are
 printed when it runs, and can be overridden with `DEMO_*` env vars.
+
+`reset` removes every parent (and their login), child, visit, appointment,
+session, medicine, pharmacy order, rating, notification, install record and
+prescription photo. It keeps the clinic, its settings and the staff logins, so
+the app works straight after. It is irreversible: without `--yes` it only
+prints the counts. The database side (`reset_clinic_data`) can be called only
+with the service-role key, never by a signed-in user.
+
+A demo-data seed script is deliberately not included yet.
 
 Parents sign in with a phone number — the demo uses the Supabase test numbers
 in `supabase/config.toml` under `[auth.sms.test_otp]`, which accept a fixed
@@ -130,4 +140,21 @@ follows the space actually available beside the nav.
 
 ## Deploy
 
-Vercel, default `vercel.app` domain. Not yet wired up in this phase.
+Vercel, on the default `vercel.app` domain.
+
+1. Import the GitHub repo in Vercel (framework preset: Next.js; no build
+   settings to change).
+2. Add every variable from the table above under Project → Settings →
+   Environment Variables (Production and Preview), copying the values from
+   `.env.local`. Keep `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY` and
+   `NOTIFICATIONS_DISPATCH_SECRET` server-only (no `NEXT_PUBLIC_` prefix).
+3. Deploy, then in Supabase → Authentication → URL Configuration set the
+   Site URL to the Vercel URL.
+4. Point scheduled reminders at the deployment so they can send push:
+   `APP_URL=https://<app>.vercel.app npm run configure:dispatch`.
+5. Apply any pending migrations with `npm run db:push` (the database is
+   shared by every deployment and by `npm run dev`).
+
+Web Push and installing to the home screen need HTTPS, so test those on
+the deployed URL, not on `localhost` from a phone. `docs/MANUAL_TEST_CHECKLIST.md`
+lists everything to check on real devices.

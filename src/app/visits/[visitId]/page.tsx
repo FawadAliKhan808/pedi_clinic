@@ -7,8 +7,7 @@ import { useEffect, useState } from "react";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { RatingPrompt } from "@/components/parent/rating-prompt";
 import { Card } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
-import { useToast } from "@/components/ui/toast";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { PrescriptionThumbs } from "@/components/visits/prescription-photos";
 import type { VisitSummary } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -21,8 +20,8 @@ import {
 
 export default function VisitSummaryPage() {
   const params = useParams<{ visitId: string }>();
-  const toast = useToast();
   const [summary, setSummary] = useState<VisitSummary | null | "missing">(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,12 +30,14 @@ export default function VisitSummaryPage() {
       .then((result) => {
         if (!cancelled) setSummary(result ?? "missing");
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        if (!cancelled) setLoadError(errorMessage(caught));
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [params.visitId, toast]);
+  }, [params.visitId]);
 
   return (
     <ParentShell>
@@ -51,7 +52,9 @@ export default function VisitSummaryPage() {
         <h1 className="text-xl font-bold text-foreground">Visit summary</h1>
       </header>
 
-      {summary === null ? (
+      {summary === null && loadError ? (
+        <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+      ) : summary === null ? (
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-5 py-4">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-32 w-full" />

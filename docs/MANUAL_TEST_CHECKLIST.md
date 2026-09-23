@@ -124,6 +124,34 @@ Analytics screen was checked in a desktop browser at 390px and 820px.
 - [ ] Once real visits exist, spot-check End of day against the cash drawer
       and UPI app for one day.
 
+## Polish & demo readiness (Phase 9)
+
+- [ ] **Clear the test data first** (not run yet, see below):
+      `npm run db:push`, then `npm run reset` (dry run), then
+      `npm run reset -- --yes`.
+- [ ] **Full run-through on a real phone** (brief Phase 9): parent check-in
+      → doctor calls → complete the visit with a **split payment** →
+      pharmacist dispenses → parent sees the summary → parent leaves a rating
+      → the owner dashboard shows it.
+- [ ] **Installable**: on the deployed URL, Chrome DevTools → Application →
+      Manifest shows no installability errors, and Android Chrome offers
+      "Install app". (Lighthouse no longer has a PWA category; the
+      manifest, icons and service worker were checked locally.)
+- [ ] **Offline**: turn on airplane mode on the live queue → the "You're
+      offline" banner appears and the last queue stays on screen; turn it
+      off → the banner goes and the queue catches up.
+- [ ] Open the app from the home screen while offline → the offline page.
+- [ ] A failed first load (e.g. open a screen in airplane mode after the
+      app is already open) shows "Couldn't load this" with Try again, not an
+      endless loading skeleton.
+- [ ] An unknown URL shows the "Page not found" screen.
+- [ ] Parent screens at 320px and 430px wide: no sideways scroll. (Staff
+      and public screens were checked in a desktop browser at 320, 375 and
+      430px; parent screens need a parent sign-in, so check them on a phone.)
+- [ ] After signing out on a shared phone, a prescription photo isn't
+      still viewable offline (the service worker no longer caches
+      cross-origin images).
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.
