@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { EmptyState, Skeleton } from "@/components/ui/feedback";
@@ -22,16 +24,21 @@ export function ChildHistorySheet({
   childId,
   childName,
   childDob,
+  parentName,
   parentPhone,
   open,
   onClose,
+  summaryLinks = false,
 }: {
   childId: UUID;
   childName: string;
   childDob: string;
+  parentName?: string | null;
   parentPhone?: string;
   open: boolean;
   onClose: () => void;
+  /** Parent's Records: each visit opens its full summary. */
+  summaryLinks?: boolean;
 }) {
   const toast = useToast();
   const [history, setHistory] = useState<ChildVisitHistoryEntry[] | null>(null);
@@ -65,7 +72,11 @@ export function ChildHistorySheet({
           </p>
           {parentPhone && (
             <p className="text-sm text-foreground-muted">
-              Parent {formatPhone(parentPhone)}
+              Parent:{" "}
+              <span className="font-semibold text-foreground">
+                {parentName || "Name not given yet"}
+              </span>{" "}
+              · {formatPhone(parentPhone)}
             </p>
           )}
         </Card>
@@ -86,7 +97,7 @@ export function ChildHistorySheet({
               <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
                 Last visit
               </h3>
-              <VisitCard entry={lastVisit} />
+              <VisitCard entry={lastVisit} summaryLink={summaryLinks} />
             </section>
 
             {earlier.length > 0 && (
@@ -95,7 +106,7 @@ export function ChildHistorySheet({
                   Earlier visits
                 </h3>
                 {earlier.map((entry) => (
-                  <VisitCard key={entry.visitId} entry={entry} />
+                  <VisitCard key={entry.visitId} entry={entry} summaryLink={summaryLinks} />
                 ))}
               </section>
             )}
@@ -106,7 +117,13 @@ export function ChildHistorySheet({
   );
 }
 
-function VisitCard({ entry }: { entry: ChildVisitHistoryEntry }) {
+function VisitCard({
+  entry,
+  summaryLink,
+}: {
+  entry: ChildVisitHistoryEntry;
+  summaryLink: boolean;
+}) {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
@@ -132,6 +149,16 @@ function VisitCard({ entry }: { entry: ChildVisitHistoryEntry }) {
       {entry.status !== "completed" && <StatusPill status={entry.status} />}
 
       <PrescriptionThumbs storageKeys={entry.storageKeys} />
+
+      {summaryLink && entry.status === "completed" && (
+        <Link
+          href={`/visits/${entry.visitId}`}
+          className="flex min-h-11 items-center justify-center gap-1 rounded-lg border border-border text-sm font-semibold text-primary-700 hover:bg-surface-sunken dark:text-primary-300"
+        >
+          View visit summary
+          <ChevronRight aria-hidden className="size-4" />
+        </Link>
+      )}
     </Card>
   );
 }

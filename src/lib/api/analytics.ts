@@ -16,6 +16,9 @@ export interface DailyAnalytics {
   cash: number;
   upi: number;
   card: number;
+  /** Pharmacy sales dispensed that day (not part of consultation revenue). */
+  pharmacy: number;
+  pharmacyOrders: number;
 }
 
 export interface DoctorAnalyticsSummary {
@@ -38,6 +41,8 @@ export interface EndOfDaySummary {
   patientsSeen: number;
   byMode: Record<PaymentMode, number>;
   byFeeType: { consultation: number; vaccination: number; other: number };
+  /** Medicines dispensed that day. */
+  pharmacy: { total: number; orders: number };
   /** `notArrived`: still booked with no token — becomes "missed" once the day ends. */
   appointments: { attended: number; missed: number; notArrived: number };
 }

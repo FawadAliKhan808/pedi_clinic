@@ -47,6 +47,7 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
+          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -57,6 +58,7 @@ export type Database = {
           created_at?: string
           id?: string
           session_id: string
+          slot_time?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
         }
@@ -67,6 +69,7 @@ export type Database = {
           created_at?: string
           id?: string
           session_id?: string
+          slot_time?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
         }
@@ -563,20 +566,30 @@ export type Database = {
       ratings: {
         Row: {
           created_at: string
+          parent_id: string
           stars: number
           visit_id: string
         }
         Insert: {
           created_at?: string
+          parent_id: string
           stars: number
           visit_id: string
         }
         Update: {
           created_at?: string
+          parent_id?: string
           stars?: number
           visit_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ratings_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ratings_visit_id_fkey"
             columns: ["visit_id"]
@@ -824,6 +837,7 @@ export type Database = {
           date: string
           end_time: string
           max_bookings: number
+          next_free_time: string
           session_id: string
           start_time: string
         }[]
@@ -876,6 +890,7 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
+          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -891,6 +906,7 @@ export type Database = {
         Returns: {
           clinic_id: string
           from_date: string
+          slot_minutes: number
           to_date: string
           today: string
         }[]
@@ -932,6 +948,7 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
+          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -1019,8 +1036,10 @@ export type Database = {
           date: string
           end_time: string
           max_bookings: number
+          parent_name: string
           parent_phone: string
           session_id: string
+          slot_time: string
           start_time: string
           token_seq: number
         }[]
@@ -1082,7 +1101,6 @@ export type Database = {
           p_clinic_id: string
           p_date: string
           p_end_time: string
-          p_max_bookings: number
           p_start_time: string
         }
         Returns: {
@@ -1119,6 +1137,7 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
+          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -1163,6 +1182,7 @@ export type Database = {
           created_at: string
           has_appointment: boolean
           is_returning: boolean
+          parent_name: string
           parent_phone: string
           reason: Database["public"]["Enums"]["visit_reason"]
           seq: number
@@ -1174,6 +1194,7 @@ export type Database = {
         Args: { p_clinic_id: string; p_date: string }
         Returns: Json
       }
+      has_rated_app: { Args: never; Returns: boolean }
       is_clinic_staff: {
         Args: {
           p_clinic_id: string
@@ -1195,6 +1216,7 @@ export type Database = {
         Returns: undefined
       }
       mark_pushes_sent: { Args: { p_ids: string[] }; Returns: undefined }
+      minutes_of_day: { Args: { p_time: string }; Returns: number }
       my_appointments: {
         Args: never
         Returns: {
@@ -1204,9 +1226,16 @@ export type Database = {
           date: string
           end_time: string
           session_id: string
+          slot_time: string
           start_time: string
           status: Database["public"]["Enums"]["appointment_status"]
         }[]
+      }
+      next_free_slot: {
+        Args: {
+          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
+        }
+        Returns: string
       }
       notify_appointment_change: {
         Args: { p_appointment_id: string; p_change: string }
@@ -1317,6 +1346,7 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
+          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
         }
@@ -1327,6 +1357,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reset_clinic_data: { Args: never; Returns: Json }
       restock_medicine: {
         Args: { p_medicine_id: string; p_quantity: number }
         Returns: {
@@ -1451,22 +1482,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      update_session_capacity: {
-        Args: { p_max_bookings: number; p_session_id: string }
+      submit_app_rating: {
+        Args: { p_stars: number; p_visit_id: string }
         Returns: {
-          cancelled_at: string | null
-          clinic_id: string
           created_at: string
-          date: string
-          end_time: string
-          id: string
-          max_bookings: number
-          start_time: string
-          updated_at: string
+          parent_id: string
+          stars: number
+          visit_id: string
         }
         SetofOptions: {
           from: "*"
-          to: "availability_sessions"
+          to: "ratings"
           isOneToOne: true
           isSetofReturn: false
         }

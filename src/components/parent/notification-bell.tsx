@@ -1,14 +1,15 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
+import { useToast } from "@/components/ui/toast";
 import type { AppNotification, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { cn } from "@/lib/format";
+import { cn, errorMessage } from "@/lib/format";
 import { renderNotification } from "@/lib/notifications/templates";
 
 function formatWhen(iso: string): string {
@@ -26,6 +27,7 @@ function formatWhen(iso: string): string {
  * it the next time they open the app.
  */
 export function NotificationBell({ userId }: { userId: UUID }) {
+  const toast = useToast();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -60,6 +62,17 @@ export function NotificationBell({ userId }: { userId: UUID }) {
     }
   }
 
+  /** Removes it here straight away; puts the list back if the delete fails. */
+  function remove(notificationId: UUID) {
+    setNotifications((current) => current.filter((item) => item.id !== notificationId));
+    getBrowserApi()
+      .notifications.delete(notificationId)
+      .catch((caught) => {
+        toast(errorMessage(caught), "error");
+        void refresh();
+      });
+  }
+
   return (
     <>
       <button
@@ -87,22 +100,33 @@ export function NotificationBell({ userId }: { userId: UUID }) {
             {notifications.map((notification) => {
               const rendered = renderNotification(notification.type, notification.payload);
               return (
-                <Link
-                  key={notification.id}
-                  href={rendered.url}
-                  onClick={() => setOpen(false)}
-                  className="block"
-                >
-                  <Card className={cn("flex flex-col gap-1", !notification.readAt && "border-accent-300")}>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="font-semibold text-foreground">{rendered.title}</p>
-                      <span className="shrink-0 text-xs text-foreground-muted">
-                        {formatWhen(notification.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground-muted">{rendered.body}</p>
-                  </Card>
-                </Link>
+                <div key={notification.id} className="relative">
+                  <Link href={rendered.url} onClick={() => setOpen(false)} className="block">
+                    <Card
+                      className={cn(
+                        "flex flex-col gap-1",
+                        !notification.readAt && "border-accent-300"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-semibold text-foreground">{rendered.title}</p>
+                        <span className="shrink-0 text-xs text-foreground-muted">
+                          {formatWhen(notification.createdAt)}
+                        </span>
+                      </div>
+                      {/* Room on the right for the delete button. */}
+                      <p className="pr-10 text-sm text-foreground-muted">{rendered.body}</p>
+                    </Card>
+                  </Link>
+                  <button
+                    type="button"
+                    aria-label={`Delete notification: ${rendered.title}`}
+                    onClick={() => remove(notification.id)}
+                    className="absolute bottom-1.5 right-1.5 flex size-11 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               );
             })}
           </div>

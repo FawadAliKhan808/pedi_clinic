@@ -58,6 +58,17 @@ export function formatTimeRange(start: string, end: string): string {
   return `${formatClock(start)} – ${formatClock(end)}`;
 }
 
+/** An appointment's exact time; falls back to its session for older bookings. */
+export function formatAppointmentTime(appointment: {
+  slotTime: string | null;
+  startTime: string;
+  endTime: string;
+}): string {
+  return appointment.slotTime
+    ? formatClock(appointment.slotTime)
+    : formatTimeRange(appointment.startTime, appointment.endTime);
+}
+
 /** Adds days to a 'YYYY-MM-DD' date without timezone drift. */
 export function addDays(date: ISODateString, days: number): ISODateString {
   const value = new Date(`${date}T00:00:00Z`);
@@ -163,7 +174,9 @@ export function errorMessage(error: unknown): string {
     case "SESSION_OVERLAP":
       return "That overlaps another session on the same day.";
     case "INVALID_SESSION_TIMES":
-      return "The end time must be after the start time.";
+      return "Pick times on the hour or half hour, with the end after the start.";
+    case "ALREADY_RATED":
+      return "You've already rated the app — thank you!";
     case "INVALID_RANGE":
       return "Pick a range of one year or less, with the start before the end.";
     case "CAPACITY_BELOW_BOOKINGS":

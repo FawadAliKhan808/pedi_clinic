@@ -16,7 +16,12 @@ import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import type { AvailabilitySession, ParentAppointment } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatDayShort, formatTimeRange } from "@/lib/format";
+import {
+  errorMessage,
+  formatAppointmentTime,
+  formatClock,
+  formatDayShort,
+} from "@/lib/format";
 
 /** Null when there's no session, so the caller can send them home. */
 async function loadAppointments(): Promise<ParentAppointment[] | null> {
@@ -94,8 +99,7 @@ export default function MyAppointmentsPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground">{appointment.childName}</p>
                   <p className="text-sm text-foreground-muted">
-                    {formatDayShort(appointment.date)} ·{" "}
-                    {formatTimeRange(appointment.startTime, appointment.endTime)}
+                    {formatDayShort(appointment.date)} · {formatAppointmentTime(appointment)}
                   </p>
                 </div>
                 <AppointmentStatusPill status={appointment.status} />
@@ -187,10 +191,15 @@ function RescheduleSheet({
     if (!selected) return;
     setBusy(true);
     try {
-      await getBrowserApi().appointments.reschedule(appointment.appointmentId, selected.id);
+      const moved = await getBrowserApi().appointments.reschedule(
+        appointment.appointmentId,
+        selected.id
+      );
       void getBrowserApi().notifications.dispatchPending();
       toast(
-        `Moved to ${formatDayShort(selected.date)} — waiting for the doctor's approval`,
+        `Moved to ${formatDayShort(selected.date)}${
+          moved.slotTime ? `, ${formatClock(moved.slotTime)}` : ""
+        } — waiting for the doctor's approval`,
         "success"
       );
       onDone();
@@ -215,8 +224,7 @@ function RescheduleSheet({
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-foreground-muted">
-          Currently {formatDayShort(appointment.date)},{" "}
-          {formatTimeRange(appointment.startTime, appointment.endTime)}.
+          Currently {formatDayShort(appointment.date)}, {formatAppointmentTime(appointment)}.
         </p>
         {sessions === null ? (
           <Skeleton className="h-40 w-full" />

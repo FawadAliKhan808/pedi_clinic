@@ -56,6 +56,10 @@ async function runCleanups() {
   }
 }
 
+function refusedWith(result, code) {
+  return Boolean(result.error?.message?.includes(code));
+}
+
 function unwrap(step, { data, error }) {
   if (error) throw new Error(`${step}: ${error.message}`);
   return data;
@@ -77,8 +81,19 @@ async function main() {
   );
   const profile = unwrap(
     "parent profile",
-    await parent.rpc("upsert_parent_profile", { p_name: "Visit Test Parent" })
+    await parent.rpc("upsert_parent_profile", {}) /* keeps any name the tester gave */
   );
+
+  // One rating per parent: set aside any rating this tester already left, and
+  // put it back at the very end (after the test visit — and its rating — go).
+  const earlierRatings = unwrap(
+    "earlier rating",
+    await admin.from("ratings").select("*").eq("parent_id", profile.id)
+  );
+  if (earlierRatings.length > 0) {
+    unwrap("set aside rating", await admin.from("ratings").delete().eq("parent_id", profile.id));
+    cleanups.push(() => admin.from("ratings").insert(earlierRatings));
+  }
 
   const child = unwrap(
     "add child",
@@ -260,9 +275,31 @@ async function main() {
   );
   check("no rating yet", summary?.rating_stars === null);
 
+  check(
+    "a parent who never rated gets asked",
+    unwrap("has rated before", await parent.rpc("has_rated_app")) === false
+  );
+  check(
+    "ratings can only be written through the one-per-parent function",
+    Boolean(
+      (await parent.from("ratings").insert({ visit_id: visit.id, parent_id: profile.id, stars: 1 }))
+        .error
+    )
+  );
   unwrap(
     "submit rating",
-    await parent.from("ratings").insert({ visit_id: visit.id, stars: 5 })
+    await parent.rpc("submit_app_rating", { p_visit_id: visit.id, p_stars: 5 })
+  );
+  check(
+    "after rating, the parent is never asked again",
+    unwrap("has rated after", await parent.rpc("has_rated_app")) === true
+  );
+  check(
+    "a second rating is refused",
+    refusedWith(
+      await parent.rpc("submit_app_rating", { p_visit_id: visit.id, p_stars: 1 }),
+      "ALREADY_RATED"
+    )
   );
   const ratedRows = unwrap(
     "summary after rating",

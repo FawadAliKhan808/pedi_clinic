@@ -11,7 +11,13 @@ import { EmptyState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { AvailabilitySession, Child } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatAge, formatDayShort, formatTimeRange } from "@/lib/format";
+import {
+  errorMessage,
+  formatAge,
+  formatClock,
+  formatDayShort,
+  formatTimeRange,
+} from "@/lib/format";
 
 interface BookingData {
   children: Child[];
@@ -63,10 +69,14 @@ export default function BookAppointmentPage() {
     setBusy(true);
     try {
       const api = getBrowserApi();
-      await api.appointments.book({ sessionId: session.id, childId });
+      const booked = await api.appointments.book({ sessionId: session.id, childId });
       void api.notifications.dispatchPending();
       toast(
-        `Request sent for ${formatDayShort(session.date)}, ${formatTimeRange(session.startTime, session.endTime)} — the doctor will confirm it`,
+        `Request sent for ${formatDayShort(session.date)}, ${
+          booked.slotTime
+            ? formatClock(booked.slotTime)
+            : formatTimeRange(session.startTime, session.endTime)
+        } — the doctor will confirm it`,
         "success"
       );
       router.replace("/appointments");

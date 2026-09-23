@@ -22,6 +22,7 @@ function mapAppointment(row: AppointmentRow): Appointment {
     sessionId: row.session_id,
     childId: row.child_id,
     appointmentDate: row.appointment_date,
+    slotTime: row.slot_time,
     status: row.status,
     createdAt: row.created_at,
   };
@@ -36,6 +37,7 @@ function mapSession(row: SessionRow, bookedCount: number): AvailabilitySession {
     endTime: row.end_time,
     maxBookings: row.max_bookings,
     bookedCount,
+    nextFreeTime: bookedCount < row.max_bookings ? row.start_time : null,
   };
 }
 
@@ -53,6 +55,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       today: row.today,
       fromDate: row.from_date,
       toDate: row.to_date,
+      slotMinutes: row.slot_minutes,
     };
   }
 
@@ -76,6 +79,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       endTime: row.end_time,
       maxBookings: row.max_bookings,
       bookedCount: row.booked_count,
+      nextFreeTime: row.next_free_time,
     }));
   }
 
@@ -91,6 +95,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       date: row.date,
       startTime: row.start_time,
       endTime: row.end_time,
+      slotTime: row.slot_time,
       status: row.status,
     }));
   }
@@ -170,9 +175,11 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
         session.appointments.push({
           appointmentId: row.appointment_id,
           status: row.appointment_status,
+          slotTime: row.slot_time,
           childId: row.child_id,
           childName: row.child_name ?? "",
           childDob: row.child_dob ?? "",
+          parentName: row.parent_name,
           parentPhone: row.parent_phone ?? "",
           tokenSeq: row.token_seq,
         });
@@ -186,28 +193,14 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
     date: ISODateString;
     startTime: ClockTime;
     endTime: ClockTime;
-    maxBookings: number;
   }): Promise<AvailabilitySession> {
     const { data, error } = await this.client.rpc("create_session", {
       p_clinic_id: input.clinicId,
       p_date: input.date,
       p_start_time: input.startTime,
       p_end_time: input.endTime,
-      p_max_bookings: input.maxBookings,
     });
     if (error) throw toApiError(error, "CREATE_SESSION_FAILED");
-    return mapSession(data, 0);
-  }
-
-  async updateSessionCapacity(
-    sessionId: UUID,
-    maxBookings: number
-  ): Promise<AvailabilitySession> {
-    const { data, error } = await this.client.rpc("update_session_capacity", {
-      p_session_id: sessionId,
-      p_max_bookings: maxBookings,
-    });
-    if (error) throw toApiError(error, "UPDATE_SESSION_FAILED");
     return mapSession(data, 0);
   }
 

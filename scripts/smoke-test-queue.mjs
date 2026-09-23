@@ -62,7 +62,7 @@ check("parent signed in with phone OTP", Boolean(session.user));
 
 const profile = unwrap(
   "parent profile",
-  await parent.rpc("upsert_parent_profile", { p_name: "Smoke Test Parent" })
+  await parent.rpc("upsert_parent_profile", {}) /* keeps any name the tester gave */
 );
 check("parent profile claimed/created", profile.phone === TEST_PHONE);
 

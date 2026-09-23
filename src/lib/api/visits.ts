@@ -33,6 +33,11 @@ export interface VisitsApi {
    */
   completeVisit(input: CompleteVisitInput): Promise<Visit>;
 
-  /** Rates the app, not the doctor. Clinic staff can never read these back. */
+  /**
+   * Rates the app, not the doctor — once per parent, ever (a second try
+   * throws ALREADY_RATED). Clinic staff can never read ratings back.
+   */
   submitRating(visitId: UUID, stars: 1 | 2 | 3 | 4 | 5): Promise<void>;
+  /** Whether the signed-in parent has already rated the app. */
+  hasRatedApp(): Promise<boolean>;
 }

@@ -89,6 +89,8 @@ export interface DoctorQueueEntry {
   childId: UUID;
   childName: string;
   childDob: ISODateString;
+  /** Null until the parent has signed in and given their name (walk-ins). */
+  parentName: string | null;
   parentPhone: string;
   isReturning: boolean;
   hasAppointment: boolean;
@@ -212,6 +214,8 @@ export interface AvailabilitySession {
   endTime: ClockTime;
   maxBookings: number;
   bookedCount: number;
+  /** The time the next booking would get; null when the session is full. */
+  nextFreeTime: ClockTime | null;
 }
 
 /** "Today" and the bookable range, as the clinic's timezone and settings define them. */
@@ -220,6 +224,8 @@ export interface BookingWindow {
   today: ISODateString;
   fromDate: ISODateString;
   toDate: ISODateString;
+  /** Appointment slot length (setting); session times snap to it. */
+  slotMinutes: number;
 }
 
 /** A parent's booking is a request ('pending') until the doctor approves it ('booked') or rejects it. */
@@ -236,6 +242,8 @@ export interface Appointment {
   sessionId: UUID;
   childId: UUID;
   appointmentDate: ISODateString;
+  /** The exact time this booking holds within its session. */
+  slotTime: ClockTime | null;
   status: AppointmentStatus;
   createdAt: ISODateTimeString;
 }
@@ -249,15 +257,20 @@ export interface ParentAppointment {
   date: ISODateString;
   startTime: ClockTime;
   endTime: ClockTime;
+  /** The exact appointment time within the session. */
+  slotTime: ClockTime | null;
   status: AppointmentStatus;
 }
 
 export interface ClinicAppointment {
   appointmentId: UUID;
   status: AppointmentStatus;
+  /** The exact appointment time within the session. */
+  slotTime: ClockTime | null;
   childId: UUID;
   childName: string;
   childDob: ISODateString;
+  parentName: string | null;
   parentPhone: string;
   /** The token it was linked to on arrival, if any. */
   tokenSeq: number | null;

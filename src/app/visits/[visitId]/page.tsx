@@ -22,13 +22,21 @@ export default function VisitSummaryPage() {
   const params = useParams<{ visitId: string }>();
   const [summary, setSummary] = useState<VisitSummary | null | "missing">(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Asked once per parent, ever: only while they have never rated the app.
+  const [askForRating, setAskForRating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getBrowserApi()
-      .visits.getVisitSummary(params.visitId)
-      .then((result) => {
-        if (!cancelled) setSummary(result ?? "missing");
+    const api = getBrowserApi();
+    Promise.all([
+      api.visits.getVisitSummary(params.visitId),
+      // If the check fails, don't ask — better than asking twice.
+      api.visits.hasRatedApp().catch(() => true),
+    ])
+      .then(([result, hasRated]) => {
+        if (cancelled) return;
+        setSummary(result ?? "missing");
+        setAskForRating(!hasRated);
       })
       .catch((caught) => {
         if (!cancelled) setLoadError(errorMessage(caught));
@@ -112,11 +120,8 @@ export default function VisitSummaryPage() {
             )}
           </section>
 
-          {summary.status === "completed" && (
-            <RatingPrompt
-              visitId={summary.visitId}
-              existingStars={summary.ratingStars}
-            />
+          {summary.status === "completed" && askForRating && (
+            <RatingPrompt visitId={summary.visitId} />
           )}
         </div>
       )}

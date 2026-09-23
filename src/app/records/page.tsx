@@ -85,6 +85,7 @@ export default function RecordsPage() {
           childId={openChild.id}
           childName={openChild.name}
           childDob={openChild.dob}
+          summaryLinks
           onClose={() => setOpenChild(null)}
         />
       )}

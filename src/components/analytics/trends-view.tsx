@@ -44,11 +44,25 @@ const PATIENT_SERIES: SeriesSpec[] = [
   { key: "patients", label: "Children seen", colorClass: "bg-chart-1" },
 ];
 
+const PHARMACY_SERIES: SeriesSpec[] = [
+  { key: "pharmacy", label: "Pharmacy sales", colorClass: "bg-chart-1" },
+];
+
 const HOUR_SERIES: SeriesSpec[] = [
   { key: "count", label: "Check-ins", colorClass: "bg-chart-1" },
 ];
 
-const METRICS = ["patients", "consultation", "vaccination", "other", "cash", "upi", "card"] as const;
+const METRICS = [
+  "patients",
+  "consultation",
+  "vaccination",
+  "other",
+  "cash",
+  "upi",
+  "card",
+  "pharmacy",
+  "pharmacyOrders",
+] as const;
 
 interface Bucket {
   key: string;
@@ -87,7 +101,17 @@ function groupDays(days: DailyAnalytics[], grouping: Grouping): Bucket[] {
             : grouping === "week"
               ? `Week of ${formatDayShort(date)}`
               : formatDayShort(date),
-        values: { patients: 0, consultation: 0, vaccination: 0, other: 0, cash: 0, upi: 0, card: 0 },
+        values: {
+          patients: 0,
+          consultation: 0,
+          vaccination: 0,
+          other: 0,
+          cash: 0,
+          upi: 0,
+          card: 0,
+          pharmacy: 0,
+          pharmacyOrders: 0,
+        },
       };
       buckets.set(key, bucket);
     }
@@ -212,8 +236,10 @@ function TrendsBody({
     (sum, day) => sum + day.consultation + day.vaccination + day.other,
     0
   );
+  const pharmacy = data.daily.reduce((sum, day) => sum + day.pharmacy, 0);
+  const pharmacyOrders = data.daily.reduce((sum, day) => sum + day.pharmacyOrders, 0);
 
-  if (patients === 0 && data.tokens.total === 0) {
+  if (patients === 0 && data.tokens.total === 0 && pharmacyOrders === 0) {
     return (
       <EmptyState
         title="Nothing in this range yet"
@@ -236,16 +262,26 @@ function TrendsBody({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
         <StatTile
           label="Children seen"
           value={patients}
           hint={days > 1 && patients > 0 ? `${perDay(patients / days)} a day on average` : undefined}
         />
         <StatTile
-          label="Revenue"
-          value={formatCurrency(revenue)}
-          hint={days > 1 ? `${formatCurrency(Math.round(revenue / days))} a day on average` : undefined}
+          label="Total collected"
+          value={formatCurrency(revenue + pharmacy)}
+          hint={
+            days > 1
+              ? `${formatCurrency(Math.round((revenue + pharmacy) / days))} a day on average`
+              : "Consultations and pharmacy"
+          }
+        />
+        <StatTile label="Consultations" value={formatCurrency(revenue)} />
+        <StatTile
+          label="Pharmacy sales"
+          value={formatCurrency(pharmacy)}
+          hint={`${pharmacyOrders} ${pharmacyOrders === 1 ? "order" : "orders"} dispensed`}
         />
         <StatTile
           label="Average consultation"
@@ -297,7 +333,7 @@ function TrendsBody({
         </ChartCard>
 
         <ChartCard
-          title="Revenue"
+          title="Consultation revenue"
           subtitle={revenueSplit === "fee" ? "By fee type" : "By payment mode"}
           legend={revenueSeries}
           controls={
@@ -330,6 +366,28 @@ function TrendsBody({
           <ColumnChart
             data={columns}
             series={revenueSeries}
+            formatValue={formatCurrency}
+            formatTick={formatCompactCurrency}
+          />
+        </ChartCard>
+
+        <ChartCard
+          title="Pharmacy sales"
+          subtitle={`Medicines dispensed per ${unit.toLowerCase()}`}
+          table={
+            <DataTable
+              columns={[unit, "Orders", "Sales"]}
+              rows={buckets.map((bucket) => [
+                bucket.fullLabel,
+                bucket.values.pharmacyOrders,
+                formatCurrency(bucket.values.pharmacy),
+              ])}
+            />
+          }
+        >
+          <ColumnChart
+            data={columns}
+            series={PHARMACY_SERIES}
             formatValue={formatCurrency}
             formatTick={formatCompactCurrency}
           />

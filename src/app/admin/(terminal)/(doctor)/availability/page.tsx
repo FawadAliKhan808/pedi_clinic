@@ -1,12 +1,17 @@
 "use client";
 
-import { CalendarRange, Copy, Minus, Plus } from "lucide-react";
+import { CalendarRange, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
+import {
+  TimeSelect,
+  minutesOfDay,
+  toClockTime,
+  type TimeParts,
+} from "@/components/appointments/time-select";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
-import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -14,6 +19,7 @@ import {
   addDays,
   cn,
   errorMessage,
+  formatClock,
   formatDayShort,
   formatTimeRange,
   weekStart,
@@ -26,6 +32,7 @@ export default function AvailabilityPage() {
   const [clinicId, setClinicId] = useState<UUID | null>(null);
   const [today, setToday] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
+  const [slotMinutes, setSlotMinutes] = useState(30);
   const [sessions, setSessions] = useState<ClinicSessionSchedule[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -36,6 +43,7 @@ export default function AvailabilityPage() {
         setClinicId(staff?.clinicId ?? null);
         setToday(window.today);
         setDate(window.today);
+        setSlotMinutes(window.slotMinutes);
       })
       .catch((caught) => {
         const message = errorMessage(caught);
@@ -161,53 +169,14 @@ export default function AvailabilityPage() {
           ) : (
             sessions.map((session) => (
               <Card key={session.sessionId} className="flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {formatTimeRange(session.startTime, session.endTime)}
-                    </p>
-                    <p className="text-sm text-foreground-muted">
-                      {session.bookedCount} of {session.maxBookings} booked
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      aria-label="One fewer appointment slot"
-                      disabled={session.maxBookings <= session.bookedCount}
-                      onClick={() =>
-                        void change(
-                          () =>
-                            getBrowserApi().appointments.updateSessionCapacity(
-                              session.sessionId,
-                              session.maxBookings - 1
-                            ),
-                          "Slots updated"
-                        )
-                      }
-                      className="flex size-11 items-center justify-center rounded-lg border border-border text-foreground disabled:opacity-40"
-                    >
-                      <Minus className="size-4" />
-                    </button>
-                    <span className="w-8 text-center font-semibold tabular-nums text-foreground">
-                      {session.maxBookings}
-                    </span>
-                    <button
-                      aria-label="One more appointment slot"
-                      onClick={() =>
-                        void change(
-                          () =>
-                            getBrowserApi().appointments.updateSessionCapacity(
-                              session.sessionId,
-                              session.maxBookings + 1
-                            ),
-                          "Slots updated"
-                        )
-                      }
-                      className="flex size-11 items-center justify-center rounded-lg border border-border text-foreground"
-                    >
-                      <Plus className="size-4" />
-                    </button>
-                  </div>
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {formatTimeRange(session.startTime, session.endTime)}
+                  </p>
+                  <p className="text-sm text-foreground-muted">
+                    {session.bookedCount} of {session.maxBookings} slots booked ·{" "}
+                    {slotMinutes}-minute appointments
+                  </p>
                 </div>
                 <ConfirmButton
                   variant="ghost"
@@ -230,7 +199,8 @@ export default function AvailabilityPage() {
 
           <AddSessionForm
             key={date}
-            onAdd={(startTime, endTime, maxBookings) =>
+            slotMinutes={slotMinutes}
+            onAdd={(startTime, endTime) =>
               change(
                 () =>
                   getBrowserApi().appointments.createSession({
@@ -238,7 +208,6 @@ export default function AvailabilityPage() {
                     date,
                     startTime,
                     endTime,
-                    maxBookings,
                   }),
                 "Session added"
               )
@@ -250,54 +219,64 @@ export default function AvailabilityPage() {
   );
 }
 
+const DEFAULT_START: TimeParts = { hour: 10, minute: 0, period: "am" };
+const DEFAULT_END: TimeParts = { hour: 12, minute: 0, period: "pm" };
+
+/**
+ * Start and end in whole slots (hour, :00/:30, AM/PM). The number of
+ * appointments follows from the length — 10:00 AM to 12:00 PM is four
+ * 30-minute appointments — so there's nothing else to type.
+ */
 function AddSessionForm({
+  slotMinutes,
   onAdd,
 }: {
-  onAdd: (startTime: string, endTime: string, maxBookings: number) => Promise<void>;
+  slotMinutes: number;
+  onAdd: (startTime: string, endTime: string) => Promise<void>;
 }) {
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [max, setMax] = useState("");
+  const [start, setStart] = useState<TimeParts>(DEFAULT_START);
+  const [end, setEnd] = useState<TimeParts>(DEFAULT_END);
   const [busy, setBusy] = useState(false);
 
-  const maxBookings = Math.trunc(Number(max));
-  const ready = start && end && max !== "" && maxBookings >= 0;
+  const duration = minutesOfDay(end) - minutesOfDay(start);
+  const slots = duration > 0 ? Math.floor(duration / slotMinutes) : 0;
+  const times = Array.from({ length: slots }, (_, index) => {
+    const total = minutesOfDay(start) + index * slotMinutes;
+    return formatClock(`${Math.floor(total / 60)}:${total % 60}`);
+  });
 
   return (
     <Card className="flex flex-col gap-4">
       <p className="font-semibold text-foreground">Add a session</p>
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
-          label="Starts"
-          type="time"
-          value={start}
-          onChange={(event) => setStart(event.target.value)}
-        />
-        <TextField
-          label="Ends"
-          type="time"
-          value={end}
-          onChange={(event) => setEnd(event.target.value)}
-        />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TimeSelect label="Starts" value={start} slotMinutes={slotMinutes} onChange={setStart} />
+        <TimeSelect label="Ends" value={end} slotMinutes={slotMinutes} onChange={setEnd} />
       </div>
-      <TextField
-        label="Appointment slots"
-        inputMode="numeric"
-        placeholder="e.g. 6"
-        hint="How many of this session's patients can book ahead."
-        value={max}
-        onChange={(event) => setMax(event.target.value)}
-      />
+
+      {slots > 0 ? (
+        <div className="rounded-lg bg-surface-sunken px-4 py-3 text-sm">
+          <p className="font-semibold text-foreground">
+            {slots} appointment{slots === 1 ? "" : "s"} of {slotMinutes} minutes
+          </p>
+          <p className="text-foreground-muted">
+            {times.length <= 4
+              ? times.join(", ")
+              : `${times.slice(0, 3).join(", ")} … ${times[times.length - 1]}`}
+          </p>
+        </div>
+      ) : (
+        <p role="alert" className="text-sm text-danger">
+          The end time must be after the start time.
+        </p>
+      )}
+
       <Button
         loading={busy}
-        disabled={!ready}
+        disabled={slots === 0}
         onClick={async () => {
           setBusy(true);
-          await onAdd(start, end, maxBookings);
+          await onAdd(toClockTime(start), toClockTime(end));
           setBusy(false);
-          setStart("");
-          setEnd("");
-          setMax("");
         }}
       >
         Add session

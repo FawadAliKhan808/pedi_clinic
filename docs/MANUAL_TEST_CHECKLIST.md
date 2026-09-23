@@ -152,6 +152,38 @@ Analytics screen was checked in a desktop browser at 390px and 820px.
       still viewable offline (the service worker no longer caches
       cross-origin images).
 
+## Refinements after the first test pass
+
+Database rules are covered by the test scripts. These screens weren't viewed
+in a browser during development (no signed-in session was available), so
+check each one:
+
+- [ ] **Availability**: start/end are hour + :00/:30 + AM/PM dropdowns; the
+      form shows how many 30-minute appointments the range makes (e.g.
+      10:00 AM–12:00 PM → 4, with the times); there's no slot-count field or
+      +/− stepper any more.
+- [ ] **Booking**: each session shows "Your time: …"; after requesting, the
+      toast, the Appointments list and the doctor's Appointments tab all show
+      that exact time; a second child booked into the same session gets the
+      next half hour.
+- [ ] Notifications about an appointment (request, confirmed, moved,
+      reminders) name the exact time.
+- [ ] **Doctor → Queue → tap a child**: the sheet shows the parent's name and
+      phone ("Name not given yet" for a walk-in whose parent never signed in).
+- [ ] **Analytics**: End of day shows Total collected, Consultations and
+      Pharmacy sales (with order count); Trends has the same tiles plus a
+      "Pharmacy sales" chart. Dispense an order and see it counted.
+- [ ] **Parent → Your queue**: only today's active tokens; once a visit is
+      completed it leaves this screen.
+- [ ] **Parent → Records → a child**: every past visit has "View visit
+      summary".
+- [ ] **Rating**: the first visit summary asks for a rating; after rating
+      once, no later summary asks again (also on a second phone signed in
+      with the same number).
+- [ ] **Parent notifications (bell)**: each card has a small bin button;
+      tapping it removes the notification, and it stays gone after reopening
+      the app. Tapping the card itself still opens it.
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.

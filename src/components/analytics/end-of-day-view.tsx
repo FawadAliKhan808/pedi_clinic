@@ -69,9 +69,19 @@ export function EndOfDayView({
             {date === today ? "Today" : formatDayShort(date)}
           </h2>
 
-          <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-3">
             <StatTile label="Children seen" value={data.patientsSeen} />
-            <StatTile label="Collected" value={formatCurrency(collected)} />
+            <StatTile
+              label="Total collected"
+              value={formatCurrency(collected + data.pharmacy.total)}
+              hint="Consultations and pharmacy"
+            />
+            <StatTile label="Consultations" value={formatCurrency(collected)} />
+            <StatTile
+              label="Pharmacy sales"
+              value={formatCurrency(data.pharmacy.total)}
+              hint={`${data.pharmacy.orders} ${data.pharmacy.orders === 1 ? "order" : "orders"} dispensed`}
+            />
             <StatTile
               label="Appointments arrived"
               value={data.appointments.attended}
@@ -86,7 +96,7 @@ export function EndOfDayView({
 
           <section className="grid gap-5 rounded-xl border border-border bg-surface-raised p-4 shadow-sm @2xl:grid-cols-2">
             <SplitBar
-              title="By payment mode"
+              title="Consultations by payment mode"
               formatValue={formatCurrency}
               parts={[
                 { label: paymentModeLabels.cash, value: data.byMode.cash, colorClass: "bg-chart-1" },
@@ -95,7 +105,7 @@ export function EndOfDayView({
               ]}
             />
             <SplitBar
-              title="By fee type"
+              title="Consultations by fee type"
               formatValue={formatCurrency}
               parts={[
                 { label: "Consultation", value: data.byFeeType.consultation, colorClass: "bg-chart-1" },

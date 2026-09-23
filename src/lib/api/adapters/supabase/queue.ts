@@ -47,6 +47,7 @@ export class SupabaseQueueApi implements QueueApi {
       childId: row.child_id,
       childName: row.child_name,
       childDob: row.child_dob,
+      parentName: row.parent_name,
       parentPhone: row.parent_phone,
       isReturning: row.is_returning,
       hasAppointment: row.has_appointment,

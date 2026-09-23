@@ -139,11 +139,25 @@ async function main() {
 
   // --- activity -------------------------------------------------------------
   const stamp = Date.now();
+  // Registered first so it's removed last, after the order that uses it.
+  const medicine = unwrap(
+    "test medicine",
+    await pharmacist.rpc("add_medicine", {
+      p_clinic_id: clinicId,
+      p_name: `Analytics Syrup ${stamp}`,
+      p_unit: "bottle",
+      p_unit_price: 75,
+      p_initial_stock: 10,
+      p_low_stock_threshold: 1,
+    })
+  );
+  cleanups.push(() => admin.from("medicines").delete().eq("id", medicine.id));
+
   const parent = unwrap(
     "test parent",
     await admin
       .from("parents")
-      .insert({ phone: `analytics-test-${stamp}` })
+      .insert({ phone: `analytics-test-${stamp}`, name: "Analytics Test Parent" })
       .select("id")
       .single()
   );
@@ -167,6 +181,13 @@ async function main() {
       p_enforce_parent_id: null,
     })
   );
+  const queueRow = unwrap("doctor queue", await doctor.rpc("doctor_queue", { p_clinic_id: clinicId }))
+    .find((row) => row.visit_id === visit.id);
+  check(
+    "the doctor's queue shows the parent's name with their phone",
+    queueRow?.parent_name === "Analytics Test Parent" && Boolean(queueRow?.parent_phone)
+  );
+
   unwrap("call", await doctor.rpc("call_visit", { p_visit_id: visit.id }));
   const started = unwrap("start", await doctor.rpc("start_consultation", { p_visit_id: visit.id }));
   check("starting a consultation records when it began", Boolean(started.consultation_started_at));
@@ -183,7 +204,17 @@ async function main() {
       ],
     })
   );
-  unwrap("rating", await admin.from("ratings").insert({ visit_id: visit.id, stars: 5 }));
+  unwrap(
+    "dispense",
+    await pharmacist.rpc("dispense_order", {
+      p_visit_id: visit.id,
+      p_items: [{ medicine_id: medicine.id, quantity: 2 }],
+    })
+  );
+  unwrap(
+    "rating",
+    await admin.from("ratings").insert({ visit_id: visit.id, parent_id: parent.id, stars: 5 })
+  );
 
   const walkInPhone = `analytics-walk-in-${stamp}`;
   cleanups.push(() => admin.from("parents").delete().eq("phone", walkInPhone));
@@ -218,6 +249,11 @@ async function main() {
     "payment-mode revenue moves by the payments",
     delta("cash") === 300 && delta("upi") === 200 && delta("card") === 0
   );
+  check(
+    "pharmacy sales count on the day they're dispensed",
+    delta("pharmacy") === 150 && delta("pharmacy_orders") === 1,
+    `${delta("pharmacy")} over ${delta("pharmacy_orders")} order(s)`
+  );
   check("visit reason counted", after.visit_reasons.vaccination - before.visit_reasons.vaccination === 1);
   check("a first visit counts as new", after.new_vs_returning.new - before.new_vs_returning.new === 1);
   check("tokens total +2", after.tokens.total - before.tokens.total === 2);
@@ -245,6 +281,12 @@ async function main() {
     "end of day: by fee type",
     eodAfter.by_fee_type.consultation - eodBefore.by_fee_type.consultation === 200 &&
       eodAfter.by_fee_type.vaccination - eodBefore.by_fee_type.vaccination === 300
+  );
+
+  check(
+    "end of day: pharmacy sales",
+    Number(eodAfter.pharmacy.total) - Number(eodBefore.pharmacy.total) === 150 &&
+      eodAfter.pharmacy.orders - eodBefore.pharmacy.orders === 1
   );
 
   check("owner: ratings +1", ownerAfter.ratings.count - ownerBefore.ratings.count === 1);

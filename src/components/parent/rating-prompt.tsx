@@ -10,16 +10,13 @@ import { cn, errorMessage } from "@/lib/format";
 
 const stars = [1, 2, 3, 4, 5] as const;
 
-/** Rates the app, and asks nothing else — no feedback box, no doctor rating. */
-export function RatingPrompt({
-  visitId,
-  existingStars,
-}: {
-  visitId: UUID;
-  existingStars: number | null;
-}) {
+/**
+ * Rates the app, and asks nothing else — no feedback box, no doctor rating.
+ * Shown only to a parent who has never rated; one rating per parent, ever.
+ */
+export function RatingPrompt({ visitId }: { visitId: UUID }) {
   const toast = useToast();
-  const [submitted, setSubmitted] = useState<number | null>(existingStars);
+  const [submitted, setSubmitted] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,7 +27,13 @@ export function RatingPrompt({
       setSubmitted(value);
       toast("Thanks for the feedback", "success");
     } catch (caught) {
-      toast(errorMessage(caught), "error");
+      // Rated from another device meanwhile: say thanks, don't ask again.
+      if ((caught as { code?: string }).code === "ALREADY_RATED") {
+        setSubmitted(value);
+        toast(errorMessage(caught), "success");
+      } else {
+        toast(errorMessage(caught), "error");
+      }
     } finally {
       setBusy(false);
     }

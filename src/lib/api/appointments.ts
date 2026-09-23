@@ -43,14 +43,16 @@ export interface AppointmentsApi {
     fromDate: ISODateString,
     toDate: ISODateString
   ): Promise<ClinicSessionSchedule[]>;
+  /**
+   * Times must fall on slot boundaries (`BookingWindow.slotMinutes`); the
+   * session's capacity is how many slots fit. Throws INVALID_SESSION_TIMES.
+   */
   createSession(input: {
     clinicId: UUID;
     date: ISODateString;
     startTime: ClockTime;
     endTime: ClockTime;
-    maxBookings: number;
   }): Promise<AvailabilitySession>;
-  updateSessionCapacity(sessionId: UUID, maxBookings: number): Promise<AvailabilitySession>;
   /** Cancels the session and its bookings, notifying each parent. Returns bookings affected. */
   cancelSession(sessionId: UUID): Promise<number>;
   /** "Mark day closed". Returns bookings affected. */

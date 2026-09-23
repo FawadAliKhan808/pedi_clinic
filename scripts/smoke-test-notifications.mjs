@@ -69,7 +69,7 @@ async function main() {
   );
   const profile = unwrap(
     "parent profile",
-    await parent.rpc("upsert_parent_profile", { p_name: "Notification Test Parent" })
+    await parent.rpc("upsert_parent_profile", {}) /* keeps any name the tester gave */
   );
 
   const doctor = newClient();

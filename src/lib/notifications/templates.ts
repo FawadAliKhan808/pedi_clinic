@@ -43,11 +43,13 @@ function formatClock(value: unknown): string | null {
   return date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 }
 
+/** "Wed, 24 Sept, 10:30 am" — the booking's exact time, or its session for older ones. */
 function sessionLabel(payload: Payload): string {
   const day = formatDay(payload.appointment_date);
+  const exact = formatClock(payload.appointment_time);
   const start = formatClock(payload.start_time);
   const end = formatClock(payload.end_time);
-  const time = start && end ? `${start}–${end}` : start;
+  const time = exact ?? (start && end ? `${start}–${end}` : start);
   return [day, time].filter(Boolean).join(", ") || "your session";
 }
 

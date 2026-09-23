@@ -63,7 +63,7 @@ async function main() {
   );
   const profile = unwrap(
     "parent profile",
-    await parent.rpc("upsert_parent_profile", { p_name: "Appointments Test Parent" })
+    await parent.rpc("upsert_parent_profile", {}) /* keeps any name the tester gave */
   );
 
   const doctor = newClient();
@@ -102,7 +102,8 @@ async function main() {
     }
   });
 
-  async function createSession(date, start, end, max) {
+  // Capacity follows the length: one appointment per 30-minute slot.
+  async function createSession(date, start, end) {
     const session = unwrap(
       `create session ${date} ${start}`,
       await doctor.rpc("create_session", {
@@ -110,7 +111,6 @@ async function main() {
         p_date: date,
         p_start_time: start,
         p_end_time: end,
-        p_max_bookings: max,
       })
     );
     sessions.push(session.id);
@@ -136,8 +136,25 @@ async function main() {
   const day = addDays(today, 5);
 
   // --- availability -------------------------------------------------------
-  const morning = await createSession(day, "09:00", "11:00", 2);
-  const afternoon = await createSession(day, "15:00", "17:00", 1);
+  const morning = await createSession(day, "09:00", "10:00");
+  const afternoon = await createSession(day, "15:00", "15:30");
+  check(
+    "a session's capacity is its length in 30-minute slots",
+    morning.max_bookings === 2 && afternoon.max_bookings === 1,
+    `${morning.max_bookings} / ${afternoon.max_bookings}`
+  );
+  check(
+    "session times off the half hour are refused",
+    refusedWith(
+      await doctor.rpc("create_session", {
+        p_clinic_id: clinicId,
+        p_date: day,
+        p_start_time: "11:15",
+        p_end_time: "12:00",
+      }),
+      "INVALID_SESSION_TIMES"
+    )
+  );
 
   check(
     "overlapping sessions are refused",
@@ -145,9 +162,8 @@ async function main() {
       await doctor.rpc("create_session", {
         p_clinic_id: clinicId,
         p_date: day,
-        p_start_time: "10:30",
+        p_start_time: "09:30",
         p_end_time: "12:00",
-        p_max_bookings: 1,
       }),
       "SESSION_OVERLAP"
     )
@@ -160,7 +176,6 @@ async function main() {
         p_date: day,
         p_start_time: "18:00",
         p_end_time: "19:00",
-        p_max_bookings: 1,
       }),
       "FORBIDDEN"
     )
@@ -187,9 +202,14 @@ async function main() {
     )
   );
 
-  unwrap(
+  const bookB = unwrap(
     "book B",
     await parent.rpc("book_appointment", { p_session_id: morning.id, p_child_id: children.B.id })
+  );
+  check(
+    "each booking gets the next exact time in the session",
+    bookA.slot_time === "09:00:00" && bookB.slot_time === "09:30:00",
+    `${bookA.slot_time}, ${bookB.slot_time}`
   );
   check(
     "a full session refuses further bookings",
@@ -202,7 +222,7 @@ async function main() {
     )
   );
 
-  const outside = await createSession(addDays(today, 7), "09:00", "10:00", 3);
+  const outside = await createSession(addDays(today, 7), "09:00", "10:30");
   check(
     "parents can't book beyond the booking window",
     refusedWith(
@@ -226,6 +246,11 @@ async function main() {
     "open-session listing reports slots taken",
     sessionsList.find((s) => s.session_id === morning.id)?.booked_count === 2
   );
+  check(
+    "…and the time the next booking would get",
+    sessionsList.find((s) => s.session_id === morning.id)?.next_free_time === null &&
+      sessionsList.find((s) => s.session_id === afternoon.id)?.next_free_time === "15:00:00"
+  );
 
   // --- parent changes: no notification ------------------------------------
   const bMoved = unwrap(
@@ -246,6 +271,7 @@ async function main() {
     })
   );
   check("a parent can reschedule within the window", bMoved.session_id === afternoon.id);
+  check("a moved booking takes a time in its new session", bMoved.slot_time === "15:00:00");
   check(
     "a parent's own change sends them no notification",
     unwrap(
@@ -282,6 +308,11 @@ async function main() {
       moved[0].type === "appointment_changed" &&
       moved[0].payload.change === "rescheduled"
   );
+  check(
+    "…with the exact new time",
+    moved[0]?.payload.appointment_time === aMoved.slot_time.slice(0, 5),
+    moved[0]?.payload.appointment_time
+  );
 
   const cancelledBySession = unwrap(
     "cancel afternoon session",
@@ -314,7 +345,7 @@ async function main() {
   check("a parent can cancel, with no cutoff", parentCancel.status === "cancelled");
 
   // Close day
-  const closing = await createSession(addDays(today, 4), "09:00", "10:00", 2);
+  const closing = await createSession(addDays(today, 4), "09:00", "10:00");
   const bookC = unwrap(
     "book C",
     await parent.rpc("book_appointment", { p_session_id: closing.id, p_child_id: children.C.id })
@@ -367,7 +398,7 @@ async function main() {
   );
 
   // --- approval workflow -----------------------------------------------------
-  const approvalSession = await createSession(addDays(today, 3), "09:00", "10:00", 2);
+  const approvalSession = await createSession(addDays(today, 3), "09:00", "10:00");
 
   const requestH = unwrap(
     "book H",
@@ -464,15 +495,17 @@ async function main() {
         .eq("type", "booking_update")
     ).some((row) => row.payload.decision === "rejected")
   );
+  const bookJ = unwrap(
+    "book J after rejection",
+    await parent.rpc("book_appointment", {
+      p_session_id: approvalSession.id,
+      p_child_id: children.J.id,
+    })
+  );
   check(
-    "rejecting frees the slot",
-    unwrap(
-      "book J after rejection",
-      await parent.rpc("book_appointment", {
-        p_session_id: approvalSession.id,
-        p_child_id: children.J.id,
-      })
-    ).status === "pending"
+    "rejecting frees the slot — and its exact time",
+    bookJ.status === "pending" && bookJ.slot_time === requestI.slot_time,
+    `${bookJ.slot_time} (was ${requestI.slot_time})`
   );
   check(
     "the parent still sees a rejected request, labelled",

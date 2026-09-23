@@ -82,12 +82,16 @@ export class SupabaseVisitsApi implements VisitsApi {
   }
 
   async submitRating(visitId: UUID, stars: 1 | 2 | 3 | 4 | 5): Promise<void> {
-    // Insert, not upsert: a visit is rated once, and the prompt is only shown
-    // while `ratingStars` is still null.
-    const { error } = await this.client
-      .from("ratings")
-      .insert({ visit_id: visitId, stars });
-
+    const { error } = await this.client.rpc("submit_app_rating", {
+      p_visit_id: visitId,
+      p_stars: stars,
+    });
     if (error) throw toApiError(error, "SUBMIT_RATING_FAILED");
+  }
+
+  async hasRatedApp(): Promise<boolean> {
+    const { data, error } = await this.client.rpc("has_rated_app");
+    if (error) throw toApiError(error, "RATING_LOOKUP_FAILED");
+    return Boolean(data);
   }
 }

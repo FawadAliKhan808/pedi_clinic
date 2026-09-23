@@ -51,6 +51,7 @@ export default function DoctorQueuePage() {
     childId: UUID;
     childName: string;
     childDob: string;
+    parentName: string | null;
     parentPhone: string;
   } | null>(null);
   const [completingVisit, setCompletingVisit] = useState<DoctorQueueEntry | null>(null);
@@ -154,6 +155,7 @@ export default function DoctorQueuePage() {
                     childId: entry.childId,
                     childName: entry.childName,
                     childDob: entry.childDob,
+                    parentName: entry.parentName,
                     parentPhone: entry.parentPhone,
                   })
                 }
@@ -270,6 +272,7 @@ export default function DoctorQueuePage() {
                 childId: result.childId,
                 childName: result.childName,
                 childDob: result.dob,
+                parentName: result.parentName,
                 parentPhone: result.parentPhone,
               });
             }}

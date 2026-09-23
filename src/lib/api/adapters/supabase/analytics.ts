@@ -42,6 +42,8 @@ export class SupabaseAnalyticsApi implements AnalyticsApi {
         cash: num(day.cash),
         upi: num(day.upi),
         card: num(day.card),
+        pharmacy: num(day.pharmacy),
+        pharmacyOrders: num(day.pharmacy_orders),
       })),
       visitReasons: {
         vaccination: num(reasons.vaccination),
@@ -77,6 +79,7 @@ export class SupabaseAnalyticsApi implements AnalyticsApi {
     const byMode = raw.by_mode as Json;
     const byFeeType = raw.by_fee_type as Json;
     const appointments = raw.appointments as Json;
+    const pharmacy = raw.pharmacy as Json;
 
     return {
       date: String(raw.date),
@@ -87,6 +90,7 @@ export class SupabaseAnalyticsApi implements AnalyticsApi {
         vaccination: num(byFeeType.vaccination),
         other: num(byFeeType.other),
       },
+      pharmacy: { total: num(pharmacy.total), orders: num(pharmacy.orders) },
       appointments: {
         attended: num(appointments.attended),
         missed: num(appointments.missed),

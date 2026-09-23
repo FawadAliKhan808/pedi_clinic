@@ -22,6 +22,7 @@ import {
   addDays,
   errorMessage,
   formatAge,
+  formatClock,
   formatDayShort,
   formatPhone,
   formatTimeRange,
@@ -165,10 +166,16 @@ export default function DoctorAppointmentsPage() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-foreground">
+                                {appointment.slotTime && (
+                                  <span className="tabular-nums text-primary-700 dark:text-primary-300">
+                                    {formatClock(appointment.slotTime)} ·{" "}
+                                  </span>
+                                )}
                                 {appointment.childName}
                               </p>
                               <p className="text-sm text-foreground-muted">
                                 {formatAge(appointment.childDob)} ·{" "}
+                                {appointment.parentName ? `${appointment.parentName}, ` : ""}
                                 {formatPhone(appointment.parentPhone)}
                                 {appointment.tokenSeq !== null
                                   ? ` · token ${appointment.tokenSeq}`

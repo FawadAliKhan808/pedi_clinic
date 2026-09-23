@@ -5,7 +5,7 @@ import { useState } from "react";
 import { SelectableCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 import type { AvailabilitySession, UUID } from "@/lib/api";
-import { cn, formatDayShort, formatTimeRange } from "@/lib/format";
+import { cn, formatClock, formatDayShort, formatTimeRange } from "@/lib/format";
 
 /**
  * Pick a date that has an open session, then a session on it. Only sessions
@@ -81,6 +81,15 @@ export function SessionPicker({
                       {formatTimeRange(session.startTime, session.endTime)}
                     </p>
                     <p className="text-sm text-foreground-muted">
+                      {session.nextFreeTime && (
+                        <>
+                          Your time:{" "}
+                          <strong className="text-foreground">
+                            {formatClock(session.nextFreeTime)}
+                          </strong>{" "}
+                          ·{" "}
+                        </>
+                      )}
                       {left} {left === 1 ? "slot" : "slots"} left
                     </p>
                   </div>

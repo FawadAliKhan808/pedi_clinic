@@ -69,7 +69,7 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 | Method | Input | Output | Errors | Auth |
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
-| `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
+| `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
 | `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` | `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
@@ -122,7 +122,8 @@ each side refetches its own read model instead. `onChange` also fires on
 | `getVisitSummary` | `visitId` | `VisitSummary \| null` | `VISIT_SUMMARY_FAILED` | Parent of that child, or clinic staff |
 | `getChildHistory` | `childId` | `ChildVisitHistoryEntry[]`, newest first | `CHILD_HISTORY_FAILED` | Parent of that child, or clinic staff |
 | `completeVisit` | `CompleteVisitInput` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `INVALID_FEE_AMOUNT`, `PAYMENT_TOTAL_MISMATCH` | Clinic doctor |
-| `submitRating` | `visitId, stars` (1–5) | `void` | `SUBMIT_RATING_FAILED` | Parent of that child |
+| `submitRating` | `visitId, stars` (1–5) | `void` | `ALREADY_RATED`, `VISIT_NOT_FOUND`, `SUBMIT_RATING_FAILED` | Parent of that child |
+| `hasRatedApp` | — | `boolean` | `RATING_LOOKUP_FAILED` | Signed-in parent |
 
 `getVisitSummary` is what the parent's post-visit screen reads: fee total,
 follow-up date, prescription keys, and their own rating. The pharmacist gets
@@ -130,8 +131,10 @@ the same row with `feeTotal` and `ratingStars` nulled out.
 
 **Ratings are owner-only.** A rating is of the *app*, not the doctor, so RLS
 lets the parent who left it and the owner team read it — clinic staff never
-can. `submitRating` inserts (rather than upserts) because a visit is rated
-once and the prompt only appears while `ratingStars` is null.
+can. **One rating per parent, ever:** `ratings.parent_id` is unique, parents
+have no insert policy, and `submit_app_rating` is the only way in (a second
+try raises `ALREADY_RATED`). The visit summary shows the prompt only while
+`hasRatedApp()` is false.
 
 **Completion is one transaction.** `complete_visit` locks the visit row, then
 writes the fee lines, the split payments, the prescription image rows and the
@@ -202,18 +205,28 @@ prescription photos they need to fill the order.
 |---|---|---|---|---|
 | `getBookingWindow` | — | `BookingWindow` | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
 | `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
-| `listMyAppointments` | — | `ParentAppointment[]` | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, upcoming, booked |
+| `listMyAppointments` | — | `ParentAppointment[]` (with `slotTime`) | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, upcoming, booked |
 | `book` | `{ sessionId, childId }` | `Appointment` | `CHILD_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW`, `SESSION_FULL`, `APPOINTMENT_EXISTS_FOR_DAY` | Parent of that child |
 | `reschedule` | `appointmentId, newSessionId` | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
 | `cancel` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
 | `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
-| `createSession` | `{ clinicId, date, startTime, endTime, maxBookings }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES`, `SESSION_OVERLAP` | Clinic doctor |
-| `updateSessionCapacity` | `sessionId, maxBookings` | `AvailabilitySession` | `CAPACITY_BELOW_BOOKINGS`, `FORBIDDEN` | Clinic doctor |
+| `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (off the slot grid, or end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
 | `cancelSession` | `sessionId` | bookings affected | `SESSION_NOT_FOUND`, `FORBIDDEN` | Clinic doctor |
 | `closeDay` | `clinicId, date` | bookings affected | `FORBIDDEN` | Clinic doctor |
 | `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | sessions created | `FORBIDDEN` | Clinic doctor |
 
 | `approve` / `reject` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `SESSION_CANCELLED` (approve), `FORBIDDEN` | Clinic doctor |
+
+**Slots and exact times.** Setting `appointment_slot_minutes` (default 30;
+exposed as `BookingWindow.slotMinutes`) is the unit. Session times must sit
+on that grid, and a session's capacity is its length divided by it — there is
+no manual capacity (9:00–11:00 → 4). Every booking and reschedule takes the
+session's earliest free slot under the session row lock, stored as
+`appointments.slot_time`; a partial unique index on `(session_id, slot_time)`
+for live bookings backs that up. A cancelled or rejected booking frees its
+time. `listSessions` reports `nextFreeTime` (the time the next booking would
+get), the doctor's schedule and parent's list carry `slotTime`, and every
+appointment notification carries `appointment_time`.
 
 **Approval workflow.** A parent's booking is a *request*: it starts `pending`,
 and every doctor of the clinic gets a `booking_request` notification. The
@@ -334,7 +347,10 @@ from `staff` first. Execution is revoked from `anon`.
 Definitions:
 
 - **Patients** are completed visits. **Revenue** is consultation money
-  (`fees` by type, `payments` by mode), not pharmacy sales.
+  (`fees` by type, `payments` by mode). **Pharmacy** sales (`daily.pharmacy`,
+  `pharmacyOrders`; end of day `pharmacy.total` / `orders`) are dispensed
+  order totals, counted on the clinic-local day they were dispensed, and
+  kept separate from revenue.
 - `daily` has one row per date in the range, zero-filled; week and month
   views are summed in the browser (weeks start Monday).
 - **New vs returning**: a child is returning if they had a completed visit
@@ -356,15 +372,6 @@ Definitions:
 
 Doctor analytics never include ratings or install/notification adoption,
 and the owner overview never includes revenue or children (brief 5.2/5.4).
-
----|---|---|---|
-| `getDoctorSummary` | `clinicId, { from, to }` | `DoctorAnalyticsSummary` | Doctor only |
-| `getEndOfDaySummary` | `clinicId, date` | `EndOfDaySummary` | Doctor only |
-| `getOwnerAdoption` | — | `OwnerAdoptionSummary` | Owner only |
-| `getOwnerRatings` | — | `OwnerRatingsSummary` | Owner only |
-
-Doctor analytics never include ratings or install/notification adoption
-(owner-only data, per brief Section 5.2/5.4).
 
 ---
 

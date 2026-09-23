@@ -45,12 +45,19 @@ const accentByStatus: Record<VisitStatus, string> = {
   removed: "bg-status-removed text-neutral-0",
 };
 
+/**
+ * Tokens still in play today. Finished visits leave this screen — their
+ * summaries live in Records — and so do tokens reception removed.
+ */
+const ACTIVE_STATUSES = new Set<VisitStatus>(["waiting", "called", "in_consultation", "skipped"]);
+
 /** Returns null when there's no session, so the caller can send them home. */
 async function loadQueue(): Promise<ParentQueueEntry[] | null> {
   const api = getBrowserApi();
   const userId = await api.auth.getCurrentUserId();
   if (!userId) return null;
-  return api.queue.getParentQueueView();
+  const entries = await api.queue.getParentQueueView();
+  return entries.filter((entry) => ACTIVE_STATUSES.has(entry.status));
 }
 
 export default function QueuePage() {
@@ -109,12 +116,20 @@ export default function QueuePage() {
         </div>
       ) : entries.length === 0 ? (
         <EmptyState
-          title="No token yet"
-          description="Check in to get today's token and follow the queue live."
+          title="No active token"
+          description="Check in to get today's token and follow the queue live. Summaries of finished visits are in Records."
           action={
-            <Link href="/check-in">
-              <Button variant="accent">Check in</Button>
-            </Link>
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/check-in">
+                <Button variant="accent">Check in</Button>
+              </Link>
+              <Link
+                href="/records"
+                className="flex min-h-12 items-center px-4 font-semibold text-primary-600"
+              >
+                Go to Records
+              </Link>
+            </div>
           }
         />
       ) : (
@@ -155,13 +170,6 @@ export default function QueuePage() {
                   {statusCopy(entry)}
                 </p>
 
-                {entry.status === "completed" && (
-                  <Link href={`/visits/${entry.visitId}`}>
-                    <Button fullWidth variant="accent">
-                      View visit summary
-                    </Button>
-                  </Link>
-                )}
               </div>
             </section>
           ))}

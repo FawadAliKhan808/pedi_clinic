@@ -57,6 +57,9 @@ const settings = {
   // Analytics: a follow-up counts as "returned" if the child is seen again
   // within this many days after the follow-up date.
   follow_up_return_grace_days: Number(process.env.DEMO_FOLLOW_UP_GRACE_DAYS ?? 7),
+  // Appointments: each booking holds one slot this long; a session's capacity
+  // is its length divided by it, and session times snap to it.
+  appointment_slot_minutes: Number(process.env.DEMO_APPOINTMENT_SLOT_MINUTES ?? 30),
 };
 
 function fail(step, error) {
