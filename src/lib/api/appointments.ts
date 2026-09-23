@@ -22,10 +22,18 @@ export interface AppointmentsApi {
   // --- Parent -------------------------------------------------------------
 
   listMyAppointments(): Promise<ParentAppointment[]>;
-  /** Race-safe: throws `SESSION_FULL` rather than overbooking. */
-  book(input: { sessionId: UUID; childId: UUID }): Promise<Appointment>;
-  /** Parents are held to the booking window; the doctor isn't. */
-  reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment>;
+  /**
+   * Books the slot the parent picked. Race-safe: a slot someone else just
+   * took throws `SLOT_TAKEN`; off-grid or past slots throw `INVALID_SLOT` /
+   * `SESSION_IN_PAST`.
+   */
+  book(input: { sessionId: UUID; childId: UUID; slotTime: ClockTime }): Promise<Appointment>;
+  /** To a picked slot, in another session or the same one. Parents are held to the booking window; the doctor isn't. */
+  reschedule(
+    appointmentId: UUID,
+    newSessionId: UUID,
+    slotTime: ClockTime
+  ): Promise<Appointment>;
   /** No cutoff. When the doctor cancels, the parent is notified. */
   cancel(appointmentId: UUID): Promise<Appointment>;
 

@@ -3,7 +3,7 @@
 import { CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import { SessionPicker } from "@/components/appointments/session-picker";
+import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -277,14 +277,14 @@ export default function DoctorAppointmentsPage() {
         <DoctorRescheduleSheet
           range={range}
           appointment={rescheduling.appointment}
-          currentSessionId={rescheduling.sessionId}
           onClose={() => setRescheduling(null)}
-          onMove={(sessionId) =>
+          onMove={(sessionId, slotTime) =>
             change(
               () =>
                 getBrowserApi().appointments.reschedule(
                   rescheduling.appointment.appointmentId,
-                  sessionId
+                  sessionId,
+                  slotTime
                 ),
               "Appointment moved — parent notified"
             )
@@ -298,19 +298,17 @@ export default function DoctorAppointmentsPage() {
 function DoctorRescheduleSheet({
   range,
   appointment,
-  currentSessionId,
   onClose,
   onMove,
 }: {
   range: Range;
   appointment: ClinicAppointment;
-  currentSessionId: UUID;
   onClose: () => void;
-  onMove: (sessionId: UUID) => Promise<void>;
+  onMove: (sessionId: UUID, slotTime: string) => Promise<void>;
 }) {
   const toast = useToast();
   const [sessions, setSessions] = useState<AvailabilitySession[] | null>(null);
-  const [selected, setSelected] = useState<AvailabilitySession | null>(null);
+  const [selected, setSelected] = useState<SlotSelection | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -339,7 +337,7 @@ function DoctorRescheduleSheet({
           onClick={async () => {
             if (!selected) return;
             setBusy(true);
-            await onMove(selected.id);
+            await onMove(selected.session.id, selected.slotTime);
             setBusy(false);
             onClose();
           }}
@@ -353,9 +351,8 @@ function DoctorRescheduleSheet({
       ) : (
         <SessionPicker
           sessions={sessions}
-          selectedSessionId={selected?.id ?? null}
+          selection={selected}
           onSelect={setSelected}
-          excludeSessionId={currentSessionId}
         />
       )}
     </Sheet>

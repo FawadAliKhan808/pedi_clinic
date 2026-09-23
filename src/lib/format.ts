@@ -151,8 +151,6 @@ export function errorMessage(error: unknown): string {
       : "";
 
   switch (code) {
-    case "ACTIVE_TOKEN_EXISTS":
-      return "This child already has a token for today.";
     case "DAILY_TOKEN_LIMIT_REACHED":
       return "You've reached today's token limit for this phone number. Please check with reception.";
     case "ACTIVE_CONSULTATION_EXISTS":
@@ -163,8 +161,10 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
-    case "APPOINTMENT_EXISTS_FOR_DAY":
-      return "This child already has an appointment that day.";
+    case "SLOT_TAKEN":
+      return "Someone just booked that time. Please pick another.";
+    case "INVALID_SLOT":
+      return "That time isn't one of the session's slots. Please pick another.";
     case "OUTSIDE_BOOKING_WINDOW":
       return "That date is too far ahead to book yet.";
     case "SESSION_IN_PAST":
@@ -179,8 +179,6 @@ export function errorMessage(error: unknown): string {
       return "You've already rated the app — thank you!";
     case "INVALID_RANGE":
       return "Pick a range of one year or less, with the start before the end.";
-    case "CAPACITY_BELOW_BOOKINGS":
-      return "More appointments are already booked than that.";
     case "INVALID_APPOINTMENT_STATUS":
       return "That appointment can't be changed any more.";
     case "INVALID_STATUS_TRANSITION":

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import { SessionPicker } from "@/components/appointments/session-picker";
+import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
@@ -169,7 +169,7 @@ function RescheduleSheet({
 }) {
   const toast = useToast();
   const [sessions, setSessions] = useState<AvailabilitySession[] | null>(null);
-  const [selected, setSelected] = useState<AvailabilitySession | null>(null);
+  const [selected, setSelected] = useState<SlotSelection | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -191,15 +191,16 @@ function RescheduleSheet({
     if (!selected) return;
     setBusy(true);
     try {
-      const moved = await getBrowserApi().appointments.reschedule(
+      await getBrowserApi().appointments.reschedule(
         appointment.appointmentId,
-        selected.id
+        selected.session.id,
+        selected.slotTime
       );
       void getBrowserApi().notifications.dispatchPending();
       toast(
-        `Moved to ${formatDayShort(selected.date)}${
-          moved.slotTime ? `, ${formatClock(moved.slotTime)}` : ""
-        } — waiting for the doctor's approval`,
+        `Moved to ${formatDayShort(selected.session.date)}, ${formatClock(
+          selected.slotTime
+        )} — waiting for the doctor's approval`,
         "success"
       );
       onDone();
@@ -231,9 +232,8 @@ function RescheduleSheet({
         ) : (
           <SessionPicker
             sessions={sessions}
-            selectedSessionId={selected?.id ?? null}
+            selection={selected}
             onSelect={setSelected}
-            excludeSessionId={appointment.sessionId}
           />
         )}
       </div>

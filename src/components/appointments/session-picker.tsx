@@ -1,32 +1,31 @@
 "use client";
 
-import { Check } from "lucide-react";
 import { useState } from "react";
-import { SelectableCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
-import type { AvailabilitySession, UUID } from "@/lib/api";
+import type { AvailabilitySession, ClockTime } from "@/lib/api";
 import { cn, formatClock, formatDayShort, formatTimeRange } from "@/lib/format";
 
+/** The exact appointment someone picked: a session and one of its free times. */
+export interface SlotSelection {
+  session: AvailabilitySession;
+  slotTime: ClockTime;
+}
+
 /**
- * Pick a date that has an open session, then a session on it. Only sessions
- * with a free slot are offered; the server still has the final say (it
- * refuses with SESSION_FULL if a slot went in the meantime).
+ * Pick a date, then one of the free 30-minute times in any of that day's
+ * sessions. Only free times are offered; the server still has the final say
+ * (SLOT_TAKEN if someone took it in the meantime).
  */
 export function SessionPicker({
   sessions,
-  selectedSessionId,
+  selection,
   onSelect,
-  excludeSessionId,
 }: {
   sessions: AvailabilitySession[];
-  selectedSessionId: UUID | null;
-  onSelect: (session: AvailabilitySession) => void;
-  excludeSessionId?: UUID;
+  selection: SlotSelection | null;
+  onSelect: (selection: SlotSelection) => void;
 }) {
-  const open = sessions.filter(
-    (session) =>
-      session.id !== excludeSessionId && session.bookedCount < session.maxBookings
-  );
+  const open = sessions.filter((session) => session.freeSlots.length > 0);
   const dates = [...new Set(open.map((session) => session.date))];
 
   const [pickedDate, setPickedDate] = useState<string | null>(null);
@@ -36,8 +35,8 @@ export function SessionPicker({
   if (dates.length === 0) {
     return (
       <EmptyState
-        title="No open sessions"
-        description="There are no appointment slots left in the booking window. Please check again later, or come in and take a token."
+        title="No open times"
+        description="There are no appointment times left in the booking window. Please check again later, or come in and take a token."
       />
     );
   }
@@ -63,44 +62,48 @@ export function SessionPicker({
         ))}
       </div>
 
-      {/* Two columns when there is room — a full page, not the narrow drawer. */}
-      <div className="grid gap-3 @lg:grid-cols-2">
-        {open
-          .filter((session) => session.date === selectedDate)
-          .map((session) => {
-            const left = session.maxBookings - session.bookedCount;
-            return (
-              <SelectableCard
-                key={session.id}
-                selected={selectedSessionId === session.id}
-                onSelect={() => onSelect(session)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {formatTimeRange(session.startTime, session.endTime)}
-                    </p>
-                    <p className="text-sm text-foreground-muted">
-                      {session.nextFreeTime && (
-                        <>
-                          Your time:{" "}
-                          <strong className="text-foreground">
-                            {formatClock(session.nextFreeTime)}
-                          </strong>{" "}
-                          ·{" "}
-                        </>
-                      )}
-                      {left} {left === 1 ? "slot" : "slots"} left
-                    </p>
-                  </div>
-                  {selectedSessionId === session.id && (
-                    <Check className="size-5 text-primary-600" />
-                  )}
-                </div>
-              </SelectableCard>
-            );
-          })}
-      </div>
+      {open
+        .filter((session) => session.date === selectedDate)
+        .map((session) => (
+          <section key={session.id} className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="font-semibold text-foreground">
+                {formatTimeRange(session.startTime, session.endTime)}
+              </h3>
+              <p className="text-sm text-foreground-muted">
+                {session.freeSlots.length}{" "}
+                {session.freeSlots.length === 1 ? "time" : "times"} free
+              </p>
+            </div>
+            <div
+              role="radiogroup"
+              aria-label={`Times between ${formatTimeRange(session.startTime, session.endTime)}`}
+              className="grid grid-cols-3 gap-2 @md:grid-cols-4 @xl:grid-cols-6"
+            >
+              {session.freeSlots.map((slot) => {
+                const selected =
+                  selection?.session.id === session.id && selection.slotTime === slot;
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => onSelect({ session, slotTime: slot })}
+                    className={cn(
+                      "min-h-12 rounded-lg border-2 px-2 text-sm font-semibold tabular-nums",
+                      selected
+                        ? "border-primary-600 bg-primary-600 text-foreground-on-primary"
+                        : "border-border text-foreground hover:border-primary-400"
+                    )}
+                  >
+                    {formatClock(slot)}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
     </div>
   );
 }

@@ -162,10 +162,15 @@ check each one:
       form shows how many 30-minute appointments the range makes (e.g.
       10:00 AM–12:00 PM → 4, with the times); there's no slot-count field or
       +/− stepper any more.
-- [ ] **Booking**: each session shows "Your time: …"; after requesting, the
-      toast, the Appointments list and the doctor's Appointments tab all show
-      that exact time; a second child booked into the same session gets the
-      next half hour.
+- [ ] **Booking**: pick a day, then a time from the grid of free 30-minute
+      times (e.g. a 5:00–7:00 PM session shows 5:00, 5:30, 6:00, 6:30). The
+      toast, the Appointments list and the doctor's Appointments tab show that
+      exact time, and it disappears from the grid for the next person. Today's
+      past times aren't offered.
+- [ ] Reschedule (parent and doctor) uses the same time grid, including a
+      different time in the same session.
+- [ ] The same child can book two appointments on one day, and can take a
+      second token on one day (up to the per-phone daily limit).
 - [ ] Notifications about an appointment (request, confirmed, moved,
       reminders) name the exact time.
 - [ ] **Doctor → Queue → tap a child**: the sheet shows the parent's name and

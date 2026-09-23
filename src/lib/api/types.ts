@@ -214,8 +214,8 @@ export interface AvailabilitySession {
   endTime: ClockTime;
   maxBookings: number;
   bookedCount: number;
-  /** The time the next booking would get; null when the session is full. */
-  nextFreeTime: ClockTime | null;
+  /** Slots still open to book, in order (past ones left out for today). */
+  freeSlots: ClockTime[];
 }
 
 /** "Today" and the bookable range, as the clinic's timezone and settings define them. */

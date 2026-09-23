@@ -70,20 +70,20 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
 | `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
-| `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` | `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child |
+| `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` | `CHILD_NOT_FOUND`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `searchChildren` | `clinicId, query` | `ChildSearchResult[]` | `CHILD_SEARCH_FAILED` | Clinic doctor/pharmacist |
-| `addWalkIn` | `{ clinicId, name, dob, parentPhone, visitReason }` | `Visit` | `FORBIDDEN`, `INVALID_INPUT`, `ACTIVE_TOKEN_EXISTS` | Clinic doctor |
+| `addWalkIn` | `{ clinicId, name, dob, parentPhone, visitReason }` | `Visit` | `FORBIDDEN`, `INVALID_INPUT` | Clinic doctor |
 
 **Token assignment.** `checkIn` and `addWalkIn` both go through the
 `assign_token` database function, which takes a transaction-scoped advisory
 lock per clinic-day before reading the next `seq` — so concurrent check-ins
-can't be handed the same token. "One active token per child per day" is a
-partial unique index, not an application check, so it holds under a true
-race. `scripts/test-concurrency.mjs` proves both properties against the live
-database.
+can't be handed the same token. A child may hold more than one token on the
+same day (the only daily cap is `daily_token_limit_per_phone`, per parent);
+two simultaneous check-ins for one child get two distinct numbers.
+`scripts/test-concurrency.mjs` proves both against the live database.
 
 **Parent position counts.** Parents can't read each other's rows, so
 "now serving" and "patients ahead" are computed inside `parent_queue_view`
@@ -204,10 +204,10 @@ prescription photos they need to fill the order.
 | Method | Input | Output | Errors | Auth |
 |---|---|---|---|---|
 | `getBookingWindow` | — | `BookingWindow` | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
-| `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
+| `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` (with `freeSlots`) | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
 | `listMyAppointments` | — | `ParentAppointment[]` (with `slotTime`) | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, upcoming, booked |
-| `book` | `{ sessionId, childId }` | `Appointment` | `CHILD_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW`, `SESSION_FULL`, `APPOINTMENT_EXISTS_FOR_DAY` | Parent of that child |
-| `reschedule` | `appointmentId, newSessionId` | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
+| `book` | `{ sessionId, childId, slotTime }` | `Appointment` | `CHILD_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW`, `SESSION_FULL`, `INVALID_SLOT`, `SLOT_TAKEN` | Parent of that child |
+| `reschedule` | `appointmentId, newSessionId, slotTime` (same session allowed) | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
 | `cancel` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
 | `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
 | `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (off the slot grid, or end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
@@ -220,13 +220,16 @@ prescription photos they need to fill the order.
 **Slots and exact times.** Setting `appointment_slot_minutes` (default 30;
 exposed as `BookingWindow.slotMinutes`) is the unit. Session times must sit
 on that grid, and a session's capacity is its length divided by it — there is
-no manual capacity (9:00–11:00 → 4). Every booking and reschedule takes the
-session's earliest free slot under the session row lock, stored as
-`appointments.slot_time`; a partial unique index on `(session_id, slot_time)`
-for live bookings backs that up. A cancelled or rejected booking frees its
-time. `listSessions` reports `nextFreeTime` (the time the next booking would
-get), the doctor's schedule and parent's list carry `slotTime`, and every
-appointment notification carries `appointment_time`.
+no manual capacity (9:00–11:00 → 4). **Nothing is assigned automatically:**
+`listSessions` returns each session's `freeSlots` (past times left out for
+today), the person picks one, and `book` / `reschedule` take that
+`slotTime`. Under the session row lock the server checks it is on the grid
+(`INVALID_SLOT`), not past (`SESSION_IN_PAST`) and not held by another live
+booking (`SLOT_TAKEN`), then stores it as `appointments.slot_time`; a partial
+unique index on `(session_id, slot_time)` backs that up. A cancelled or
+rejected booking frees its time. The doctor's schedule and parent's list
+carry `slotTime`, and every appointment notification carries
+`appointment_time`.
 
 **Approval workflow.** A parent's booking is a *request*: it starts `pending`,
 and every doctor of the clinic gets a `booking_request` notification. The
@@ -241,9 +244,11 @@ arrival-linking only apply to confirmed (`booked`) appointments. The walk-in
 queue has no approval step: tokens stay first-come-first-served.
 
 **Booking is race-safe.** `book_appointment` locks the session row before
-counting its bookings, so concurrent taps can't overbook: 8 simultaneous
-bookings for a 3-slot session yield exactly 3 (`scripts/test-concurrency.mjs`).
-"One appointment per child per day" is a partial unique index.
+checking, so concurrent taps can't overbook or double-book a time: 8
+simultaneous bookings contesting a 3-slot session's times yield exactly 3,
+each at a different time (`scripts/test-concurrency.mjs`). A child may have
+more than one appointment on the same day; on arrival, the check-in links the
+earliest of that day's confirmed bookings.
 
 **The booking window** is today plus the next `booking_window_days − 1` days, in
 the clinic's timezone, from `settings`. Parents are held to it; the doctor

@@ -836,8 +836,8 @@ export type Database = {
           clinic_id: string
           date: string
           end_time: string
+          free_slots: string[]
           max_bookings: number
-          next_free_time: string
           session_id: string
           start_time: string
         }[]
@@ -846,6 +846,14 @@ export type Database = {
         Args: {
           p_enforce_window: boolean
           p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
+        }
+        Returns: undefined
+      }
+      assert_slot_free: {
+        Args: {
+          p_ignore_appointment: string
+          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
+          p_slot: string
         }
         Returns: undefined
       }
@@ -882,7 +890,7 @@ export type Database = {
         }
       }
       book_appointment: {
-        Args: { p_child_id: string; p_session_id: string }
+        Args: { p_child_id: string; p_session_id: string; p_slot_time: string }
         Returns: {
           appointment_date: string
           cancelled_at: string | null
@@ -1231,12 +1239,6 @@ export type Database = {
           status: Database["public"]["Enums"]["appointment_status"]
         }[]
       }
-      next_free_slot: {
-        Args: {
-          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
-        }
-        Returns: string
-      }
       notify_appointment_change: {
         Args: { p_appointment_id: string; p_change: string }
         Returns: undefined
@@ -1338,7 +1340,11 @@ export type Database = {
       }
       request_push_dispatch: { Args: never; Returns: undefined }
       reschedule_appointment: {
-        Args: { p_appointment_id: string; p_new_session_id: string }
+        Args: {
+          p_appointment_id: string
+          p_new_session_id: string
+          p_slot_time: string
+        }
         Returns: {
           appointment_date: string
           cancelled_at: string | null
@@ -1402,6 +1408,12 @@ export type Database = {
       send_follow_up_reminders: {
         Args: { p_clinic_id: string; p_today: string }
         Returns: number
+      }
+      session_free_slots: {
+        Args: {
+          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
+        }
+        Returns: string[]
       }
       setting_int: {
         Args: { p_clinic_id: string; p_key: string }

@@ -182,41 +182,86 @@ async function main() {
   );
 
   // --- booking ------------------------------------------------------------
+  // A picks the later of the two times — nothing is assigned automatically.
   const bookA = unwrap(
     "book A",
-    await parent.rpc("book_appointment", { p_session_id: morning.id, p_child_id: children.A.id })
+    await parent.rpc("book_appointment", {
+      p_session_id: morning.id,
+      p_child_id: children.A.id,
+      p_slot_time: "09:30",
+    })
   );
+  check("the booking holds exactly the time the parent picked", bookA.slot_time === "09:30:00", bookA.slot_time);
   check(
     "a parent's booking starts as a request awaiting approval",
     bookA.status === "pending"
   );
 
+  const secondForA = await parent.rpc("book_appointment", {
+    p_session_id: afternoon.id,
+    p_child_id: children.A.id,
+    p_slot_time: "15:00",
+  });
   check(
-    "one appointment per child per day",
+    "a child can have more than one appointment on the same day",
+    !secondForA.error && secondForA.data?.status === "pending",
+    secondForA.error?.message
+  );
+  // Free the afternoon again for the reschedule checks below.
+  if (secondForA.data) {
+    unwrap(
+      "cancel A's second booking",
+      await parent.rpc("cancel_appointment", { p_appointment_id: secondForA.data.id })
+    );
+  }
+
+  check(
+    "a time someone else holds is refused",
     refusedWith(
       await parent.rpc("book_appointment", {
-        p_session_id: afternoon.id,
-        p_child_id: children.A.id,
+        p_session_id: morning.id,
+        p_child_id: children.B.id,
+        p_slot_time: "09:30",
       }),
-      "APPOINTMENT_EXISTS_FOR_DAY"
+      "SLOT_TAKEN"
     )
+  );
+  check(
+    "a time off the session's 30-minute grid is refused",
+    refusedWith(
+      await parent.rpc("book_appointment", {
+        p_session_id: morning.id,
+        p_child_id: children.B.id,
+        p_slot_time: "09:15",
+      }),
+      "INVALID_SLOT"
+    ) &&
+      refusedWith(
+        await parent.rpc("book_appointment", {
+          p_session_id: morning.id,
+          p_child_id: children.B.id,
+          p_slot_time: "10:00",
+        }),
+        "INVALID_SLOT"
+      )
   );
 
   const bookB = unwrap(
     "book B",
-    await parent.rpc("book_appointment", { p_session_id: morning.id, p_child_id: children.B.id })
+    await parent.rpc("book_appointment", {
+      p_session_id: morning.id,
+      p_child_id: children.B.id,
+      p_slot_time: "09:00",
+    })
   );
-  check(
-    "each booking gets the next exact time in the session",
-    bookA.slot_time === "09:00:00" && bookB.slot_time === "09:30:00",
-    `${bookA.slot_time}, ${bookB.slot_time}`
-  );
+  check("another child can take the remaining time", bookB.slot_time === "09:00:00", bookB.slot_time);
   check(
     "a full session refuses further bookings",
     refusedWith(
       await parent.rpc("book_appointment", {
         p_session_id: morning.id,
         p_child_id: children.C.id,
+        p_slot_time: "09:00",
       }),
       "SESSION_FULL"
     )
@@ -229,6 +274,7 @@ async function main() {
       await parent.rpc("book_appointment", {
         p_session_id: outside.id,
         p_child_id: children.C.id,
+        p_slot_time: "09:00",
       }),
       "OUTSIDE_BOOKING_WINDOW"
     )
@@ -247,9 +293,10 @@ async function main() {
     sessionsList.find((s) => s.session_id === morning.id)?.booked_count === 2
   );
   check(
-    "…and the time the next booking would get",
-    sessionsList.find((s) => s.session_id === morning.id)?.next_free_time === null &&
-      sessionsList.find((s) => s.session_id === afternoon.id)?.next_free_time === "15:00:00"
+    "…and lists every time still free to pick",
+    sessionsList.find((s) => s.session_id === morning.id)?.free_slots.length === 0 &&
+      JSON.stringify(sessionsList.find((s) => s.session_id === afternoon.id)?.free_slots) ===
+        JSON.stringify(["15:00:00"])
   );
 
   // --- parent changes: no notification ------------------------------------
@@ -268,10 +315,11 @@ async function main() {
         )
       ).id,
       p_new_session_id: afternoon.id,
+      p_slot_time: "15:00",
     })
   );
   check("a parent can reschedule within the window", bMoved.session_id === afternoon.id);
-  check("a moved booking takes a time in its new session", bMoved.slot_time === "15:00:00");
+  check("a moved booking holds the time picked", bMoved.slot_time === "15:00:00");
   check(
     "a parent's own change sends them no notification",
     unwrap(
@@ -293,6 +341,7 @@ async function main() {
     await doctor.rpc("reschedule_appointment", {
       p_appointment_id: bookA.id,
       p_new_session_id: outside.id,
+      p_slot_time: "10:00",
     })
   );
   check("the doctor isn't held to the booking window", aMoved.session_id === outside.id);
@@ -348,7 +397,11 @@ async function main() {
   const closing = await createSession(addDays(today, 4), "09:00", "10:00");
   const bookC = unwrap(
     "book C",
-    await parent.rpc("book_appointment", { p_session_id: closing.id, p_child_id: children.C.id })
+    await parent.rpc("book_appointment", {
+      p_session_id: closing.id,
+      p_child_id: children.C.id,
+      p_slot_time: "09:00",
+    })
   );
   const closed = unwrap(
     "close day",
@@ -405,6 +458,7 @@ async function main() {
     await parent.rpc("book_appointment", {
       p_session_id: approvalSession.id,
       p_child_id: children.H.id,
+      p_slot_time: "09:00",
     })
   );
   const doctorInbox = unwrap(
@@ -466,6 +520,7 @@ async function main() {
     await parent.rpc("book_appointment", {
       p_session_id: approvalSession.id,
       p_child_id: children.I.id,
+      p_slot_time: "09:30",
     })
   );
   check(
@@ -474,6 +529,7 @@ async function main() {
       await parent.rpc("book_appointment", {
         p_session_id: approvalSession.id,
         p_child_id: children.J.id,
+        p_slot_time: "09:30",
       }),
       "SESSION_FULL"
     )
@@ -500,6 +556,7 @@ async function main() {
     await parent.rpc("book_appointment", {
       p_session_id: approvalSession.id,
       p_child_id: children.J.id,
+      p_slot_time: "09:30",
     })
   );
   check(
@@ -520,6 +577,7 @@ async function main() {
     await parent.rpc("reschedule_appointment", {
       p_appointment_id: requestH.id,
       p_new_session_id: morning.id,
+      p_slot_time: "09:00",
     })
   );
   check(

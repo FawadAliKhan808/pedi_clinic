@@ -77,8 +77,9 @@ async function assignToken(childId) {
 
 /**
  * Eight parents' taps on "Book" landing at once for a session with three
- * slots. book_appointment locks the session row before counting, so exactly
- * three succeed and the rest get SESSION_FULL.
+ * times, several picking the same time. book_appointment locks the session
+ * row before checking, so each time goes to exactly one booking (the rest get
+ * SLOT_TAKEN or SESSION_FULL) and the session is never overbooked.
  */
 async function testBookingRace() {
   const SLOTS = 3;
@@ -114,7 +115,7 @@ async function testBookingRace() {
         clinic_id: clinic.id,
         date: tomorrow.toISOString().slice(0, 10),
         start_time: "09:00",
-        end_time: "10:00",
+        end_time: "10:30",
         max_bookings: SLOTS,
       })
       .select("id")
@@ -137,16 +138,21 @@ async function testBookingRace() {
 
   try {
     const attempts = await Promise.all(
-      racers.map((child) =>
+      racers.map((child, index) =>
         parentClient.rpc("book_appointment", {
           p_session_id: session.id,
           p_child_id: child.id,
+          // 09:00, 09:30, 10:00, 09:00, … — every time is contested.
+          p_slot_time: ["09:00", "09:30", "10:00"][index % SLOTS],
         })
       )
     );
 
     const booked = attempts.filter((result) => !result.error);
-    const full = attempts.filter((result) => result.error?.message.includes("SESSION_FULL"));
+    const full = attempts.filter((result) =>
+      /SESSION_FULL|SLOT_TAKEN/.test(result.error?.message ?? "")
+    );
+    const times = new Set(booked.map((result) => result.data.slot_time));
     const { count } = await db
       .from("appointments")
       .select("id", { count: "exact", head: true })
@@ -160,6 +166,7 @@ async function testBookingRace() {
       `${booked.length} booked, ${full.length} full`
     );
     check("a session is never overbooked", count === SLOTS, `${count} bookings stored`);
+    check("no time is ever booked twice", times.size === booked.length, [...times].join(", "));
 
     // Approve and reject landing on the same request at the same instant.
     const doctorClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -316,7 +323,8 @@ try {
     `${Math.min(...seqs)}..${Math.max(...seqs)}`
   );
 
-  // 2. The same child, with no token yet, checking in twice at the same instant.
+  // 2. The same child checking in twice at the same instant. A child may hold
+  //    more than one token a day, so both succeed — with different numbers.
   const raceChild = await must(
     "create race-test child",
     db
@@ -331,11 +339,11 @@ try {
     assignToken(raceChild.id),
   ]);
   const succeeded = raceAttempts.filter((result) => !result.error);
-  const rejected = raceAttempts.filter((result) => result.error);
   check(
-    "two simultaneous check-ins for one child yield exactly one token",
-    succeeded.length === 1 && rejected.length === 1,
-    `${succeeded.length} succeeded, ${rejected.length} rejected (${rejected[0]?.error.message})`
+    "two simultaneous check-ins for one child get two distinct tokens",
+    succeeded.length === 2 && succeeded[0].data.seq !== succeeded[1].data.seq,
+    succeeded.map((result) => result.data.seq).join(" and ") ||
+      raceAttempts.find((result) => result.error)?.error.message
   );
 
   // 3. Dispensing: eight simultaneous orders against stock that only covers five.

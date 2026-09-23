@@ -3,7 +3,7 @@
 import { ArrowLeft, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SessionPicker } from "@/components/appointments/session-picker";
+import { SessionPicker, type SlotSelection } from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { Button } from "@/components/ui/button";
 import { SelectableCard } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import {
   formatAge,
   formatClock,
   formatDayShort,
-  formatTimeRange,
 } from "@/lib/format";
 
 interface BookingData {
@@ -37,13 +36,13 @@ async function loadBookingData(): Promise<BookingData | null> {
   return { children, sessions };
 }
 
-/** Child → date → session → confirm, all on one scrolling screen. */
+/** Child → date → time → confirm, all on one scrolling screen. */
 export default function BookAppointmentPage() {
   const router = useRouter();
   const toast = useToast();
   const [data, setData] = useState<BookingData | null>(null);
   const [childId, setChildId] = useState<string | null>(null);
-  const [session, setSession] = useState<AvailabilitySession | null>(null);
+  const [selection, setSelection] = useState<SlotSelection | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -65,18 +64,20 @@ export default function BookAppointmentPage() {
   }, [router, toast]);
 
   async function book() {
-    if (!childId || !session) return;
+    if (!childId || !selection) return;
     setBusy(true);
     try {
       const api = getBrowserApi();
-      const booked = await api.appointments.book({ sessionId: session.id, childId });
+      await api.appointments.book({
+        sessionId: selection.session.id,
+        childId,
+        slotTime: selection.slotTime,
+      });
       void api.notifications.dispatchPending();
       toast(
-        `Request sent for ${formatDayShort(session.date)}, ${
-          booked.slotTime
-            ? formatClock(booked.slotTime)
-            : formatTimeRange(session.startTime, session.endTime)
-        } — the doctor will confirm it`,
+        `Request sent for ${formatDayShort(selection.session.date)}, ${formatClock(
+          selection.slotTime
+        )} — the doctor will confirm it`,
         "success"
       );
       router.replace("/appointments");
@@ -138,8 +139,8 @@ export default function BookAppointmentPage() {
             </h2>
             <SessionPicker
               sessions={data.sessions}
-              selectedSessionId={session?.id ?? null}
-              onSelect={setSession}
+              selection={selection}
+              onSelect={setSelection}
             />
           </section>
         </>
@@ -150,7 +151,7 @@ export default function BookAppointmentPage() {
           fullWidth
           variant="accent"
           loading={busy}
-          disabled={!childId || !session}
+          disabled={!childId || !selection}
           onClick={() => void book()}
         >
           Request appointment

@@ -28,7 +28,20 @@ function mapAppointment(row: AppointmentRow): Appointment {
   };
 }
 
+function toClock(minutes: number): ClockTime {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
+}
+
+function minutesOf(time: ClockTime): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+/** A freshly created session: every slot is free. Capacity = length / slot length. */
 function mapSession(row: SessionRow, bookedCount: number): AvailabilitySession {
+  const start = minutesOf(row.start_time);
+  const slotLength =
+    row.max_bookings > 0 ? (minutesOf(row.end_time) - start) / row.max_bookings : 0;
   return {
     id: row.id,
     clinicId: row.clinic_id,
@@ -37,7 +50,10 @@ function mapSession(row: SessionRow, bookedCount: number): AvailabilitySession {
     endTime: row.end_time,
     maxBookings: row.max_bookings,
     bookedCount,
-    nextFreeTime: bookedCount < row.max_bookings ? row.start_time : null,
+    freeSlots:
+      bookedCount === 0
+        ? Array.from({ length: row.max_bookings }, (_, n) => toClock(start + n * slotLength))
+        : [],
   };
 }
 
@@ -79,7 +95,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       endTime: row.end_time,
       maxBookings: row.max_bookings,
       bookedCount: row.booked_count,
-      nextFreeTime: row.next_free_time,
+      freeSlots: row.free_slots ?? [],
     }));
   }
 
@@ -100,19 +116,29 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
     }));
   }
 
-  async book(input: { sessionId: UUID; childId: UUID }): Promise<Appointment> {
+  async book(input: {
+    sessionId: UUID;
+    childId: UUID;
+    slotTime: ClockTime;
+  }): Promise<Appointment> {
     const { data, error } = await this.client.rpc("book_appointment", {
       p_session_id: input.sessionId,
       p_child_id: input.childId,
+      p_slot_time: input.slotTime,
     });
     if (error) throw toApiError(error, "BOOK_APPOINTMENT_FAILED");
     return mapAppointment(data);
   }
 
-  async reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment> {
+  async reschedule(
+    appointmentId: UUID,
+    newSessionId: UUID,
+    slotTime: ClockTime
+  ): Promise<Appointment> {
     const { data, error } = await this.client.rpc("reschedule_appointment", {
       p_appointment_id: appointmentId,
       p_new_session_id: newSessionId,
+      p_slot_time: slotTime,
     });
     if (error) throw toApiError(error, "RESCHEDULE_APPOINTMENT_FAILED");
     return mapAppointment(data);

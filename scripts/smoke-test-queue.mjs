@@ -85,15 +85,18 @@ const visit = unwrap(
 );
 check("check-in assigned a token", Number.isInteger(visit.seq), `token ${visit.seq}`);
 
-const duplicate = await parent.rpc("check_in", {
+// A child may hold more than one token a day (only the per-phone limit applies).
+const second = await parent.rpc("check_in", {
   p_child_id: child.id,
-  p_visit_reason: "general_checkup",
+  p_visit_reason: "vaccination",
 });
 check(
-  "second token for the same child today is refused",
-  Boolean(duplicate.error),
-  duplicate.error?.message
+  "a second token for the same child today is allowed",
+  !second.error && second.data?.seq > visit.seq,
+  second.error?.message ?? `token ${second.data?.seq}`
 );
+// Take it straight back out so the rest of the run sees one token.
+if (second.data) await admin.from("visits").delete().eq("id", second.data.id);
 
 // A parent must not be able to read the visits table directly beyond their own.
 const otherRows = unwrap(
