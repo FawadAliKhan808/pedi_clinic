@@ -15,4 +15,6 @@ export interface RealtimeApi {
   /** Sessions opened, changed or cancelled, and bookings made, decided, moved or cancelled. */
   subscribeToAppointments(clinicId: UUID, onChange: () => void): Unsubscribe;
   subscribeToNotifications(userId: UUID, onChange: () => void): Unsubscribe;
+  /** Installs, notification opt-ins, registrations, ratings or tokens changed. */
+  subscribeToOwnerOverview(onChange: () => void): Unsubscribe;
 }

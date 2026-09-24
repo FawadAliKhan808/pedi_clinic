@@ -9,6 +9,8 @@ export interface BeforeInstallPromptEvent extends Event {
 }
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
+/** True once the browser reports the app was installed from this tab. */
+let justInstalled = false;
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -25,6 +27,7 @@ if (typeof window !== "undefined") {
   });
   window.addEventListener("appinstalled", () => {
     deferredPrompt = null;
+    justInstalled = true;
     notify();
   });
 }
@@ -40,6 +43,19 @@ export function useInstallPrompt(): BeforeInstallPromptEvent | null {
     subscribe,
     () => deferredPrompt,
     () => null
+  );
+}
+
+/**
+ * Whether the app was just installed from this browser tab (the native
+ * `appinstalled` event). Browsers can't open the new app themselves, so the
+ * tab uses this to send the parent to their home screen.
+ */
+export function useJustInstalled(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => justInstalled,
+    () => false
   );
 }
 

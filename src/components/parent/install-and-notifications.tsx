@@ -19,9 +19,8 @@ import {
 import { promptInstall, useInstallPrompt } from "@/lib/pwa/install-prompt";
 import {
   enableNotifications,
-  notificationPermission,
   syncPushSubscription,
-  type PermissionState,
+  useNotificationPermission,
 } from "@/lib/pwa/push";
 
 /**
@@ -45,7 +44,8 @@ export function InstallAndNotifications() {
 
 function InstalledAppNotifications() {
   const toast = useToast();
-  const [permission, setPermission] = useState<PermissionState>(notificationPermission);
+  // Shared with the pop-up, so turning them on in either place updates both.
+  const permission = useNotificationPermission();
   const [busy, setBusy] = useState(false);
   const [platform] = useState<Platform>(detectPlatform);
 
@@ -68,7 +68,6 @@ function InstalledAppNotifications() {
     setBusy(true);
     try {
       const result = await enableNotifications();
-      setPermission(result);
       if (result === "granted") toast("Notifications are on", "success");
     } catch {
       toast("Couldn't turn on notifications. Please try again.", "error");

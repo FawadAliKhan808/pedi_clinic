@@ -105,10 +105,13 @@ that parent's first OTP login via `ParentsApi.ensureProfile`.
 | `subscribeToPharmacyFeed` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToAppointments` | `clinicId, onChange` | `Unsubscribe` |
 | `subscribeToNotifications` | `userId, onChange` | `Unsubscribe` |
+| `subscribeToOwnerOverview` | `onChange` | `Unsubscribe` |
 
 Database triggers broadcast to `queue:{clinic_id}`, `pharmacy:{clinic_id}`,
-`appointments:{clinic_id}` (any session or booking change) and
-`notifications:{user_id}` on every change. The payloads carry **no personal data** — only which clinic
+`appointments:{clinic_id}` (any session or booking change),
+`notifications:{user_id}`, and `owner:overview` (installs, notification
+opt-ins, registrations, ratings, tokens — statement-level, no payload) on
+every change. The payloads carry **no personal data** — only which clinic
 changed — because parents can't be granted read access to each other's rows;
 each side refetches its own read model instead. `onChange` also fires on
 (re)subscribe and whenever the page becomes visible again, which is what
@@ -124,6 +127,8 @@ recovers state after a dropped connection or a sleeping phone. Screens use
 | Doctor Appointments (and its reschedule sheet), Availability | appointments |
 | Doctor Alerts and nav badge | notifications |
 | Pharmacist feed | pharmacy |
+| Owner dashboard (re-renders the server page) | owner overview |
+| Parent frame: opens a visit's summary when it's completed | queue |
 
 A booking screen whose selected time is taken meanwhile clears the
 selection and says so. `npm run test:appointments` checks that a new session

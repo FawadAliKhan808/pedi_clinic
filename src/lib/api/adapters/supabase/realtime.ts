@@ -38,6 +38,10 @@ export class SupabaseRealtimeApi implements RealtimeApi {
     );
   }
 
+  subscribeToOwnerOverview(onChange: () => void): Unsubscribe {
+    return this.subscribeToBroadcast("owner:overview", "overview_changed", onChange);
+  }
+
   /**
    * One broadcast channel, plus two catch-up paths: `onChange` fires on
    * (re)subscribe — recovering after a dropped connection — and when the

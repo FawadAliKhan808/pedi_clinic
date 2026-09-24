@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertTriangle, Package, Plus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, Package, Plus, Search, X } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
@@ -10,7 +10,17 @@ import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import { isLowStock, type Medicine, type UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatCurrency, parseAmount } from "@/lib/format";
+import { cn, errorMessage, formatCurrency, parseAmount } from "@/lib/format";
+
+type StockFilter = "all" | "in_stock" | "low" | "out";
+
+function stockStatus(medicine: Medicine): Exclude<StockFilter, "all"> {
+  if (medicine.stock <= 0) return "out";
+  return isLowStock(medicine) ? "low" : "in_stock";
+}
+
+// Out of stock first, then low, then the rest — what needs attention on top.
+const statusOrder: Record<Exclude<StockFilter, "all">, number> = { out: 0, low: 1, in_stock: 2 };
 
 export default function StockPage() {
   const toast = useToast();
@@ -19,6 +29,8 @@ export default function StockPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [restocking, setRestocking] = useState<Medicine | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<StockFilter>("all");
 
   useEffect(() => {
     getBrowserApi()
@@ -49,6 +61,23 @@ export default function StockPage() {
 
   const lowStock = (medicines ?? []).filter(isLowStock);
 
+  const counts = { all: 0, in_stock: 0, low: 0, out: 0 };
+  for (const medicine of medicines ?? []) {
+    counts.all += 1;
+    counts[stockStatus(medicine)] += 1;
+  }
+  const needle = query.trim().toLowerCase();
+  const shown = (medicines ?? [])
+    .filter(
+      (medicine) =>
+        (filter === "all" || stockStatus(medicine) === filter) &&
+        (!needle || medicine.name.toLowerCase().includes(needle))
+    )
+    .sort(
+      (a, b) =>
+        statusOrder[stockStatus(a)] - statusOrder[stockStatus(b)] || a.name.localeCompare(b.name)
+    );
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
@@ -62,8 +91,69 @@ export default function StockPage() {
         </button>
       </header>
 
+      {medicines && medicines.length > 0 && (
+        <div className="flex flex-col gap-2 px-5 pt-1">
+          <div className="relative max-w-xl">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-foreground-muted"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search medicines"
+              aria-label="Search medicines by name"
+              className="min-h-12 w-full rounded-xl border border-border bg-surface pl-11 pr-11 text-base text-foreground placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+            />
+            {query && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setQuery("")}
+                className="absolute right-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <div
+            role="group"
+            aria-label="Filter by stock"
+            className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1"
+          >
+            <FilterChip active={filter === "all"} onClick={() => setFilter("all")} count={counts.all}>
+              All
+            </FilterChip>
+            <FilterChip
+              active={filter === "in_stock"}
+              onClick={() => setFilter("in_stock")}
+              count={counts.in_stock}
+            >
+              In stock
+            </FilterChip>
+            <FilterChip
+              active={filter === "low"}
+              onClick={() => setFilter("low")}
+              count={counts.low}
+              tone="warning"
+            >
+              Low stock
+            </FilterChip>
+            <FilterChip
+              active={filter === "out"}
+              onClick={() => setFilter("out")}
+              count={counts.out}
+              tone="danger"
+            >
+              Out of stock
+            </FilterChip>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {lowStock.length > 0 && (
+        {lowStock.length > 0 && filter === "all" && !needle && (
           <Card className="col-span-full flex items-start gap-3 border-warning/40 bg-warning/10">
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" />
             <div>
@@ -93,8 +183,26 @@ export default function StockPage() {
             description="Add what the pharmacy carries so visits can be dispensed."
             action={<Button onClick={() => setAddOpen(true)}>Add medicine</Button>}
           />
+        ) : shown.length === 0 ? (
+          <EmptyState
+            icon={<Search className="size-8" />}
+            title="No medicines match"
+            description={needle ? `Nothing called "${query.trim()}" here.` : "None in this group right now."}
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setFilter("all");
+                }}
+                className="min-h-12 rounded-lg px-4 font-semibold text-primary-600"
+              >
+                Show all medicines
+              </button>
+            }
+          />
         ) : (
-          medicines.map((medicine) => (
+          shown.map((medicine) => (
             <Card key={medicine.id} className="flex items-center gap-3">
               <div className="flex min-w-0 flex-1 flex-col">
                 <p className="truncate font-semibold text-foreground">{medicine.name}</p>
@@ -102,14 +210,18 @@ export default function StockPage() {
                   {formatCurrency(medicine.unitPrice)} / {medicine.unit}
                 </p>
                 <p
-                  className={
-                    isLowStock(medicine)
-                      ? "text-sm font-semibold text-warning"
-                      : "text-sm text-foreground-muted"
-                  }
+                  className={cn(
+                    "text-sm",
+                    stockStatus(medicine) === "out"
+                      ? "font-semibold text-danger"
+                      : stockStatus(medicine) === "low"
+                        ? "font-semibold text-warning"
+                        : "text-foreground-muted"
+                  )}
                 >
-                  {medicine.stock} in stock
-                  {isLowStock(medicine) ? " · low" : ""}
+                  {stockStatus(medicine) === "out"
+                    ? "Out of stock"
+                    : `${medicine.stock} in stock${stockStatus(medicine) === "low" ? " · low" : ""}`}
                 </p>
               </div>
               <Button variant="secondary" onClick={() => setRestocking(medicine)}>
@@ -287,5 +399,49 @@ function RestockSheet({
         />
       </div>
     </Sheet>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  count,
+  tone,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count: number;
+  tone?: "warning" | "danger";
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors",
+        active
+          ? "border-primary-600 bg-primary-600 text-foreground-on-primary"
+          : "border-border bg-surface text-foreground hover:bg-surface-sunken"
+      )}
+    >
+      {children}
+      <span
+        className={cn(
+          "min-w-6 rounded-full px-1.5 text-xs font-bold tabular-nums leading-6",
+          active
+            ? "bg-white/20"
+            : tone === "danger" && count > 0
+              ? "bg-danger/15 text-danger"
+              : tone === "warning" && count > 0
+                ? "bg-warning/20 text-foreground"
+                : "bg-surface-sunken text-foreground-muted"
+        )}
+      >
+        {count}
+      </span>
+    </button>
   );
 }

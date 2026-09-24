@@ -137,6 +137,26 @@ async function main() {
   const eodBefore = unwrap("summary before", await doctor.rpc("end_of_day_summary", day));
   const ownerBefore = unwrap("owner before", await owner.rpc("owner_overview"));
 
+  // --- live owner dashboard -----------------------------------------------
+  // An open owner dashboard listens here; activity below must ping it.
+  let ownerPings = 0;
+  const ownerChannel = owner.channel("owner:overview");
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("owner channel subscribe timed out")), 15000);
+    ownerChannel
+      .on("broadcast", { event: "overview_changed" }, () => {
+        ownerPings += 1;
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+  });
+  cleanups.push(() => owner.removeChannel(ownerChannel));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   // --- activity -------------------------------------------------------------
   const stamp = Date.now();
   // Registered first so it's removed last, after the order that uses it.
@@ -355,6 +375,15 @@ async function main() {
     "end of day: pharmacy sales",
     Number(eodAfter.pharmacy.total) - Number(eodBefore.pharmacy.total) === 150 &&
       eodAfter.pharmacy.orders - eodBefore.pharmacy.orders === 1
+  );
+
+  for (let waited = 0; waited < 10000 && ownerPings === 0; waited += 250) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  check(
+    "the owner dashboard is pinged live when ratings, installs or tokens change",
+    ownerPings > 0,
+    `${ownerPings} ping(s)`
   );
 
   check("owner: ratings +1", ownerAfter.ratings.count - ownerBefore.ratings.count === 1);

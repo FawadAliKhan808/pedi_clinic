@@ -234,6 +234,30 @@ devices side by side:
       update live; the pharmacist feed updates when a visit completes.
 - [ ] Lock the phone for a few minutes, unlock → screens catch up on their own.
 
+## Summary auto-open, stock search, live owner, install and notification prompts
+
+- [ ] **Visit summary opens by itself**: parent has the app open (any screen)
+      while their child is with the doctor → the doctor completes the visit →
+      the parent's screen jumps to that visit's summary. Opening the app later
+      does *not* jump to an old summary.
+- [ ] **Stock search and filters** (pharmacist): typing filters by name; the
+      All / In stock / Low stock / Out of stock chips show counts and filter;
+      out-of-stock and low items sort to the top; "Show all medicines" clears.
+- [ ] **Owner dashboard live**: keep `/owner` open, install the app on a
+      phone (or turn on notifications, or leave a rating) → the numbers update
+      within a second or two, no reload.
+- [ ] **After installing** from a browser tab (Android Chrome "Install app"):
+      the tab is covered by "App installed successfully! Please close this
+      browser tab and open Pedi Clinic directly from your phone's home screen
+      to continue." with no way back into the tab.
+- [ ] **Notification pop-up** (installed app, or a browser tab after the
+      install prompt was dismissed): appears on opening the app while
+      notifications are undecided; "Not now" closes it; it comes back on the
+      next screen change and every 3 minutes; after **Allow** it never shows
+      again (and the notification card goes too); after **Block** it stops.
+      On iPhone Safari (not installed) it never appears — iOS only allows
+      notifications in the installed app.
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.

@@ -4,6 +4,7 @@ import { formatPercent } from "@/components/charts/scale";
 import { SplitBar } from "@/components/charts/split-bar";
 import { StatTile } from "@/components/charts/stat-tile";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { OwnerLiveRefresh } from "@/components/owner/owner-live-refresh";
 import { RatingDistribution } from "@/components/owner/rating-distribution";
 import { getServerApi } from "@/lib/api/server";
 
@@ -20,11 +21,12 @@ export default async function OwnerDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Owner dashboard</h1>
           <p className="text-sm text-foreground-muted">
-            How parents rate and use the app. All-time figures.
+            How parents rate and use the app. All-time figures, updated live.
           </p>
         </div>
         <SignOutButton redirectTo="/owner/login" variant="icon" />
       </header>
+      <OwnerLiveRefresh />
 
       <div className="grid gap-4 px-5 py-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] @3xl:grid-cols-2">
         <ChartCard

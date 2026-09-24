@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { getBrowserApi } from "@/lib/api/browser";
 
 export type PermissionState = "unsupported" | "default" | "granted" | "denied";
@@ -15,6 +16,32 @@ export function notificationPermission(): PermissionState {
     return "unsupported";
   }
   return Notification.permission;
+}
+
+// Everything showing the permission (the notification card, the pop-up)
+// reads it through one store, so a grant in one place updates the others.
+const permissionListeners = new Set<() => void>();
+
+function notifyPermissionChanged() {
+  for (const listener of permissionListeners) listener();
+}
+
+function subscribePermission(listener: () => void) {
+  permissionListeners.add(listener);
+  // The parent may change it in phone settings and come back to the app.
+  const onVisible = () => {
+    if (document.visibilityState === "visible") listener();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    permissionListeners.delete(listener);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
+}
+
+/** The live notification permission; "unsupported" on the server and where push isn't available. */
+export function useNotificationPermission(): PermissionState {
+  return useSyncExternalStore(subscribePermission, notificationPermission, () => "unsupported");
 }
 
 function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
@@ -63,6 +90,7 @@ export async function syncPushSubscription(): Promise<void> {
  */
 export async function enableNotifications(): Promise<PermissionState> {
   const result = await Notification.requestPermission();
+  notifyPermissionChanged();
   if (result === "granted") {
     await syncPushSubscription();
     await getBrowserApi().notifications.recordNotificationsEnabled();

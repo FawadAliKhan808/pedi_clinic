@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import { cn } from "@/lib/format";
 import { Spinner } from "./feedback";
 
@@ -15,7 +15,8 @@ const variants: Record<Variant, string> = {
   danger: "bg-danger text-neutral-0 hover:opacity-90",
 };
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+/** Includes `ref` (a plain prop in React 19), e.g. to focus a dialog's main action. */
+interface ButtonProps extends ComponentProps<"button"> {
   variant?: Variant;
   loading?: boolean;
   fullWidth?: boolean;

@@ -4,6 +4,8 @@ import { CalendarDays, FolderClock, House } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { NotificationPermissionPrompt } from "@/components/parent/notification-permission-prompt";
+import { useCompletedVisitRedirect } from "@/lib/realtime/use-completed-visit-redirect";
 
 const parentNav: NavItem[] = [
   { href: "/", label: "Home", icon: House },
@@ -11,14 +13,20 @@ const parentNav: NavItem[] = [
   { href: "/records", label: "Last visits", icon: FolderClock },
 ];
 
-/** Frame for the signed-in parent screens: bottom tabs on phones, sidebar wider up. */
+/**
+ * Frame for the signed-in parent screens: bottom tabs on phones, sidebar
+ * wider up. Also watches for a consultation finishing (opens its summary) and
+ * keeps asking to turn notifications on until they are.
+ */
 export function ParentShell({ children }: { children: ReactNode }) {
+  useCompletedVisitRedirect();
   return (
     <NavShell
       items={parentNav}
       sidebarFooter={<SignOutButton redirectTo="/" variant="sidebar" />}
     >
       {children}
+      <NotificationPermissionPrompt />
     </NavShell>
   );
 }
