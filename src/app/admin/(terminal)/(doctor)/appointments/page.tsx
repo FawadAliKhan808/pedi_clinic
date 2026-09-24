@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Lock } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { BookingList } from "@/components/appointments/booking-list";
 import { Card } from "@/components/ui/card";
@@ -35,8 +35,8 @@ function sessionSummary(session: ClinicSessionSchedule): string {
 }
 
 /**
- * Who is coming, and why. Bookings are permanent, so this is read-only; a
- * session nobody has booked can still be taken down.
+ * Who is coming, and why. Parents can't cancel or move a booking; the doctor
+ * can cancel a session or a whole day, and every parent affected is told.
  */
 export default function DoctorAppointmentsPage() {
   const toast = useToast();
@@ -82,10 +82,17 @@ export default function DoctorAppointmentsPage() {
   // New bookings and arrivals from any device appear as they happen.
   useLiveRefresh("appointments", range?.clinicId, refresh);
 
-  async function removeSession(sessionId: UUID) {
+  /** Cancels, says how many parents were told, and pushes their notices now. */
+  async function cancel(action: () => Promise<number>, what: string) {
     try {
-      await getBrowserApi().appointments.cancelSession(sessionId);
-      toast("Session removed", "success");
+      const cancelled = await action();
+      toast(
+        cancelled === 0
+          ? `${what} cancelled`
+          : `${what} cancelled — ${cancelled} ${cancelled === 1 ? "parent" : "parents"} told`,
+        "success"
+      );
+      void getBrowserApi().notifications.dispatchPending();
       await refresh();
     } catch (caught) {
       toast(errorMessage(caught), "error");
@@ -101,9 +108,9 @@ export default function DoctorAppointmentsPage() {
     <div className="flex flex-1 flex-col">
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
-        <p className="flex items-center gap-1.5 text-sm text-foreground-muted">
-          <Lock aria-hidden className="size-3.5 shrink-0" />
-          Who is coming, and why — today and the next two weeks. Bookings are permanent.
+        <p className="text-sm text-foreground-muted">
+          Who is coming, and why — today and the next two weeks. Cancelling a session
+          or day tells every parent booked in it.
         </p>
       </header>
 
@@ -124,9 +131,28 @@ export default function DoctorAppointmentsPage() {
         ) : (
           [...byDate.entries()].map(([date, sessions]) => (
             <section key={date} className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-              <h2 className="col-span-full text-lg font-bold text-foreground">
-                {date === range?.today ? "Today" : formatDayShort(date)}
-              </h2>
+              <div className="col-span-full flex items-center justify-between gap-3">
+                <h2 className="text-lg font-bold text-foreground">
+                  {date === range?.today ? "Today" : formatDayShort(date)}
+                </h2>
+                {range && (
+                  <ConfirmButton
+                    variant="ghost"
+                    label="Cancel day"
+                    confirmLabel={
+                      sessions.some((item) => item.bookedCount > 0)
+                        ? "Tap again — parents will be told"
+                        : "Tap again to cancel day"
+                    }
+                    onConfirm={() =>
+                      cancel(
+                        () => getBrowserApi().appointments.closeDay(range.clinicId, date),
+                        formatDayShort(date)
+                      )
+                    }
+                  />
+                )}
+              </div>
 
               {sessions.map((session) => (
                 <Card key={session.sessionId} className="flex flex-col gap-2">
@@ -139,14 +165,21 @@ export default function DoctorAppointmentsPage() {
 
                   <BookingList appointments={session.appointments} />
 
-                  {session.appointments.length === 0 && (
-                    <ConfirmButton
-                      variant="ghost"
-                      label="Remove session"
-                      confirmLabel="Tap again to remove"
-                      onConfirm={() => removeSession(session.sessionId)}
-                    />
-                  )}
+                  <ConfirmButton
+                    variant="ghost"
+                    label="Cancel session"
+                    confirmLabel={
+                      session.bookedCount > 0
+                        ? `Tap again — ${session.bookedCount} ${session.bookedCount === 1 ? "parent" : "parents"} will be told`
+                        : "Tap again to cancel"
+                    }
+                    onConfirm={() =>
+                      cancel(
+                        () => getBrowserApi().appointments.cancelSession(session.sessionId),
+                        "Session"
+                      )
+                    }
+                  />
                 </Card>
               ))}
             </section>

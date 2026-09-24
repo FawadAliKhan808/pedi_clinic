@@ -1,5 +1,6 @@
 import type {
   ChildVisitHistoryEntry,
+  ConsultedChild,
   DayPatient,
   ISODateString,
   PaymentMode,
@@ -124,6 +125,24 @@ export class SupabaseVisitsApi implements VisitsApi {
       parentName: row.parent_name,
       parentPhone: row.parent_phone,
       visitCount: row.visit_count,
+    }));
+  }
+
+  async searchConsultedChildren(clinicId: UUID, query: string): Promise<ConsultedChild[]> {
+    const { data, error } = await this.client.rpc("search_consulted_children", {
+      p_clinic_id: clinicId,
+      p_query: query,
+    });
+    if (error) throw toApiError(error, "PATIENT_SEARCH_FAILED");
+
+    return (data ?? []).map((row) => ({
+      childId: row.child_id,
+      childName: row.child_name,
+      dob: row.dob,
+      parentName: row.parent_name,
+      parentPhone: row.parent_phone,
+      lastConsultationDate: row.last_consultation_date,
+      consultationCount: row.consultation_count,
     }));
   }
 

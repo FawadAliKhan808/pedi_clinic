@@ -1359,6 +1359,18 @@ export type Database = {
           parent_phone: string
         }[]
       }
+      search_consulted_children: {
+        Args: { p_clinic_id: string; p_query: string }
+        Returns: {
+          child_id: string
+          child_name: string
+          consultation_count: number
+          dob: string
+          last_consultation_date: string
+          parent_name: string
+          parent_phone: string
+        }[]
+      }
       send_appointment_reminders: {
         Args: {
           p_clinic_id: string

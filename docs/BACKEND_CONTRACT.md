@@ -140,8 +140,9 @@ and a new booking reach a subscribed client.
 | `getVisitSummary` | `visitId` | `VisitSummary \| null` | `VISIT_SUMMARY_FAILED` | Parent of that child, or clinic staff |
 | `getChildHistory` | `childId` | `ChildVisitHistoryEntry[]`, newest first | `CHILD_HISTORY_FAILED` | Parent of that child, or clinic staff |
 | `completeVisit` | `CompleteVisitInput` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `INVALID_FEE_AMOUNT`, `PAYMENT_TOTAL_MISMATCH` | Clinic doctor |
-| `listPatientsOn` | `clinicId, date` | `DayPatient[]` — every child with a token that day, with parent and total consultations | `PATIENTS_ON_DAY_FAILED` | Clinic doctor (empty for anyone else) |
-| `getChildTimeline` | `childId` | `VisitTimelineEntry[]`, newest first — reason, fees, payments, follow-up, prescription keys, pharmacy order and medicines | `CHILD_TIMELINE_FAILED` | Doctor of the visits' clinic (empty for anyone else) |
+| `listPatientsOn` | `clinicId, date` | `DayPatient[]` — children whose consultation was **completed** that day, with parent and total consultations | `PATIENTS_ON_DAY_FAILED` | Clinic doctor (empty for anyone else) |
+| `searchConsultedChildren` | `clinicId, query` | `ConsultedChild[]` — children with at least one completed consultation, by child name, parent name or phone | `PATIENT_SEARCH_FAILED` | Clinic doctor (empty for anyone else) |
+| `getChildTimeline` | `childId` | `VisitTimelineEntry[]`, completed consultations newest first — reason, fees, payments, follow-up, prescription keys, pharmacy order and medicines | `CHILD_TIMELINE_FAILED` | Doctor of the visits' clinic (empty for anyone else) |
 | `submitRating` | `visitId, stars` (1–5) | `void` | `ALREADY_RATED`, `VISIT_NOT_FOUND`, `SUBMIT_RATING_FAILED` | Parent of that child |
 | `hasRatedApp` | — | `boolean` | `RATING_LOOKUP_FAILED` | Signed-in parent |
 
@@ -229,8 +230,8 @@ prescription photos they need to fill the order.
 | `book` | `{ sessionId, childId, visitReason }` | `Appointment` (`booked`) | `CHILD_NOT_FOUND`, `INVALID_INPUT`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW` | Parent of that child |
 | `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` — every booking with child, reason, parent | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
 | `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
-| `cancelSession` | `sessionId` | — | `SESSION_NOT_FOUND`, `SESSION_HAS_BOOKINGS`, `FORBIDDEN` | Clinic doctor |
-| `closeDay` | `clinicId, date` | — | `SESSION_HAS_BOOKINGS`, `FORBIDDEN` | Clinic doctor |
+| `cancelSession` | `sessionId` | bookings cancelled | `SESSION_NOT_FOUND`, `FORBIDDEN` | Clinic doctor |
+| `closeDay` | `clinicId, date` | bookings cancelled | `FORBIDDEN` | Clinic doctor |
 | `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | sessions created | `FORBIDDEN` | Clinic doctor |
 
 **Sessions are open blocks of time.** A session is just a date and a time
@@ -240,11 +241,15 @@ number of children can book it. The doctor's one-tap buttons come from the
 18:00–21:00, returned as `BookingWindow.sessionPresets`); a custom session can
 use any times with the end after the start. Sessions on one day can't overlap.
 
-**Bookings are permanent.** Once made, a booking can't be cancelled or moved
-by anyone — the functions that did it are gone, and clients have no write
-policies on `appointments`. A session (or a whole day) can only be taken down
-while nobody has booked it (`SESSION_HAS_BOOKINGS` otherwise). A booking ends
-only by the child arriving (`attended`) or the day passing (`missed`).
+**Parents can't change a booking.** Once made, a parent can't cancel or move
+it — the functions that did it are gone, and clients have no write policies
+on `appointments`. Only the **doctor** can end bookings early, by cancelling
+a session or a whole day: every booking in it becomes `cancelled` and each
+parent gets an `appointment_changed` notification in the same transaction —
+rendered as **"Your appointment has been cancelled."** in the parent's
+notification list, and pushed straight away by the doctor's screen.
+Otherwise a booking ends by the child arriving (`attended`) or the day
+passing (`missed`).
 
 **Booking is instant, with a reason.** Booking works like joining the queue:
 child, reason for visit (`vaccination` / `general_checkup`), then the
@@ -254,9 +259,9 @@ appointment: …" with the reason). `pending`, `rejected` and `cancelled` only
 exist on rows from earlier versions of the flow.
 
 **Race-safe.** `book_appointment` and `cancel_session` both lock the session
-row, so removing a session while bookings are landing either wins before any
-lands or is refused — a booking is never stranded in a removed session; 8
-simultaneous bookings of one session all succeed
+row, so cancelling a session while bookings are landing never leaves a live
+one: each lands first (and is cancelled with the session, its parent told)
+or is refused after it; 8 simultaneous bookings of one session all succeed
 (`scripts/test-concurrency.mjs`). A child may have more than one appointment
 (and token) on the same day.
 

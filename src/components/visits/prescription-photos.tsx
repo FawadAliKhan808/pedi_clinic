@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Share2, X } from "lucide-react";
+import { Download, FileText, Share2, X } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Skeleton } from "@/components/ui/feedback";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -38,9 +38,20 @@ function useSignedUrls(storageKeys: string[]): string[] | null {
   return answered?.keys === keyList ? answered.urls : null;
 }
 
-export function PrescriptionThumbs({ storageKeys }: { storageKeys: string[] }) {
+export function PrescriptionThumbs({
+  storageKeys,
+  autoOpenSingle = false,
+}: {
+  storageKeys: string[];
+  /** With a single photo, open it full screen as soon as it loads. */
+  autoOpenSingle?: boolean;
+}) {
   const urls = useSignedUrls(storageKeys);
   const [viewing, setViewing] = useState<string | null>(null);
+  // The one photo, shown until the doctor closes it (then the thumbnail remains).
+  const [autoClosed, setAutoClosed] = useState(false);
+  const autoUrl = autoOpenSingle && !autoClosed && urls?.length === 1 ? urls[0] : null;
+  const shown = viewing ?? autoUrl;
 
   if (storageKeys.length === 0) return null;
 
@@ -74,8 +85,51 @@ export function PrescriptionThumbs({ storageKeys }: { storageKeys: string[] }) {
         ))}
       </div>
 
-      {viewing && <PhotoViewer url={viewing} onClose={() => setViewing(null)} />}
+      {shown && (
+        <PhotoViewer
+          url={shown}
+          onClose={() => {
+            setViewing(null);
+            setAutoClosed(true);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * "View prescription" for a past visit: the photos are only fetched when
+ * asked for, so a long history doesn't load every old prescription up front.
+ * One photo opens straight into the full-screen viewer; several open as
+ * thumbnails to pick from.
+ */
+export function PrescriptionButton({ storageKeys }: { storageKeys: string[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (storageKeys.length === 0) {
+    return (
+      <p className="flex items-center gap-1.5 text-sm text-foreground-muted">
+        <FileText aria-hidden className="size-4" />
+        No prescription photo for this visit
+      </p>
+    );
+  }
+
+  const count = storageKeys.length;
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary-300 bg-primary-50 px-4 text-sm font-semibold text-primary-800 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-200"
+      >
+        <FileText aria-hidden className="size-4" />
+        {open ? "Hide prescription" : `View prescription${count > 1 ? ` (${count} photos)` : ""}`}
+      </button>
+      {open && <PrescriptionThumbs storageKeys={storageKeys} autoOpenSingle />}
+    </div>
   );
 }
 

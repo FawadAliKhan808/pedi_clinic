@@ -325,66 +325,83 @@ async function main() {
     mine.some((row) => row.appointment_id === bookA.id && row.visit_reason === "vaccination")
   );
 
-  // --- bookings are permanent ---------------------------------------------
+  // --- parents can't change a booking; the doctor can cancel ----------------
   const bookB = many[0].data;
   for (const [fn, args] of [
     ["reschedule_appointment", { p_appointment_id: bookB.id, p_new_session_id: morning.id }],
     ["cancel_appointment", { p_appointment_id: bookB.id }],
   ]) {
-    const asParent = await parent.rpc(fn, args);
-    const asDoctor = await doctor.rpc(fn, args);
-    check(`nobody can call ${fn} any more`, Boolean(asParent.error) && Boolean(asDoctor.error));
+    check(`nobody can call ${fn}`, Boolean((await parent.rpc(fn, args)).error));
   }
-
   check(
-    "a session with bookings can't be taken down",
-    refusedWith(
-      await doctor.rpc("cancel_session", { p_session_id: evening.id }),
-      "SESSION_HAS_BOOKINGS"
-    )
+    "a parent can't cancel a session",
+    refusedWith(await parent.rpc("cancel_session", { p_session_id: evening.id }), "FORBIDDEN")
   );
-  const eveningStatuses = unwrap(
+
+  const cancelledCount = unwrap(
+    "doctor cancels the evening session",
+    await doctor.rpc("cancel_session", { p_session_id: evening.id })
+  );
+  const eveningAfter = unwrap(
     "evening bookings after",
-    await admin.from("appointments").select("status").eq("session_id", evening.id)
+    await admin.from("appointments").select("id, status").eq("session_id", evening.id)
   );
   check(
-    "…and every booking in it stays booked",
-    eveningStatuses.length === 6 && eveningStatuses.every((row) => row.status === "booked")
+    "cancelling a session cancels every booking in it",
+    cancelledCount === 6 &&
+      eveningAfter.length === 6 &&
+      eveningAfter.every((row) => row.status === "cancelled"),
+    `${cancelledCount} cancelled`
+  );
+  const cancelNotices = unwrap(
+    "parent's cancellation notices",
+    await parent
+      .from("notifications")
+      .select("appointment_id, type, payload")
+      .eq("type", "appointment_changed")
+      .in("appointment_id", eveningAfter.map((row) => row.id))
+  );
+  check(
+    "each parent is told their appointment was cancelled",
+    cancelNotices.length === 6 && cancelNotices.every((row) => row.payload.change === "cancelled")
+  );
+  check(
+    "a cancelled session takes no new bookings",
+    refusedWith(await book(evening.id, children.G), "SESSION_CANCELLED")
   );
 
-  unwrap("remove empty session", await doctor.rpc("cancel_session", { p_session_id: custom.id }));
+  unwrap("cancel empty session", await doctor.rpc("cancel_session", { p_session_id: custom.id }));
   check(
-    "an empty session can still be removed",
+    "an empty session can be cancelled too",
     unwrap(
       "custom after",
       await admin.from("availability_sessions").select("cancelled_at").eq("id", custom.id).single()
     ).cancelled_at !== null
   );
 
-  // Close day: allowed only while nobody has booked that day.
+  // Close day: cancels that day's sessions and bookings, and tells the parents.
   const closingDay = addDays(today, 4);
   const closing = await createSession(closingDay, "18:00", "21:00");
-  unwrap("book C", await book(closing.id, children.C));
-  check(
-    "a day with bookings can't be closed",
-    refusedWith(
-      await doctor.rpc("close_day", { p_clinic_id: clinicId, p_date: closingDay }),
-      "SESSION_HAS_BOOKINGS"
-    )
+  const bookC = unwrap("book C", await book(closing.id, children.C));
+  const closedCount = unwrap(
+    "close day",
+    await doctor.rpc("close_day", { p_clinic_id: clinicId, p_date: closingDay })
   );
-  const emptyDay = addDays(today, 3);
-  const emptySession = await createSession(emptyDay, "10:00", "13:00");
-  unwrap("close empty day", await doctor.rpc("close_day", { p_clinic_id: clinicId, p_date: emptyDay }));
   check(
-    "a day nobody booked can be closed",
-    unwrap(
-      "empty day after",
-      await admin
-        .from("availability_sessions")
-        .select("cancelled_at")
-        .eq("id", emptySession.id)
-        .single()
-    ).cancelled_at !== null
+    "\"mark day closed\" cancels that day's bookings and tells the parent",
+    closedCount === 1 &&
+      unwrap(
+        "booking after close",
+        await admin.from("appointments").select("status").eq("id", bookC.id).single()
+      ).status === "cancelled" &&
+      unwrap(
+        "close-day notice",
+        await parent
+          .from("notifications")
+          .select("payload")
+          .eq("appointment_id", bookC.id)
+          .eq("type", "appointment_changed")
+      ).some((row) => row.payload.change === "cancelled")
   );
 
   // Copy a week. Uses an empty week about two months out (its own session

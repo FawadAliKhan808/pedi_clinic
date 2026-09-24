@@ -186,16 +186,22 @@ export default function AvailabilityPage() {
                 <Copy className="size-4" />
                 Copy last week
               </Button>
-              {/* Bookings are permanent, so a day can only close while nobody has booked. */}
-              {sessions && sessions.length > 0 && !sessions.some((item) => item.appointments.length > 0) && (
+              {sessions && sessions.length > 0 && (
                 <ConfirmButton
                   className="flex-1 px-3 text-sm"
                   label="Mark day closed"
-                  confirmLabel="Tap again to close"
+                  confirmLabel={
+                    sessions.some((item) => item.bookedCount > 0)
+                      ? "Tap again — booked parents will be told"
+                      : "Tap again to close"
+                  }
                   onConfirm={() =>
                     change(
                       () => getBrowserApi().appointments.closeDay(clinicId, date),
-                      `${formatDayShort(date)} closed`
+                      (cancelled) =>
+                        cancelled === 0
+                          ? `${formatDayShort(date)} closed`
+                          : `${formatDayShort(date)} closed — ${cancelled} ${cancelled === 1 ? "parent" : "parents"} told`
                     ).then(() => undefined)
                   }
                 />
@@ -227,23 +233,24 @@ export default function AvailabilityPage() {
                   </p>
                 </div>
                 <BookingList appointments={session.appointments} />
-                {session.appointments.length === 0 ? (
-                  <ConfirmButton
-                    variant="ghost"
-                    label="Remove session"
-                    confirmLabel="Tap again to remove"
-                    onConfirm={() =>
-                      change(
-                        () => getBrowserApi().appointments.cancelSession(session.sessionId),
-                        "Session removed"
-                      ).then(() => undefined)
-                    }
-                  />
-                ) : (
-                  <p className="text-xs text-foreground-muted">
-                    Booked sessions stay on — bookings are permanent.
-                  </p>
-                )}
+                <ConfirmButton
+                  variant="ghost"
+                  label="Cancel session"
+                  confirmLabel={
+                    session.bookedCount > 0
+                      ? `Tap again — ${session.bookedCount} ${session.bookedCount === 1 ? "parent" : "parents"} will be told`
+                      : "Tap again to cancel"
+                  }
+                  onConfirm={() =>
+                    change(
+                      () => getBrowserApi().appointments.cancelSession(session.sessionId),
+                      (cancelled) =>
+                        cancelled === 0
+                          ? "Session cancelled"
+                          : `Session cancelled — ${cancelled} ${cancelled === 1 ? "parent" : "parents"} told`
+                    ).then(() => undefined)
+                  }
+                />
               </Card>
             ))
           )}

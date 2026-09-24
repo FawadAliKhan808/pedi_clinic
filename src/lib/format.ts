@@ -199,8 +199,6 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
-    case "SESSION_HAS_BOOKINGS":
-      return "Children have booked this, so it can't be taken down. Bookings are permanent.";
     case "APPOINTMENT_NOT_FOUND":
       return "That booking isn't available any more.";
     case "OUTSIDE_BOOKING_WINDOW":

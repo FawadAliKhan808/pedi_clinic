@@ -1,5 +1,6 @@
 import type {
   ChildVisitHistoryEntry,
+  ConsultedChild,
   DayPatient,
   ISODateString,
   PaymentMode,
@@ -45,8 +46,10 @@ export interface VisitsApi {
 
   // --- Doctor: patient history -------------------------------------------
 
-  /** Every child with a token that day (any status), in token order. Doctor only. */
+  /** Children whose consultation was completed that day, latest first. Doctor only. */
   listPatientsOn(clinicId: UUID, date: ISODateString): Promise<DayPatient[]>;
-  /** A child's visits, newest first, with fees, payments, prescriptions and medicines. Doctor only. */
+  /** Consulted children by child name, parent name or phone. Doctor only. */
+  searchConsultedChildren(clinicId: UUID, query: string): Promise<ConsultedChild[]>;
+  /** A child's completed consultations, newest first, with fees, payments, prescriptions and medicines. Doctor only. */
   getChildTimeline(childId: UUID): Promise<VisitTimelineEntry[]>;
 }

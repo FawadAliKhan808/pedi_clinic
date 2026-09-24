@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import { StatusPill } from "@/components/ui/status-pill";
-import { PrescriptionThumbs } from "@/components/visits/prescription-photos";
+import { PrescriptionButton } from "@/components/visits/prescription-photos";
 import type { UUID, VisitTimelineEntry } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import {
@@ -100,7 +100,10 @@ export function PatientTimelineSheet({
         ) : "error" in current ? (
           <ErrorState message={current.error} />
         ) : current.entries.length === 0 ? (
-          <EmptyState title="No visits yet" description="This child hasn't had a token here." />
+          <EmptyState
+            title="No consultations yet"
+            description="Completed consultations appear here."
+          />
         ) : (
           <section className="flex flex-col gap-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
@@ -217,7 +220,7 @@ function TimelineCard({ entry }: { entry: VisitTimelineEntry }) {
         </p>
       )}
 
-      {entry.storageKeys.length > 0 && <PrescriptionThumbs storageKeys={entry.storageKeys} />}
+      <PrescriptionButton storageKeys={entry.storageKeys} />
 
       {entry.pharmacy && (
         <div className="flex flex-col gap-1.5 rounded-lg bg-surface-sunken p-3 text-sm">

@@ -123,7 +123,7 @@ export function renderNotification(
     case "appointment_changed":
       return payload.change === "cancelled"
         ? {
-            title: `Appointment cancelled for ${child}`,
+            title: "Your appointment has been cancelled.",
             body: `The clinic cancelled ${child}'s appointment (${sessionLabel(payload)}). You can book another time in the app.`,
             url: "/appointments",
           }

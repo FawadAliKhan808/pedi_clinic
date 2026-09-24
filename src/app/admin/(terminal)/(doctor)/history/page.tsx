@@ -7,8 +7,7 @@ import {
   type TimelinePatient,
 } from "@/components/admin/patient-timeline-sheet";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
-import { StatusPill } from "@/components/ui/status-pill";
-import type { ChildSearchResult, DayPatient, UUID, VisitReason } from "@/lib/api";
+import type { ConsultedChild, DayPatient, UUID, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import {
   addDays,
@@ -22,12 +21,11 @@ import {
 } from "@/lib/format";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
-type StatusFilter = "all" | "seen" | "not_seen";
-
 /**
- * The doctor's patient directory. By default: everyone with a token today,
- * live. Any other day is a tap away, and search reaches every child the
- * clinic has ever seen — by child name, parent name or phone.
+ * The doctor's patient directory — only children who have actually been
+ * consulted. By default: today's completed consultations, live. Any other day
+ * is a tap away, and search reaches every consulted child by child name,
+ * parent name or phone.
  */
 export default function PatientHistoryPage() {
   const [clinicId, setClinicId] = useState<UUID | null>(null);
@@ -37,7 +35,6 @@ export default function PatientHistoryPage() {
 
   const [query, setQuery] = useState("");
   const [reasonFilter, setReasonFilter] = useState<VisitReason | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [open, setOpen] = useState<TimelinePatient | null>(null);
 
   useEffect(() => {
@@ -74,7 +71,7 @@ export default function PatientHistoryPage() {
   // --- search (debounced) ---------------------------------------------------
   const trimmed = query.trim();
   const [search, setSearch] = useState<
-    { query: string; results: ChildSearchResult[] } | { query: string; error: string } | null
+    { query: string; results: ConsultedChild[] } | { query: string; error: string } | null
   >(null);
 
   useEffect(() => {
@@ -82,7 +79,7 @@ export default function PatientHistoryPage() {
     let cancelled = false;
     const timer = setTimeout(() => {
       getBrowserApi()
-        .queue.searchChildren(clinicId, trimmed)
+        .visits.searchConsultedChildren(clinicId, trimmed)
         .then((results) => {
           if (!cancelled) setSearch({ query: trimmed, results });
         })
@@ -103,12 +100,7 @@ export default function PatientHistoryPage() {
   const dayPatients =
     currentDay && "patients" in currentDay
       ? currentDay.patients.filter(
-          (patient) =>
-            (reasonFilter === "all" || patient.reason === reasonFilter) &&
-            (statusFilter === "all" ||
-              (statusFilter === "seen"
-                ? patient.status === "completed"
-                : patient.status !== "completed"))
+          (patient) => reasonFilter === "all" || patient.reason === reasonFilter
         )
       : [];
 
@@ -118,7 +110,7 @@ export default function PatientHistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Patient history</h1>
           <p className="text-sm text-foreground-muted">
-            Tap a child to see every past consultation.
+            Children who have been consulted. Tap one to see every past consultation.
           </p>
         </div>
 
@@ -160,7 +152,7 @@ export default function PatientHistoryPage() {
             <EmptyState
               icon={<Search className="size-8" />}
               title="No one found"
-              description="Try part of the child's name, the parent's name, or the phone number."
+              description="Only children who have had a consultation are listed. Try part of the child's name, the parent's name, or the phone number."
             />
           ) : (
             <>
@@ -185,11 +177,9 @@ export default function PatientHistoryPage() {
                       dob={result.dob}
                       parentName={result.parentName}
                       parentPhone={result.parentPhone}
-                      footer={
-                        result.lastVisitDate
-                          ? `Last visit ${formatDate(result.lastVisitDate)}`
-                          : "No visits yet"
-                      }
+                      footer={`${result.consultationCount} ${
+                        result.consultationCount === 1 ? "consultation" : "consultations"
+                      } · last ${formatDate(result.lastConsultationDate)}`}
                     />
                   </li>
                 ))}
@@ -218,20 +208,6 @@ export default function PatientHistoryPage() {
                 </FilterChip>
               ))}
             </FilterRow>
-            <FilterRow label="Status">
-              <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-                Everyone
-              </FilterChip>
-              <FilterChip active={statusFilter === "seen"} onClick={() => setStatusFilter("seen")}>
-                Seen
-              </FilterChip>
-              <FilterChip
-                active={statusFilter === "not_seen"}
-                onClick={() => setStatusFilter("not_seen")}
-              >
-                Not seen yet
-              </FilterChip>
-            </FilterRow>
           </div>
 
           {!currentDay ? (
@@ -244,20 +220,17 @@ export default function PatientHistoryPage() {
           ) : currentDay.patients.length === 0 ? (
             <EmptyState
               icon={<History className="size-8" />}
-              title={date === today ? "No patients yet today" : "No patients that day"}
-              description="Pick another day, or search for a child by name or phone."
+              title={date === today ? "No consultations yet today" : "No consultations that day"}
+              description="Children appear here once their consultation is completed. Pick another day, or search."
             />
           ) : dayPatients.length === 0 ? (
             <EmptyState
               title="No one matches"
-              description="Try another reason or status."
+              description="Try another reason."
               action={
                 <button
                   type="button"
-                  onClick={() => {
-                    setReasonFilter("all");
-                    setStatusFilter("all");
-                  }}
+                  onClick={() => setReasonFilter("all")}
                   className="min-h-12 rounded-lg px-4 font-semibold text-primary-600"
                 >
                   Clear filters
@@ -267,7 +240,7 @@ export default function PatientHistoryPage() {
           ) : (
             <>
               <p className="text-sm text-foreground-muted" aria-live="polite">
-                {dayPatients.length} {dayPatients.length === 1 ? "patient" : "patients"}
+                {dayPatients.length} {dayPatients.length === 1 ? "consultation" : "consultations"}
               </p>
               <ul className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
                 {dayPatients.map((patient) => (
@@ -287,7 +260,6 @@ export default function PatientHistoryPage() {
                       dob={patient.childDob}
                       parentName={patient.parentName}
                       parentPhone={patient.parentPhone}
-                      status={<StatusPill status={patient.status} />}
                       footer={`${visitReasonLabels[patient.reason]} · ${patient.visitCount} ${
                         patient.visitCount === 1 ? "consultation" : "consultations"
                       } in total`}

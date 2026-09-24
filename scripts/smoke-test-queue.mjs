@@ -162,10 +162,22 @@ check("doctor recalled the skipped child", recalled.status === "called");
 const parentView = unwrap("parent queue view", await parent.rpc("parent_queue_view"));
 const mine = parentView.find((row) => row.visit_id === visit.id);
 check("parent's queue view reflects the doctor's action", mine?.status === "called");
+// Real tokens may be in today's queue too (the project is shared with manual
+// testing), so the expected position comes from the queue as it is.
+const earlierWaiting = unwrap(
+  "earlier waiting tokens",
+  await admin
+    .from("visits")
+    .select("id", { count: "exact" })
+    .eq("clinic_id", visit.clinic_id)
+    .eq("visit_date", visit.visit_date)
+    .eq("status", "waiting")
+    .lt("seq", visit.seq)
+).length;
 check(
   "parent's queue view reports now-serving and position",
-  mine?.now_serving_seq === visit.seq && mine?.patients_ahead === 0,
-  `now serving ${mine?.now_serving_seq}, ${mine?.patients_ahead} ahead`
+  mine?.now_serving_seq === visit.seq && mine?.patients_ahead === earlierWaiting,
+  `now serving ${mine?.now_serving_seq}, ${mine?.patients_ahead} ahead (expected ${earlierWaiting})`
 );
 
 // --- a pharmacist must not be able to run doctor-only actions -------------

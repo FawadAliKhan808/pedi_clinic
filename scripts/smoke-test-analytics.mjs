@@ -249,11 +249,14 @@ async function main() {
   );
   const byParent = unwrap(
     "search by parent name",
-    await doctor.rpc("search_children", { p_clinic_id: clinicId, p_query: "analytics test par" })
+    await doctor.rpc("search_consulted_children", {
+      p_clinic_id: clinicId,
+      p_query: "analytics test par",
+    })
   );
   check(
-    "patient history: search finds a child by the parent's name",
-    byParent.some((row) => row.child_id === child.id)
+    "patient history: search finds a consulted child by the parent's name",
+    byParent.some((row) => row.child_id === child.id && row.consultation_count === 1)
   );
   check(
     "patient history is the doctor's only",
@@ -282,6 +285,20 @@ async function main() {
   check("walk-ins are tagged as such", walkIn.source === "walk_in", walkIn.source);
   check("app tokens are tagged as such", visit.source === "app", visit.source);
   unwrap("remove walk-in", await doctor.rpc("remove_visit", { p_visit_id: walkIn.id }));
+  check(
+    "patient history leaves out children who were never consulted",
+    !unwrap(
+      "patients today (after walk-in)",
+      await doctor.rpc("clinic_patients_on", { p_clinic_id: clinicId, p_date: today })
+    ).some((row) => row.visit_id === walkIn.id) &&
+      unwrap(
+        "search for the walk-in",
+        await doctor.rpc("search_consulted_children", {
+          p_clinic_id: clinicId,
+          p_query: "Analytics Walk-in",
+        })
+      ).length === 0
+  );
 
   // --- snapshots after ------------------------------------------------------
   const after = unwrap("analytics after", await doctor.rpc("doctor_analytics", range));

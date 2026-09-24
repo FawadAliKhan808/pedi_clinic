@@ -174,6 +174,17 @@ export interface DayPatient {
   visitCount: number;
 }
 
+/** A child found by the History search: consulted at least once here. */
+export interface ConsultedChild {
+  childId: UUID;
+  childName: string;
+  dob: ISODateString;
+  parentName: string | null;
+  parentPhone: string;
+  lastConsultationDate: ISODateString;
+  consultationCount: number;
+}
+
 /** One visit in a child's history, as the doctor sees it. */
 export interface VisitTimelineEntry {
   visitId: UUID;

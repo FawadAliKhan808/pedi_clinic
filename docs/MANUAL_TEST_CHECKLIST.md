@@ -197,12 +197,12 @@ development (no signed-in session was available):
 Rules are covered by the test scripts; these screens weren't viewed in a
 browser during development:
 
-- [ ] **No cancel or reschedule anywhere**: parent Appointments shows bookings
-      with no buttons ("Bookings can't be changed once made"); the doctor's
-      Appointments tab is read-only.
-- [ ] A session with bookings shows "Booked sessions stay on"; only an empty
-      session has "Remove session". "Mark day closed" only appears when nobody
-      has booked that day.
+- [ ] **Parents can't cancel or reschedule**: parent Appointments shows
+      bookings with no buttons ("Bookings can't be changed once made").
+- [ ] **Doctor cancels**: "Cancel session" (Availability or Appointments) and
+      "Cancel day" / "Mark day closed" warn how many parents will be told; after
+      tapping, the bookings show Cancelled and each parent's bell shows "Your
+      appointment has been cancelled." (plus a push on an installed phone).
 - [ ] **Queue dot**: with nobody waiting the Queue tab is plain; check a child
       in from a phone → an orange dot appears on Queue on the doctor's screen
       (any tab, phone/tablet/laptop) without a refresh; complete the last one →
@@ -210,14 +210,16 @@ browser during development:
 - [ ] **Custom session AM/PM**: type "5" or "5:30" (number pad on a phone), tap
       the AM/PM button beside each box to flip it; "Reads as 5:30 PM" confirms;
       typing "5pm" also flips the button.
-- [ ] **History tab** (doctor): today's patients by default, live as the queue
-      moves; ‹ › and the date box pick any day; Reason and Seen/Not seen
-      filters; the search bar finds children by child name, parent name or
-      phone number.
+- [ ] **History tab** (doctor): only children whose consultation was
+      completed — a child still waiting, or a parent who only registered, never
+      appears. Today by default (a child appears the moment their visit is
+      completed); ‹ › and the date box pick any day; Reason filter; search by
+      child name, parent name or phone.
 - [ ] Tapping a patient opens their timeline: every past consultation, newest
       first — date, token, reason, booked-appointment tag, minutes with the
-      doctor, fees and how they were paid, follow-up, prescription photos, and
-      medicines dispensed.
+      doctor, fees and how they were paid, follow-up, medicines dispensed, and
+      a **View prescription** button (one photo opens full screen; several show
+      as thumbnails).
 
 ## Live updates
 
