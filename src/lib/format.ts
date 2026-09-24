@@ -189,8 +189,6 @@ export function errorMessage(error: unknown): string {
       : "";
 
   switch (code) {
-    case "DAILY_TOKEN_LIMIT_REACHED":
-      return "You've reached today's token limit for this phone number. Please check with reception.";
     case "ACTIVE_CONSULTATION_EXISTS":
       return "Finish or skip the current consultation first.";
     case "PAYMENT_TOTAL_MISMATCH":

@@ -84,7 +84,7 @@ const visit = unwrap(
 );
 check("check-in assigned a token", Number.isInteger(visit.seq), `token ${visit.seq}`);
 
-// A child may hold more than one token a day (only the per-phone limit applies).
+// A child may hold more than one token a day — there is no daily limit.
 const second = await parent.rpc("check_in", {
   p_child_id: child.id,
   p_visit_reason: "vaccination",
@@ -97,15 +97,39 @@ check(
 // Take it straight back out so the rest of the run sees one token.
 if (second.data) await admin.from("visits").delete().eq("id", second.data.id);
 
+// No daily limit per phone: several more check-ins from the same parent all
+// succeed (the old limit was 3 a day). Removed again straight away.
+const extra = [];
+for (let index = 0; index < 4; index += 1) {
+  extra.push(
+    await parent.rpc("check_in", { p_child_id: child.id, p_visit_reason: "general_checkup" })
+  );
+}
+check(
+  "a parent can take as many tokens a day as they need",
+  extra.every((result) => !result.error),
+  extra.find((result) => result.error)?.error.message
+);
+const extraIds = extra.filter((result) => result.data).map((result) => result.data.id);
+if (extraIds.length) await admin.from("visits").delete().in("id", extraIds);
+
 // A parent must not be able to read the visits table directly beyond their own.
 const otherRows = unwrap(
   "parent visit visibility",
   await parent.from("visits").select("id, child_id")
 );
+// The test parent may be a real tester with children of their own, so
+// "own" means any child of this parent (checked with the service role).
+const ownChildIds = new Set(
+  unwrap(
+    "this parent's children",
+    await admin.from("children").select("id").eq("parent_id", profile.id)
+  ).map((row) => row.id)
+);
 check(
   "parent sees only their own children's visits",
-  otherRows.every((row) => row.child_id === child.id),
-  `${otherRows.length} row(s) visible`
+  otherRows.length > 0 && otherRows.every((row) => ownChildIds.has(row.child_id)),
+  `${otherRows.length} row(s) visible, all own: ${otherRows.every((row) => ownChildIds.has(row.child_id))}`
 );
 
 // --- doctor ---------------------------------------------------------------

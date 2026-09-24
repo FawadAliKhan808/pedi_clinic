@@ -49,7 +49,6 @@ const staffAccounts = [
 // Reminder times are clinic-local (IST) and are placeholders to confirm with
 // the clinic before launch (an open item in the brief).
 const settings = {
-  daily_token_limit_per_phone: Number(process.env.DEMO_DAILY_TOKEN_LIMIT ?? 3),
   booking_window_days: Number(process.env.DEMO_BOOKING_WINDOW_DAYS ?? 7),
   reminder_morning_time: process.env.DEMO_REMINDER_MORNING_TIME ?? "08:00",
   reminder_evening_time: process.env.DEMO_REMINDER_EVENING_TIME ?? "19:00",

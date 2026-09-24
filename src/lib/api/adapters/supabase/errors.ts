@@ -1,7 +1,7 @@
 import { ApiError } from "../../types";
 
 /**
- * Database functions raise bare SCREAMING_SNAKE codes (`DAILY_TOKEN_LIMIT_REACHED`,
+ * Database functions raise bare SCREAMING_SNAKE codes (`SESSION_IN_PAST`,
  * `ACTIVE_CONSULTATION_EXISTS`, ...) so the UI can branch on a stable code
  * rather than parse prose. Anything else keeps the caller's fallback code.
  */

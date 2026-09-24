@@ -70,7 +70,7 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
 | `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
-| `checkIn` | `{ childId, visitReason, appointmentId? }` — with `appointmentId`, the booking's reason is used | `Visit` | `CHILD_NOT_FOUND`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
+| `checkIn` | `{ childId, visitReason, appointmentId? }` — with `appointmentId`, the booking's reason is used | `Visit` | `CHILD_NOT_FOUND`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
@@ -81,8 +81,9 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 `assign_token` database function, which takes a transaction-scoped advisory
 lock per clinic-day before reading the next `seq` — so concurrent check-ins
 can't be handed the same token. A child may hold more than one token on the
-same day (the only daily cap is `daily_token_limit_per_phone`, per parent);
-two simultaneous check-ins for one child get two distinct numbers.
+same day, and there is **no daily limit** per phone number on tokens,
+bookings or consultations; two simultaneous check-ins for one child get two
+distinct numbers.
 `scripts/test-concurrency.mjs` proves both against the live database.
 
 **Parent position counts.** Parents can't read each other's rows, so
@@ -95,10 +96,6 @@ children with a lower token; skipped and removed tokens are excluded.
 parent has an account — then finds or creates the child by name + date of
 birth, then assigns a token, all in one transaction. The record is claimed on
 that parent's first OTP login via `ParentsApi.ensureProfile`.
-
-The per-phone daily token limit applies to parent self-service check-in only.
-A walk-in entered by the doctor in person deliberately bypasses it: the
-safeguard exists to stop remote over-booking, not to block the doctor.
 
 ## RealtimeApi — Implemented
 
@@ -416,6 +413,5 @@ also removes prescription photos and parent logins.
 
 There is no `SettingsApi` — the brief's interface list doesn't include one.
 Clinic-scoped config (`public.settings`, keyed `(clinic_id, key)`) is read
-internally by whichever domain adapter needs it (e.g. `QueueApi.checkIn`
-reading the daily per-phone token limit) rather than exposed as its own
-top-level surface.
+internally by the database functions that need it (e.g. the booking window
+and session presets) rather than exposed as its own top-level surface.
