@@ -43,11 +43,9 @@ function check(description, passed, detail) {
   if (!passed) failures += 1;
 }
 
+/** Throws on failure; once the test child exists, the `finally` below still removes it. */
 function unwrap(step, { data, error }) {
-  if (error) {
-    console.error(`✗ ${step}:`, error.message);
-    process.exit(1);
-  }
+  if (error) throw new Error(`${step}: ${error.message}`);
   return data;
 }
 
@@ -76,6 +74,7 @@ const child = unwrap(
 );
 check("parent added a child under RLS", child.parent_id === profile.id);
 
+try {
 const visit = unwrap(
   "check in",
   await parent.rpc("check_in", {
@@ -183,9 +182,13 @@ check(
   walkInAsParent.error?.message
 );
 
-// --- cleanup --------------------------------------------------------------
-await admin.from("visits").delete().eq("id", visit.id);
-await admin.from("children").delete().eq("id", child.id);
-console.log("• cleaned up test data");
+} catch (error) {
+  console.error("✗", error.message);
+  failures += 1;
+} finally {
+  // Visits cascade from the child.
+  await admin.from("children").delete().eq("id", child.id);
+  console.log("• cleaned up test data");
+}
 
 process.exit(failures === 0 ? 0 : 1);

@@ -1,9 +1,10 @@
 import type { AppointmentStatus } from "@/lib/api";
 import { cn } from "@/lib/format";
 
+// "pending" and "rejected" only appear on bookings from the retired approval flow.
 const styles: Record<AppointmentStatus, { label: string; className: string }> = {
   pending: { label: "Awaiting approval", className: "bg-status-skipped" },
-  booked: { label: "Confirmed", className: "bg-primary-600" },
+  booked: { label: "Booked", className: "bg-primary-600" },
   rejected: { label: "Not approved", className: "bg-status-removed" },
   attended: { label: "Arrived", className: "bg-status-completed" },
   missed: { label: "Missed", className: "bg-status-removed" },

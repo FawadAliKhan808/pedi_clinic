@@ -1,7 +1,8 @@
 /**
- * End-to-end check of Phase 7 against the live project: availability,
- * booking rules, doctor changes (and the notifications they send), arrival
- * linking, and each scheduled job.
+ * End-to-end check of appointments against the live project: open
+ * sessions (presets, any times, no capacity), instant booking with a reason,
+ * doctor changes (and the notifications they send), arrival linking —
+ * including "same reason as your upcoming booking?" — and each scheduled job.
  *
  *   node --env-file=.env.local scripts/smoke-test-appointments.mjs
  *
@@ -102,7 +103,7 @@ async function main() {
     }
   });
 
-  // Capacity follows the length: one appointment per 30-minute slot.
+  // Any times: capacity doesn't exist any more.
   async function createSession(date, start, end) {
     const session = unwrap(
       `create session ${date} ${start}`,
@@ -115,6 +116,14 @@ async function main() {
     );
     sessions.push(session.id);
     return session;
+  }
+
+  function book(sessionId, child, reason = "general_checkup") {
+    return parent.rpc("book_appointment", {
+      p_session_id: sessionId,
+      p_child_id: child.id,
+      p_visit_reason: reason,
+    });
   }
 
   const children = {};
@@ -153,6 +162,8 @@ async function main() {
       });
   });
   cleanups.push(() => parent.removeChannel(liveChannel));
+  // Give the channel a moment to settle after joining before counting on it.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   async function receivedLiveUpdate(since) {
     for (let waited = 0; waited < 10000; waited += 250) {
       if (liveEvents > since) return true;
@@ -162,30 +173,23 @@ async function main() {
   }
 
   // --- availability -------------------------------------------------------
+  check(
+    "the one-tap session presets come from settings",
+    JSON.stringify(window.session_presets?.map((preset) => preset.label)) ===
+      JSON.stringify(["Morning", "Evening"]),
+    JSON.stringify(window.session_presets)
+  );
+
   const beforeSession = liveEvents;
-  const morning = await createSession(day, "09:00", "10:00");
+  const morning = await createSession(day, "10:00", "13:00");
   check(
     "a new session reaches open booking screens live",
     await receivedLiveUpdate(beforeSession)
   );
-  const afternoon = await createSession(day, "15:00", "15:30");
-  check(
-    "a session's capacity is its length in 30-minute slots",
-    morning.max_bookings === 2 && afternoon.max_bookings === 1,
-    `${morning.max_bookings} / ${afternoon.max_bookings}`
-  );
-  check(
-    "session times off the half hour are refused",
-    refusedWith(
-      await doctor.rpc("create_session", {
-        p_clinic_id: clinicId,
-        p_date: day,
-        p_start_time: "11:15",
-        p_end_time: "12:00",
-      }),
-      "INVALID_SESSION_TIMES"
-    )
-  );
+  const evening = await createSession(day, "18:00", "21:00");
+  // Custom times aren't tied to any grid.
+  const custom = await createSession(day, "14:15", "15:40");
+  check("a custom session can use any times", custom.start_time === "14:15:00");
 
   check(
     "overlapping sessions are refused",
@@ -193,10 +197,22 @@ async function main() {
       await doctor.rpc("create_session", {
         p_clinic_id: clinicId,
         p_date: day,
-        p_start_time: "09:30",
-        p_end_time: "12:00",
+        p_start_time: "12:00",
+        p_end_time: "14:00",
       }),
       "SESSION_OVERLAP"
+    )
+  );
+  check(
+    "an end before the start is refused",
+    refusedWith(
+      await doctor.rpc("create_session", {
+        p_clinic_id: clinicId,
+        p_date: day,
+        p_start_time: "22:00",
+        p_end_time: "21:30",
+      }),
+      "INVALID_SESSION_TIMES"
     )
   );
   check(
@@ -205,184 +221,149 @@ async function main() {
       await pharmacist.rpc("create_session", {
         p_clinic_id: clinicId,
         p_date: day,
-        p_start_time: "18:00",
-        p_end_time: "19:00",
+        p_start_time: "07:00",
+        p_end_time: "08:00",
       }),
       "FORBIDDEN"
     )
   );
 
-  // --- booking ------------------------------------------------------------
-  // A picks the later of the two times — nothing is assigned automatically.
-  const bookA = unwrap(
-    "book A",
-    await parent.rpc("book_appointment", {
-      p_session_id: morning.id,
-      p_child_id: children.A.id,
-      p_slot_time: "09:30",
-    })
+  // --- booking: confirmed at once, with a reason, no limit -------------------
+  const beforeBooking = liveEvents;
+  const bookA = unwrap("book A", await book(evening.id, children.A, "vaccination"));
+  check("a booking is confirmed straight away (no approval)", bookA.status === "booked");
+  check("the booking keeps its reason for visit", bookA.visit_reason === "vaccination");
+  check("a booking reaches other open screens live", await receivedLiveUpdate(beforeBooking));
+
+  const request = unwrap(
+    "doctor's notification",
+    await doctor
+      .from("notifications")
+      .select("type, payload")
+      .eq("appointment_id", bookA.id)
   );
-  check("the booking holds exactly the time the parent picked", bookA.slot_time === "09:30:00", bookA.slot_time);
   check(
-    "a parent's booking starts as a request awaiting approval",
-    bookA.status === "pending"
+    "the doctor is told who booked and why",
+    request.length === 1 &&
+      request[0].type === "booking_request" &&
+      request[0].payload.child_name === "Appointment Test A" &&
+      request[0].payload.visit_reason === "vaccination"
   );
 
-  const secondForA = await parent.rpc("book_appointment", {
-    p_session_id: afternoon.id,
-    p_child_id: children.A.id,
-    p_slot_time: "15:00",
-  });
   check(
-    "a child can have more than one appointment on the same day",
-    !secondForA.error && secondForA.data?.status === "pending",
-    secondForA.error?.message
+    "a booking needs a reason",
+    Boolean(
+      (
+        await parent.rpc("book_appointment", {
+          p_session_id: evening.id,
+          p_child_id: children.B.id,
+          p_visit_reason: null,
+        })
+      ).error
+    )
   );
-  // Free the afternoon again for the reschedule checks below.
-  if (secondForA.data) {
+
+  // Sessions have no capacity: many children can book the same one.
+  const many = await Promise.all(
+    [children.B, children.C, children.D, children.E, children.F].map((child) =>
+      book(evening.id, child)
+    )
+  );
+  check(
+    "any number of children can book one session",
+    many.every((result) => !result.error),
+    many.find((result) => result.error)?.error.message
+  );
+
+  const againForA = await book(morning.id, children.A);
+  check(
+    "a child can book twice on the same day",
+    !againForA.error,
+    againForA.error?.message
+  );
+  if (againForA.data) {
     unwrap(
       "cancel A's second booking",
-      await parent.rpc("cancel_appointment", { p_appointment_id: secondForA.data.id })
+      await parent.rpc("cancel_appointment", { p_appointment_id: againForA.data.id })
     );
   }
 
-  check(
-    "a time someone else holds is refused",
-    refusedWith(
-      await parent.rpc("book_appointment", {
-        p_session_id: morning.id,
-        p_child_id: children.B.id,
-        p_slot_time: "09:30",
-      }),
-      "SLOT_TAKEN"
-    )
-  );
-  check(
-    "a time off the session's 30-minute grid is refused",
-    refusedWith(
-      await parent.rpc("book_appointment", {
-        p_session_id: morning.id,
-        p_child_id: children.B.id,
-        p_slot_time: "09:15",
-      }),
-      "INVALID_SLOT"
-    ) &&
-      refusedWith(
-        await parent.rpc("book_appointment", {
-          p_session_id: morning.id,
-          p_child_id: children.B.id,
-          p_slot_time: "10:00",
-        }),
-        "INVALID_SLOT"
-      )
-  );
-
-  const beforeBooking = liveEvents;
-  const bookB = unwrap(
-    "book B",
-    await parent.rpc("book_appointment", {
-      p_session_id: morning.id,
-      p_child_id: children.B.id,
-      p_slot_time: "09:00",
-    })
-  );
-  check("another child can take the remaining time", bookB.slot_time === "09:00:00", bookB.slot_time);
-  check(
-    "a booking reaches other open screens live (the time drops off their grid)",
-    await receivedLiveUpdate(beforeBooking)
-  );
-  check(
-    "a full session refuses further bookings",
-    refusedWith(
-      await parent.rpc("book_appointment", {
-        p_session_id: morning.id,
-        p_child_id: children.C.id,
-        p_slot_time: "09:00",
-      }),
-      "SESSION_FULL"
-    )
-  );
-
-  const outside = await createSession(addDays(today, 7), "09:00", "10:30");
+  const outside = await createSession(addDays(today, 7), "10:00", "13:00");
   check(
     "parents can't book beyond the booking window",
-    refusedWith(
-      await parent.rpc("book_appointment", {
-        p_session_id: outside.id,
-        p_child_id: children.C.id,
-        p_slot_time: "09:00",
-      }),
-      "OUTSIDE_BOOKING_WINDOW"
-    )
+    refusedWith(await book(outside.id, children.G), "OUTSIDE_BOOKING_WINDOW")
   );
 
   const sessionsList = unwrap(
     "list sessions",
-    await parent.rpc("appointment_sessions", {
-      p_clinic_id: clinicId,
-      p_from: day,
-      p_to: day,
-    })
+    await parent.rpc("appointment_sessions", { p_clinic_id: clinicId, p_from: day, p_to: day })
   );
   check(
-    "open-session listing reports slots taken",
-    sessionsList.find((s) => s.session_id === morning.id)?.booked_count === 2
-  );
-  check(
-    "…and lists every time still free to pick",
-    sessionsList.find((s) => s.session_id === morning.id)?.free_slots.length === 0 &&
-      JSON.stringify(sessionsList.find((s) => s.session_id === afternoon.id)?.free_slots) ===
-        JSON.stringify(["15:00:00"])
+    "the session listing counts bookings (no capacity field)",
+    sessionsList.find((row) => row.session_id === evening.id)?.booked_count === 6 &&
+      !("max_bookings" in (sessionsList[0] ?? {}))
   );
 
-  // --- parent changes: no notification ------------------------------------
-  const bMoved = unwrap(
-    "parent reschedules B",
-    await parent.rpc("reschedule_appointment", {
-      p_appointment_id: (
-        unwrap(
-          "B's appointment",
-          await admin
-            .from("appointments")
-            .select("id")
-            .eq("child_id", children.B.id)
-            .in("status", ["pending", "booked"])
-            .single()
-        )
-      ).id,
-      p_new_session_id: afternoon.id,
-      p_slot_time: "15:00",
-    })
+  const schedule = unwrap(
+    "doctor schedule",
+    await doctor.rpc("clinic_appointments", { p_clinic_id: clinicId, p_from: day, p_to: day })
   );
-  check("a parent can reschedule within the window", bMoved.session_id === afternoon.id);
-  check("a moved booking holds the time picked", bMoved.slot_time === "15:00:00");
+  const eveningRows = schedule.filter((row) => row.session_id === evening.id && row.appointment_id);
   check(
-    "a parent's own change sends them no notification",
+    "the doctor sees each child who booked, with their reason",
+    eveningRows.length === 6 &&
+      eveningRows.some(
+        (row) => row.child_name === "Appointment Test A" && row.visit_reason === "vaccination"
+      ) &&
+      eveningRows.every((row) => row.visit_reason && row.child_name)
+  );
+  check(
+    "the pharmacist can't see who booked",
     unwrap(
-      "B notifications",
-      await parent.from("notifications").select("id").eq("appointment_id", bMoved.id)
+      "pharmacist schedule",
+      await pharmacist.rpc("clinic_appointments", { p_clinic_id: clinicId, p_from: day, p_to: day })
     ).length === 0
   );
 
   const mine = unwrap("my appointments", await parent.rpc("my_appointments"));
   check(
-    "my appointments lists upcoming bookings",
-    mine.some((row) => row.appointment_id === bookA.id) &&
-      mine.some((row) => row.appointment_id === bMoved.id)
+    "my appointments lists bookings with their reason",
+    mine.some((row) => row.appointment_id === bookA.id && row.visit_reason === "vaccination")
   );
 
-  // --- doctor changes: parent notified ------------------------------------
+  // --- changes ------------------------------------------------------------
+  const bookB = many[0].data;
+  const bMoved = unwrap(
+    "parent reschedules B",
+    await parent.rpc("reschedule_appointment", {
+      p_appointment_id: bookB.id,
+      p_new_session_id: morning.id,
+    })
+  );
+  check(
+    "a parent's move stays booked (no re-approval)",
+    bMoved.session_id === morning.id && bMoved.status === "booked"
+  );
+  check(
+    "a parent's move is told to the doctor, not the parent",
+    unwrap(
+      "doctor notes for B",
+      await doctor.from("notifications").select("id").eq("appointment_id", bookB.id)
+    ).length === 2 &&
+      unwrap(
+        "parent notes for B",
+        await parent.from("notifications").select("id").eq("appointment_id", bookB.id)
+      ).length === 0
+  );
+
   const aMoved = unwrap(
     "doctor reschedules A outside the window",
     await doctor.rpc("reschedule_appointment", {
       p_appointment_id: bookA.id,
       p_new_session_id: outside.id,
-      p_slot_time: "10:00",
     })
   );
   check("the doctor isn't held to the booking window", aMoved.session_id === outside.id);
-  check("the doctor moving a request confirms it", aMoved.status === "booked");
-
   const moved = unwrap(
     "A notifications",
     await parent.from("notifications").select("type, payload").eq("appointment_id", bookA.id)
@@ -391,54 +372,43 @@ async function main() {
     "the parent is told when the doctor moves an appointment",
     moved.length === 1 &&
       moved[0].type === "appointment_changed" &&
-      moved[0].payload.change === "rescheduled"
-  );
-  check(
-    "…with the exact new time",
-    moved[0]?.payload.appointment_time === aMoved.slot_time.slice(0, 5),
-    moved[0]?.payload.appointment_time
+      moved[0].payload.change === "rescheduled" &&
+      moved[0].payload.start_time === "10:00"
   );
 
   const cancelledBySession = unwrap(
-    "cancel afternoon session",
-    await doctor.rpc("cancel_session", { p_session_id: afternoon.id })
+    "cancel custom session",
+    await doctor.rpc("cancel_session", { p_session_id: custom.id })
   );
-  const bAfter = unwrap(
-    "B after session cancel",
-    await admin.from("appointments").select("status").eq("id", bMoved.id).single()
-  );
-  check(
-    "cancelling a session cancels its bookings",
-    cancelledBySession === 1 && bAfter.status === "cancelled"
+  check("cancelling an empty session affects no bookings", cancelledBySession === 0);
+
+  const cancelledEvening = unwrap(
+    "cancel evening session",
+    await doctor.rpc("cancel_session", { p_session_id: evening.id })
   );
   check(
-    "…and tells each parent",
-    unwrap(
-      "B cancel notification",
-      await parent
-        .from("notifications")
-        .select("payload")
-        .eq("appointment_id", bMoved.id)
-        .eq("type", "appointment_changed")
-    ).some((row) => row.payload.change === "cancelled")
+    "cancelling a session cancels its bookings and tells each parent",
+    cancelledEvening === 4 &&
+      unwrap(
+        "cancel notices",
+        await parent
+          .from("notifications")
+          .select("id")
+          .eq("type", "appointment_changed")
+          .in("appointment_id", many.slice(1).map((result) => result.data.id))
+      ).length === 4,
+    `${cancelledEvening} cancelled`
   );
 
   const parentCancel = unwrap(
-    "parent cancels A",
-    await parent.rpc("cancel_appointment", { p_appointment_id: bookA.id })
+    "parent cancels B",
+    await parent.rpc("cancel_appointment", { p_appointment_id: bookB.id })
   );
   check("a parent can cancel, with no cutoff", parentCancel.status === "cancelled");
 
   // Close day
-  const closing = await createSession(addDays(today, 4), "09:00", "10:00");
-  const bookC = unwrap(
-    "book C",
-    await parent.rpc("book_appointment", {
-      p_session_id: closing.id,
-      p_child_id: children.C.id,
-      p_slot_time: "09:00",
-    })
-  );
+  const closing = await createSession(addDays(today, 4), "18:00", "21:00");
+  const bookC = unwrap("book C", await book(closing.id, children.C));
   const closed = unwrap(
     "close day",
     await doctor.rpc("close_day", { p_clinic_id: clinicId, p_date: addDays(today, 4) })
@@ -447,208 +417,72 @@ async function main() {
     "\"mark day closed\" cancels that day's bookings and notifies",
     closed === 1 &&
       unwrap(
-        "C notifications",
+        "close-day notice",
         await parent.from("notifications").select("id").eq("appointment_id", bookC.id)
       ).length === 1
   );
 
-  // Copy week: the week containing `day` copied forward seven days.
+  // Copy a week. Uses an empty week about two months out (its own session
+  // only), so it can never copy — or leave behind — anyone's real sessions.
+  const farMonday = (() => {
+    const date = new Date(`${addDays(today, 60)}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    return date.toISOString().slice(0, 10);
+  })();
+  const nextMonday = addDays(farMonday, 7);
+  cleanups.push(() =>
+    admin
+      .from("availability_sessions")
+      .delete()
+      .eq("clinic_id", clinicId)
+      .gte("date", farMonday)
+      .lte("date", addDays(nextMonday, 6))
+      .gt("created_at", startedAt)
+  );
+  unwrap(
+    "source-week session",
+    await admin
+      .from("availability_sessions")
+      .insert({ clinic_id: clinicId, date: addDays(farMonday, 2), start_time: "18:00", end_time: "21:00" })
+  );
   const copied = unwrap(
     "copy week",
     await doctor.rpc("copy_week", {
       p_clinic_id: clinicId,
-      p_from_week_start: day,
-      p_to_week_start: addDays(day, 7),
+      p_from_week_start: farMonday,
+      p_to_week_start: nextMonday,
     })
   );
-  // Everything copy_week made lands in the target week and was created during
-  // this run — track it all for cleanup, not just the day we assert on.
-  const copiedSessions = unwrap(
-    "copied sessions",
-    await admin
-      .from("availability_sessions")
-      .select("id, date, start_time")
-      .eq("clinic_id", clinicId)
-      .gte("date", addDays(day, 7))
-      .lte("date", addDays(day, 13))
-      .gte("created_at", startedAt)
-  );
-  sessions.push(...copiedSessions.map((s) => s.id));
-  check(
-    "\"copy last week\" repeats live sessions (not cancelled ones)",
-    copied === copiedSessions.length &&
-      copiedSessions.some(
-        (s) => s.date === addDays(day, 7) && s.start_time.startsWith("09:00")
-      ) &&
-      !copiedSessions.some(
-        (s) => s.date === addDays(day, 7) && s.start_time.startsWith("15:00")
-      ),
-    `${copied} created`
-  );
-
-  // --- approval workflow -----------------------------------------------------
-  const approvalSession = await createSession(addDays(today, 3), "09:00", "10:00");
-
-  const requestH = unwrap(
-    "book H",
-    await parent.rpc("book_appointment", {
-      p_session_id: approvalSession.id,
-      p_child_id: children.H.id,
-      p_slot_time: "09:00",
-    })
-  );
-  const doctorInbox = unwrap(
-    "doctor inbox",
-    await doctor
-      .from("notifications")
-      .select("id, type, read_at")
-      .eq("appointment_id", requestH.id)
-  );
-  check(
-    "the doctor gets a booking request",
-    doctorInbox.length === 1 && doctorInbox[0].type === "booking_request"
-  );
-
-  check(
-    "a parent cannot approve their own request",
-    refusedWith(
-      await parent.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: true }),
-      "FORBIDDEN"
-    )
-  );
-
-  const approved = unwrap(
-    "approve H",
-    await doctor.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: true })
-  );
-  check("approving confirms the booking", approved.status === "booked");
-
-  const parentApproval = unwrap(
-    "parent approval notice",
-    await parent
-      .from("notifications")
-      .select("type, payload")
-      .eq("appointment_id", requestH.id)
-  );
-  check(
-    "the parent is told it was approved",
-    parentApproval.some(
-      (row) => row.type === "booking_update" && row.payload.decision === "approved"
-    )
-  );
-  check(
-    "the doctor's request is marked read once decided",
-    unwrap(
-      "request read",
-      await doctor.from("notifications").select("read_at").eq("id", doctorInbox[0].id).single()
-    ).read_at !== null
-  );
-  check(
-    "a request can only be decided once",
-    refusedWith(
-      await doctor.rpc("decide_appointment", { p_appointment_id: requestH.id, p_approve: false }),
-      "INVALID_APPOINTMENT_STATUS"
-    )
-  );
-
-  const requestI = unwrap(
-    "book I",
-    await parent.rpc("book_appointment", {
-      p_session_id: approvalSession.id,
-      p_child_id: children.I.id,
-      p_slot_time: "09:30",
+  const copiedAgain = unwrap(
+    "copy week again",
+    await doctor.rpc("copy_week", {
+      p_clinic_id: clinicId,
+      p_from_week_start: farMonday,
+      p_to_week_start: nextMonday,
     })
   );
   check(
-    "a pending request holds its slot",
-    refusedWith(
-      await parent.rpc("book_appointment", {
-        p_session_id: approvalSession.id,
-        p_child_id: children.J.id,
-        p_slot_time: "09:30",
-      }),
-      "SESSION_FULL"
-    )
-  );
-
-  const rejected = unwrap(
-    "reject I",
-    await doctor.rpc("decide_appointment", { p_appointment_id: requestI.id, p_approve: false })
-  );
-  check("rejecting marks the request not approved", rejected.status === "rejected");
-  check(
-    "the parent is told it was rejected",
-    unwrap(
-      "parent rejection notice",
-      await parent
-        .from("notifications")
-        .select("payload")
-        .eq("appointment_id", requestI.id)
-        .eq("type", "booking_update")
-    ).some((row) => row.payload.decision === "rejected")
-  );
-  const bookJ = unwrap(
-    "book J after rejection",
-    await parent.rpc("book_appointment", {
-      p_session_id: approvalSession.id,
-      p_child_id: children.J.id,
-      p_slot_time: "09:30",
-    })
-  );
-  check(
-    "rejecting frees the slot — and its exact time",
-    bookJ.status === "pending" && bookJ.slot_time === requestI.slot_time,
-    `${bookJ.slot_time} (was ${requestI.slot_time})`
-  );
-  check(
-    "the parent still sees a rejected request, labelled",
-    unwrap("my appointments after rejection", await parent.rpc("my_appointments")).some(
-      (row) => row.appointment_id === requestI.id && row.status === "rejected"
-    )
-  );
-
-  // A parent moving a confirmed booking sends it back for approval.
-  const movedBack = unwrap(
-    "parent moves H",
-    await parent.rpc("reschedule_appointment", {
-      p_appointment_id: requestH.id,
-      p_new_session_id: morning.id,
-      p_slot_time: "09:00",
-    })
-  );
-  check(
-    "a parent moving a confirmed booking needs re-approval",
-    movedBack.status === "pending" &&
-      unwrap(
-        "new request",
-        await doctor
-          .from("notifications")
-          .select("id")
-          .eq("appointment_id", requestH.id)
-          .eq("type", "booking_request")
-      ).length === 2
+    "\"copy last week\" repeats a week's sessions, and never doubles them",
+    copied === 1 && copiedAgain === 0,
+    `${copied}, then ${copiedAgain}`
   );
 
   // Deleting: only your own notifications.
   const [firstRequest] = unwrap(
-    "doctor requests",
-    await doctor.from("notifications").select("id").eq("appointment_id", requestH.id)
+    "doctor notes",
+    await doctor.from("notifications").select("id").eq("appointment_id", bookB.id)
   );
   await parent.from("notifications").delete().eq("id", firstRequest.id);
   check(
     "a parent cannot delete the doctor's notification",
-    unwrap(
-      "still there",
-      await admin.from("notifications").select("id").eq("id", firstRequest.id)
-    ).length === 1
+    unwrap("still there", await admin.from("notifications").select("id").eq("id", firstRequest.id))
+      .length === 1
   );
   unwrap("doctor deletes", await doctor.from("notifications").delete().eq("id", firstRequest.id));
   check(
     "the doctor can delete their own notification",
-    unwrap(
-      "gone",
-      await admin.from("notifications").select("id").eq("id", firstRequest.id)
-    ).length === 0
+    unwrap("gone", await admin.from("notifications").select("id").eq("id", firstRequest.id))
+      .length === 0
   );
 
   // --- arrival links the appointment ---------------------------------------
@@ -657,13 +491,7 @@ async function main() {
     "today's session",
     await admin
       .from("availability_sessions")
-      .insert({
-        clinic_id: clinicId,
-        date: today,
-        start_time: "00:00",
-        end_time: "23:59",
-        max_bookings: 5,
-      })
+      .insert({ clinic_id: clinicId, date: today, start_time: "00:00", end_time: "23:59" })
       .select("id")
       .single()
   );
@@ -672,7 +500,13 @@ async function main() {
     "today's appointment",
     await admin
       .from("appointments")
-      .insert({ session_id: todaySession.id, child_id: children.D.id, appointment_date: today })
+      .insert({
+        session_id: todaySession.id,
+        child_id: children.D.id,
+        appointment_date: today,
+        status: "booked",
+        visit_reason: "general_checkup",
+      })
       .select("id")
       .single()
   );
@@ -690,13 +524,80 @@ async function main() {
     visit.appointment_id === todayAppointment.id && attended.status === "attended"
   );
 
-  const queue = unwrap(
-    "doctor queue",
-    await doctor.rpc("doctor_queue", { p_clinic_id: clinicId })
-  );
+  const queue = unwrap("doctor queue", await doctor.rpc("doctor_queue", { p_clinic_id: clinicId }));
   check(
     "the doctor's queue shows the appointment badge",
     queue.find((row) => row.visit_id === visit.id)?.has_appointment === true
+  );
+
+  // --- "coming for the same reason?" — an upcoming booking used today --------
+  const upcoming = unwrap("H's upcoming booking", await book(morning.id, children.H, "vaccination"));
+  const sameReason = unwrap(
+    "check in with the upcoming booking",
+    await parent.rpc("check_in", {
+      p_child_id: children.H.id,
+      p_visit_reason: "general_checkup",
+      p_appointment_id: upcoming.id,
+    })
+  );
+  const upcomingAfter = unwrap(
+    "upcoming booking after",
+    await admin.from("appointments").select("status").eq("id", upcoming.id).single()
+  );
+  check(
+    "\"yes, same reason\" makes today's token from the upcoming booking",
+    sameReason.visit_reason === "vaccination" &&
+      sameReason.appointment_id === upcoming.id &&
+      upcomingAfter.status === "attended",
+    `${sameReason.visit_reason}, booking ${upcomingAfter.status}`
+  );
+  unwrap(
+    "take H's token back out",
+    await admin.from("visits").delete().eq("id", sameReason.id)
+  );
+
+  // Someone else's booking can't be used (or marked attended) by this parent.
+  const otherParent = unwrap(
+    "another family",
+    await admin.from("parents").insert({ phone: `appointments-other-${Date.now()}` }).select("id").single()
+  );
+  cleanups.push(() => admin.from("parents").delete().eq("id", otherParent.id));
+  const otherChild = unwrap(
+    "their child",
+    await admin
+      .from("children")
+      .insert({ parent_id: otherParent.id, name: "Other Family Child", dob: "2021-01-01" })
+      .select("id")
+      .single()
+  );
+  const theirBooking = unwrap(
+    "their booking",
+    await admin
+      .from("appointments")
+      .insert({
+        session_id: morning.id,
+        child_id: otherChild.id,
+        appointment_date: day,
+        status: "booked",
+        visit_reason: "vaccination",
+      })
+      .select("id")
+      .single()
+  );
+  check(
+    "a parent can't use another family's booking at check-in",
+    refusedWith(
+      await parent.rpc("check_in", {
+        p_child_id: children.I.id,
+        p_visit_reason: "general_checkup",
+        p_appointment_id: theirBooking.id,
+      }),
+      "APPOINTMENT_NOT_FOUND"
+    ) &&
+      unwrap(
+        "their booking after",
+        await admin.from("appointments").select("status").eq("id", theirBooking.id).single()
+      ).status === "booked"
   );
 
   // --- scheduled jobs --------------------------------------------------------
@@ -707,9 +608,8 @@ async function main() {
       .insert({
         clinic_id: clinicId,
         date: addDays(today, -1),
-        start_time: "09:00",
-        end_time: "10:00",
-        max_bookings: 5,
+        start_time: "18:00",
+        end_time: "21:00",
       })
       .select("id")
       .single()
@@ -723,6 +623,8 @@ async function main() {
         session_id: yesterdaySession.id,
         child_id: children.E.id,
         appointment_date: addDays(today, -1),
+        status: "booked",
+        visit_reason: "general_checkup",
       })
       .select("id")
       .single()
@@ -732,7 +634,7 @@ async function main() {
     await admin.rpc("mark_missed_appointments", { p_clinic_id: clinicId, p_today: today })
   );
   check(
-    "yesterday's booking with no token is marked missed",
+    "the daily cleanup marks a past booking with no check-in as missed",
     unwrap(
       "no-show status",
       await admin.from("appointments").select("status").eq("id", noShow.id).single()
@@ -743,13 +645,7 @@ async function main() {
     "tomorrow's session",
     await admin
       .from("availability_sessions")
-      .insert({
-        clinic_id: clinicId,
-        date: tomorrow,
-        start_time: "10:00",
-        end_time: "12:00",
-        max_bookings: 5,
-      })
+      .insert({ clinic_id: clinicId, date: tomorrow, start_time: "10:00", end_time: "13:00" })
       .select("id")
       .single()
   );
@@ -758,7 +654,13 @@ async function main() {
     "tomorrow's appointment",
     await admin
       .from("appointments")
-      .insert({ session_id: tomorrowSession.id, child_id: children.F.id, appointment_date: tomorrow })
+      .insert({
+        session_id: tomorrowSession.id,
+        child_id: children.F.id,
+        appointment_date: tomorrow,
+        status: "booked",
+        visit_reason: "general_checkup",
+      })
       .select("id")
       .single()
   );

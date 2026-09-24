@@ -1,10 +1,9 @@
 "use client";
 
 import { Bell, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import { Button } from "@/components/ui/button";
-import { ConfirmButton } from "@/components/ui/confirm-button";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { AppNotification } from "@/lib/api";
@@ -31,7 +30,6 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<AppNotification[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     const api = getBrowserApi().notifications;
@@ -57,25 +55,6 @@ export default function NotificationsPage() {
     return onNotificationsChanged(() => void refresh());
   }, [refresh]);
 
-  async function decide(item: AppNotification, approve: boolean) {
-    if (!item.appointmentId) return;
-    setBusyId(item.id);
-    try {
-      const api = getBrowserApi();
-      await (approve
-        ? api.appointments.approve(item.appointmentId)
-        : api.appointments.reject(item.appointmentId));
-      toast(approve ? "Approved — parent notified" : "Rejected — parent notified", "success");
-      void api.notifications.dispatchPending();
-      await refresh();
-    } catch (caught) {
-      toast(errorMessage(caught), "error");
-      await refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function remove(item: AppNotification) {
     setItems((current) => current?.filter((existing) => existing.id !== item.id) ?? null);
     try {
@@ -90,9 +69,9 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        <h1 className="text-2xl font-bold text-foreground">Notification</h1>
         <p className="text-sm text-foreground-muted">
-          Booking requests from parents, newest first.
+          New and changed appointments from parents, newest first.
         </p>
       </header>
 
@@ -110,14 +89,12 @@ export default function NotificationsPage() {
           <EmptyState
             icon={<Bell className="size-8" />}
             title="No notifications"
-            description="When a parent requests an appointment, it shows up here for you to approve."
+            description="When a parent books or moves an appointment, it shows up here."
           />
         ) : (
           items.map((item) => {
             const rendered = renderNotification(item.type, item.payload);
             const isNew = fresh.has(item.id);
-            const isOpenRequest =
-              item.type === "booking_request" && item.appointmentStatus === "pending";
 
             return (
               <li
@@ -154,31 +131,17 @@ export default function NotificationsPage() {
                   </button>
                 </div>
 
-                {item.type === "booking_request" &&
-                  (isOpenRequest ? (
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1"
-                        loading={busyId === item.id}
-                        onClick={() => void decide(item, true)}
-                      >
-                        Approve
-                      </Button>
-                      <ConfirmButton
-                        className="flex-1"
-                        label="Reject"
-                        confirmLabel="Tap again to reject"
-                        onConfirm={() => decide(item, false)}
-                      />
-                    </div>
-                  ) : (
-                    item.appointmentStatus && (
-                      <div className="flex items-center gap-2 text-sm text-foreground-muted">
-                        <AppointmentStatusPill status={item.appointmentStatus} />
-                        {item.appointmentStatus === "pending" ? null : "Already handled"}
-                      </div>
-                    )
-                  ))}
+                {item.type === "booking_request" && item.appointmentStatus && (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <AppointmentStatusPill status={item.appointmentStatus} />
+                    <Link
+                      href="/admin/appointments"
+                      className="flex min-h-11 items-center text-sm font-semibold text-primary-700 dark:text-primary-300"
+                    >
+                      See all bookings
+                    </Link>
+                  </div>
+                )}
               </li>
             );
           })

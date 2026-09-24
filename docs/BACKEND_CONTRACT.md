@@ -70,7 +70,7 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
 | `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
-| `checkIn` | `{ childId, visitReason, appointmentId? }` | `Visit` | `CHILD_NOT_FOUND`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child |
+| `checkIn` | `{ childId, visitReason, appointmentId? }` — with `appointmentId`, the booking's reason is used | `Visit` | `CHILD_NOT_FOUND`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `DAILY_TOKEN_LIMIT_REACHED`, `SETTING_MISSING:*`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
@@ -221,66 +221,63 @@ prescription photos they need to fill the order.
 
 | Method | Input | Output | Errors | Auth |
 |---|---|---|---|---|
-| `getBookingWindow` | — | `BookingWindow` | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
-| `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` (with `freeSlots`) | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
-| `listMyAppointments` | — | `ParentAppointment[]` (with `slotTime`) | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, upcoming, booked |
-| `book` | `{ sessionId, childId, slotTime }` | `Appointment` | `CHILD_NOT_FOUND`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW`, `SESSION_FULL`, `INVALID_SLOT`, `SLOT_TAKEN` | Parent of that child |
-| `reschedule` | `appointmentId, newSessionId, slotTime` (same session allowed) | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
+| `getBookingWindow` | — | `BookingWindow` (with `sessionPresets`) | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
+| `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
+| `listMyAppointments` | — | `ParentAppointment[]` (with `visitReason`) | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, today onwards, booked |
+| `book` | `{ sessionId, childId, visitReason }` | `Appointment` (`booked`) | `CHILD_NOT_FOUND`, `INVALID_INPUT`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW` | Parent of that child |
+| `reschedule` | `appointmentId, newSessionId` | `Appointment` | as `book`, plus `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
 | `cancel` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `FORBIDDEN` | That child's parent, or clinic doctor |
-| `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
-| `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (off the slot grid, or end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
+| `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` — every booking with child, reason, parent | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
+| `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
 | `cancelSession` | `sessionId` | bookings affected | `SESSION_NOT_FOUND`, `FORBIDDEN` | Clinic doctor |
 | `closeDay` | `clinicId, date` | bookings affected | `FORBIDDEN` | Clinic doctor |
 | `copyWeek` | `clinicId, fromWeekStart, toWeekStart` | sessions created | `FORBIDDEN` | Clinic doctor |
 
-| `approve` / `reject` | `appointmentId` | `Appointment` | `APPOINTMENT_NOT_FOUND`, `INVALID_APPOINTMENT_STATUS`, `SESSION_CANCELLED` (approve), `FORBIDDEN` | Clinic doctor |
+**Sessions are open blocks of time.** A session is just a date and a time
+range (e.g. Evening 18:00–21:00). It has **no capacity and no slots**: any
+number of children can book it. The doctor's one-tap buttons come from the
+`session_presets` setting (default Morning 10:00–13:00 and Evening
+18:00–21:00, returned as `BookingWindow.sessionPresets`); a custom session can
+use any times with the end after the start. Sessions on one day can't overlap.
 
-**Slots and exact times.** Setting `appointment_slot_minutes` (default 30;
-exposed as `BookingWindow.slotMinutes`) is the unit. Session times must sit
-on that grid, and a session's capacity is its length divided by it — there is
-no manual capacity (9:00–11:00 → 4). **Nothing is assigned automatically:**
-`listSessions` returns each session's `freeSlots` (past times left out for
-today), the person picks one, and `book` / `reschedule` take that
-`slotTime`. Under the session row lock the server checks it is on the grid
-(`INVALID_SLOT`), not past (`SESSION_IN_PAST`) and not held by another live
-booking (`SLOT_TAKEN`), then stores it as `appointments.slot_time`; a partial
-unique index on `(session_id, slot_time)` backs that up. A cancelled or
-rejected booking frees its time. The doctor's schedule and parent's list
-carry `slotTime`, and every appointment notification carries
-`appointment_time`.
+**Booking is instant, with a reason.** Booking works like joining the queue:
+child, reason for visit (`vaccination` / `general_checkup`), then the
+session. It is confirmed (`booked`) at once — there is no approval step —
+and every doctor of the clinic gets a `booking_request` notification ("New
+appointment: …" with the reason). A parent moving a booking tells the doctor
+the same way; it stays booked. `pending` and `rejected` only exist on rows
+from the retired approval flow (the migration confirmed any pending ones).
 
-**Approval workflow.** A parent's booking is a *request*: it starts `pending`,
-and every doctor of the clinic gets a `booking_request` notification. The
-doctor approves (→ `booked`, shown as "Confirmed") or rejects (→ `rejected`);
-`decide_appointment` locks the row, so a request is decided exactly once even
-if two doctors tap at the same moment (proved in `test-concurrency.mjs`). The
-parent gets a `booking_update` either way, and every doctor's copy of the
-request is marked read. A pending request **holds its slot** — approving can
-never overbook, rejecting frees it. A parent moving a booking sends it back to
-`pending` for re-approval; the doctor moving one confirms it. Reminders and
-arrival-linking only apply to confirmed (`booked`) appointments. The walk-in
-queue has no approval step: tokens stay first-come-first-served.
-
-**Booking is race-safe.** `book_appointment` locks the session row before
-checking, so concurrent taps can't overbook or double-book a time: 8
-simultaneous bookings contesting a 3-slot session's times yield exactly 3,
-each at a different time (`scripts/test-concurrency.mjs`). A child may have
-more than one appointment on the same day; on arrival, the check-in links the
-earliest of that day's confirmed bookings.
+**Race-safe.** `book_appointment` and `cancel_session` both lock the session
+row, so a session cancelled while bookings are landing never keeps a live
+booking; 8 simultaneous bookings of one session all succeed
+(`scripts/test-concurrency.mjs`). A child may have more than one appointment
+(and token) on the same day.
 
 **The booking window** is today plus the next `booking_window_days − 1` days, in
 the clinic's timezone, from `settings`. Parents are held to it; the doctor
-isn't when rescheduling. `max_bookings` is only the appointment share of a
-session — everyone else is a walk-in, so there's no separate walk-in setting.
+isn't when rescheduling. A session already over today isn't listed.
 
 **Who gets told.** Any change the *doctor* makes — reschedule, cancel, cancel a
 session, close a day — writes an `appointment_changed` notification for each
 affected parent in the same transaction, and the doctor's screen triggers push
-delivery immediately. A parent's own changes don't notify them.
+delivery immediately. A parent's own changes notify the doctor, not them.
 
 **Arrival.** `assign_token` (behind both self check-in and walk-ins) links the
-child's booked appointment for today, if any, and marks it `attended`. The
-token still takes its normal place: appointments never change queue order.
+child's earliest booked appointment for today, if any, and marks it
+`attended`. The token still takes its normal place: appointments never change
+queue order.
+
+**"Coming for the same reason?"** If a child has a booking on a later day,
+check-in asks the parent whether today's visit is for the same reason. On yes,
+`checkIn` is called with that `appointmentId`: the server checks the booking
+belongs to that child, is `booked` and is today or later
+(`APPOINTMENT_NOT_FOUND` otherwise), makes the token with **the booking's
+reason**, and marks the booking `attended` — it has been used.
+
+**Missed.** The daily job marks every booking whose date has passed without a
+check-in as `missed` (see Scheduled jobs). Analytics report attended vs
+missed for bookings due in a range.
 
 ## Scheduled jobs (pg_cron)
 
@@ -292,7 +289,7 @@ catches up if a tick was missed (`scheduled_job_runs` records each run).
 |---|---|---|
 | Morning run | `reminder_morning_time` | "Appointment today" + follow-up reminders |
 | Evening run | `reminder_evening_time` | "Appointment tomorrow" |
-| Missed marking | every tick | Past-day bookings with no token → `missed` |
+| Missed marking (daily cleanup) | every tick, so just after midnight clinic time | Bookings whose day has passed with no check-in → `missed` |
 
 Follow-up reminders go out `follow_up_reminder_days_before` days ahead; a
 follow-up set at shorter notice is reminded the next morning. Every reminder is

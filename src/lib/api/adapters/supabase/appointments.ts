@@ -7,10 +7,12 @@ import type {
   ClockTime,
   ISODateString,
   ParentAppointment,
+  SessionPreset,
   UUID,
+  VisitReason,
 } from "../../types";
 import type { TypedSupabaseClient } from "./client.browser";
-import type { Database } from "./database.types";
+import type { Database, Json } from "./database.types";
 import { toApiError } from "./errors";
 
 type AppointmentRow = Database["public"]["Tables"]["appointments"]["Row"];
@@ -22,39 +24,33 @@ function mapAppointment(row: AppointmentRow): Appointment {
     sessionId: row.session_id,
     childId: row.child_id,
     appointmentDate: row.appointment_date,
-    slotTime: row.slot_time,
+    visitReason: row.visit_reason,
     status: row.status,
     createdAt: row.created_at,
   };
 }
 
-function toClock(minutes: number): ClockTime {
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}:00`;
-}
-
-function minutesOf(time: ClockTime): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-/** A freshly created session: every slot is free. Capacity = length / slot length. */
 function mapSession(row: SessionRow, bookedCount: number): AvailabilitySession {
-  const start = minutesOf(row.start_time);
-  const slotLength =
-    row.max_bookings > 0 ? (minutesOf(row.end_time) - start) / row.max_bookings : 0;
   return {
     id: row.id,
     clinicId: row.clinic_id,
     date: row.date,
     startTime: row.start_time,
     endTime: row.end_time,
-    maxBookings: row.max_bookings,
     bookedCount,
-    freeSlots:
-      bookedCount === 0
-        ? Array.from({ length: row.max_bookings }, (_, n) => toClock(start + n * slotLength))
-        : [],
   };
+}
+
+/** The `session_presets` setting, tolerating hand-edited JSON. */
+function mapPresets(value: Json): SessionPreset[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const { label, start, end } = item as Record<string, unknown>;
+    return typeof label === "string" && typeof start === "string" && typeof end === "string"
+      ? [{ label, startTime: start, endTime: end }]
+      : [];
+  });
 }
 
 export class SupabaseAppointmentsApi implements AppointmentsApi {
@@ -71,7 +67,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       today: row.today,
       fromDate: row.from_date,
       toDate: row.to_date,
-      slotMinutes: row.slot_minutes,
+      sessionPresets: mapPresets(row.session_presets),
     };
   }
 
@@ -93,9 +89,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       date: row.date,
       startTime: row.start_time,
       endTime: row.end_time,
-      maxBookings: row.max_bookings,
       bookedCount: row.booked_count,
-      freeSlots: row.free_slots ?? [],
     }));
   }
 
@@ -111,7 +105,7 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       date: row.date,
       startTime: row.start_time,
       endTime: row.end_time,
-      slotTime: row.slot_time,
+      visitReason: row.visit_reason,
       status: row.status,
     }));
   }
@@ -119,26 +113,21 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
   async book(input: {
     sessionId: UUID;
     childId: UUID;
-    slotTime: ClockTime;
+    visitReason: VisitReason;
   }): Promise<Appointment> {
     const { data, error } = await this.client.rpc("book_appointment", {
       p_session_id: input.sessionId,
       p_child_id: input.childId,
-      p_slot_time: input.slotTime,
+      p_visit_reason: input.visitReason,
     });
     if (error) throw toApiError(error, "BOOK_APPOINTMENT_FAILED");
     return mapAppointment(data);
   }
 
-  async reschedule(
-    appointmentId: UUID,
-    newSessionId: UUID,
-    slotTime: ClockTime
-  ): Promise<Appointment> {
+  async reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment> {
     const { data, error } = await this.client.rpc("reschedule_appointment", {
       p_appointment_id: appointmentId,
       p_new_session_id: newSessionId,
-      p_slot_time: slotTime,
     });
     if (error) throw toApiError(error, "RESCHEDULE_APPOINTMENT_FAILED");
     return mapAppointment(data);
@@ -149,23 +138,6 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
       p_appointment_id: appointmentId,
     });
     if (error) throw toApiError(error, "CANCEL_APPOINTMENT_FAILED");
-    return mapAppointment(data);
-  }
-
-  approve(appointmentId: UUID): Promise<Appointment> {
-    return this.decide(appointmentId, true);
-  }
-
-  reject(appointmentId: UUID): Promise<Appointment> {
-    return this.decide(appointmentId, false);
-  }
-
-  private async decide(appointmentId: UUID, approve: boolean): Promise<Appointment> {
-    const { data, error } = await this.client.rpc("decide_appointment", {
-      p_appointment_id: appointmentId,
-      p_approve: approve,
-    });
-    if (error) throw toApiError(error, "DECIDE_APPOINTMENT_FAILED");
     return mapAppointment(data);
   }
 
@@ -191,17 +163,16 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
           date: row.date,
           startTime: row.start_time,
           endTime: row.end_time,
-          maxBookings: row.max_bookings,
           bookedCount: row.booked_count,
           appointments: [],
         };
         sessions.set(row.session_id, session);
       }
-      if (row.appointment_id && row.appointment_status && row.child_id) {
+      if (row.appointment_id && row.appointment_status && row.child_id && row.visit_reason) {
         session.appointments.push({
           appointmentId: row.appointment_id,
           status: row.appointment_status,
-          slotTime: row.slot_time,
+          visitReason: row.visit_reason,
           childId: row.child_id,
           childName: row.child_name ?? "",
           childDob: row.child_dob ?? "",

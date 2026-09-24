@@ -42,7 +42,7 @@ function DoctorShell({ signOut, children }: { signOut: ReactNode; children: Reac
   const doctorNav: NavItem[] = [
     { href: "/admin/queue", label: "Queue", icon: ListOrdered },
     { href: "/admin/appointments", label: "Appointments", icon: CalendarDays },
-    { href: "/admin/notifications", label: "Alerts", icon: Bell, badge: unread },
+    { href: "/admin/notifications", label: "Notification", icon: Bell, badge: unread },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/availability", label: "Availability", icon: CalendarRange },
   ];

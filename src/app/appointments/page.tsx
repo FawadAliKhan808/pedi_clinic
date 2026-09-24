@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import {
-  SessionPicker,
-  reconcileSelection,
-  type SlotSelection,
-} from "@/components/appointments/session-picker";
+import { SessionPicker } from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
@@ -18,27 +14,36 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
-import type { AvailabilitySession, ParentAppointment } from "@/lib/api";
+import type { AvailabilitySession, BookingWindow, ParentAppointment } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { useDefaultClinicId, useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 import {
   errorMessage,
-  formatAppointmentTime,
-  formatClock,
   formatDayShort,
+  formatSession,
+  visitReasonLabels,
 } from "@/lib/format";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
+
+interface AppointmentsData {
+  window: BookingWindow;
+  appointments: ParentAppointment[];
+}
 
 /** Null when there's no session, so the caller can send them home. */
-async function loadAppointments(): Promise<ParentAppointment[] | null> {
+async function loadAppointments(): Promise<AppointmentsData | null> {
   const api = getBrowserApi();
   if (!(await api.auth.getCurrentUserId())) return null;
-  return api.appointments.listMyAppointments();
+  const [window, appointments] = await Promise.all([
+    api.appointments.getBookingWindow(),
+    api.appointments.listMyAppointments(),
+  ]);
+  return { window, appointments };
 }
 
 export default function MyAppointmentsPage() {
   const router = useRouter();
   const toast = useToast();
-  const [appointments, setAppointments] = useState<ParentAppointment[] | null>(null);
+  const [data, setData] = useState<AppointmentsData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState<ParentAppointment | null>(null);
 
@@ -47,13 +52,13 @@ export default function MyAppointmentsPage() {
       loadAppointments()
         .then((result) => {
           if (result === null) router.replace("/");
-          else setAppointments(result);
+          else setData(result);
         })
         .catch((caught) => {
-        const message = errorMessage(caught);
-        setLoadError(message);
-        toast(message, "error");
-      }),
+          const message = errorMessage(caught);
+          setLoadError(message);
+          toast(message, "error");
+        }),
     [router, toast]
   );
 
@@ -61,9 +66,8 @@ export default function MyAppointmentsPage() {
     void refresh();
   }, [refresh]);
 
-  // Approvals, rejections and the doctor's changes show up without a refresh.
-  const clinicId = useDefaultClinicId();
-  useLiveRefresh("appointments", clinicId, refresh);
+  // The doctor moving or cancelling a booking shows up without a refresh.
+  useLiveRefresh("appointments", data?.window.clinicId, refresh);
 
   async function cancel(appointment: ParentAppointment) {
     try {
@@ -75,57 +79,50 @@ export default function MyAppointmentsPage() {
     }
   }
 
+  const presets = data?.window.sessionPresets ?? [];
+
   return (
     <ParentShell>
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
         <p className="text-sm text-foreground-muted">
-          Booking a time doesn&apos;t skip the queue — check in when you arrive and
+          Booking a session doesn&apos;t skip the queue — check in when you arrive and
           you&apos;ll get a token as usual.
         </p>
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-        {appointments === null && loadError ? (
+        {data === null && loadError ? (
           <div className="col-span-full">
             <ErrorState message={loadError} onRetry={() => window.location.reload()} />
           </div>
-        ) : appointments === null ? (
+        ) : data === null ? (
           <>
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
           </>
-        ) : appointments.length === 0 ? (
+        ) : data.appointments.length === 0 ? (
           <EmptyState
             icon={<CalendarDays className="size-8" />}
             title="No upcoming appointments"
-            description="Book a time that suits you, up to a week ahead."
+            description="Book a session that suits you, up to a week ahead."
           />
         ) : (
-          appointments.map((appointment) => (
+          data.appointments.map((appointment) => (
             <Card key={appointment.appointmentId} className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground">{appointment.childName}</p>
                   <p className="text-sm text-foreground-muted">
-                    {formatDayShort(appointment.date)} · {formatAppointmentTime(appointment)}
+                    {formatDayShort(appointment.date)} · {formatSession(appointment, presets)}
+                  </p>
+                  <p className="text-sm text-foreground-muted">
+                    {visitReasonLabels[appointment.visitReason]}
                   </p>
                 </div>
                 <AppointmentStatusPill status={appointment.status} />
               </div>
 
-              {appointment.status === "pending" && (
-                <p className="rounded-lg bg-status-skipped/10 px-3 py-2 text-sm text-foreground">
-                  Under review — waiting for the doctor&apos;s approval. We&apos;ll let
-                  you know as soon as it&apos;s decided.
-                </p>
-              )}
-
-              {appointment.status === "rejected" ? (
-                <p className="rounded-lg bg-status-removed/10 px-3 py-2 text-sm text-foreground">
-                  The doctor couldn&apos;t take this slot. Please book another time.
-                </p>
-              ) : (
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
@@ -142,7 +139,6 @@ export default function MyAppointmentsPage() {
                   onConfirm={() => cancel(appointment)}
                 />
               </div>
-              )}
             </Card>
           ))
         )}
@@ -156,9 +152,10 @@ export default function MyAppointmentsPage() {
         </Link>
       </StickyActionBar>
 
-      {rescheduling && (
+      {rescheduling && data && (
         <RescheduleSheet
           appointment={rescheduling}
+          bookingWindow={data.window}
           onClose={() => setRescheduling(null)}
           onDone={() => void refresh()}
         />
@@ -169,63 +166,49 @@ export default function MyAppointmentsPage() {
 
 function RescheduleSheet({
   appointment,
+  bookingWindow,
   onClose,
   onDone,
 }: {
   appointment: ParentAppointment;
+  bookingWindow: BookingWindow;
   onClose: () => void;
   onDone: () => void;
 }) {
   const toast = useToast();
   const [sessions, setSessions] = useState<AvailabilitySession[] | null>(null);
-  const [selected, setSelected] = useState<SlotSelection | null>(null);
+  const [selected, setSelected] = useState<AvailabilitySession | null>(null);
   const [busy, setBusy] = useState(false);
-  const clinicId = useDefaultClinicId();
+  const { clinicId, fromDate, toDate, sessionPresets } = bookingWindow;
+
+  const load = useCallback(
+    () =>
+      getBrowserApi()
+        .appointments.listSessions(clinicId, fromDate, toDate)
+        .then((list) => {
+          setSessions(list);
+          setSelected((current) =>
+            current && list.some((item) => item.id === current.id) ? current : null
+          );
+        }),
+    [clinicId, fromDate, toDate]
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    const api = getBrowserApi().appointments;
-    api
-      .getBookingWindow()
-      .then((window) => api.listSessions(window.clinicId, window.fromDate, window.toDate))
-      .then((list) => {
-        if (!cancelled) setSessions(list);
-      })
-      .catch((caught) => toast(errorMessage(caught), "error"));
-    return () => {
-      cancelled = true;
-    };
-  }, [toast]);
+    load().catch((caught) => toast(errorMessage(caught), "error"));
+  }, [load, toast]);
 
-  // Times other parents take (or the doctor opens) update while the sheet is open.
-  useLiveRefresh("appointments", clinicId, () => {
-    const api = getBrowserApi().appointments;
-    return api
-      .getBookingWindow()
-      .then((window) => api.listSessions(window.clinicId, window.fromDate, window.toDate))
-      .then((list) => {
-        setSessions(list);
-        const next = reconcileSelection(selected, list);
-        if (selected && !next) toast("That time was just taken. Please pick another.", "error");
-        setSelected(next);
-      })
-      .catch(() => undefined);
-  });
+  // Sessions the doctor opens or closes update while the sheet is open.
+  useLiveRefresh("appointments", clinicId, () => load().catch(() => undefined));
 
   async function confirm() {
     if (!selected) return;
     setBusy(true);
     try {
-      await getBrowserApi().appointments.reschedule(
-        appointment.appointmentId,
-        selected.session.id,
-        selected.slotTime
-      );
+      await getBrowserApi().appointments.reschedule(appointment.appointmentId, selected.id);
       void getBrowserApi().notifications.dispatchPending();
       toast(
-        `Moved to ${formatDayShort(selected.session.date)}, ${formatClock(
-          selected.slotTime
-        )} — waiting for the doctor's approval`,
+        `Moved to ${formatDayShort(selected.date)}, ${formatSession(selected, sessionPresets)}`,
         "success"
       );
       onDone();
@@ -250,15 +233,18 @@ function RescheduleSheet({
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-foreground-muted">
-          Currently {formatDayShort(appointment.date)}, {formatAppointmentTime(appointment)}.
+          Currently {formatDayShort(appointment.date)},{" "}
+          {formatSession(appointment, sessionPresets)}.
         </p>
         {sessions === null ? (
           <Skeleton className="h-40 w-full" />
         ) : (
           <SessionPicker
             sessions={sessions}
-            selection={selected}
+            presets={sessionPresets}
+            selectedSessionId={selected?.id ?? null}
             onSelect={setSelected}
+            excludeSessionId={appointment.sessionId}
           />
         )}
       </div>

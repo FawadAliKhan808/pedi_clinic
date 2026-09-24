@@ -58,15 +58,50 @@ export function formatTimeRange(start: string, end: string): string {
   return `${formatClock(start)} – ${formatClock(end)}`;
 }
 
-/** An appointment's exact time; falls back to its session for older bookings. */
-export function formatAppointmentTime(appointment: {
-  slotTime: string | null;
-  startTime: string;
-  endTime: string;
-}): string {
-  return appointment.slotTime
-    ? formatClock(appointment.slotTime)
-    : formatTimeRange(appointment.startTime, appointment.endTime);
+/**
+ * "Evening · 6:00 pm – 9:00 pm" when a session matches one of the clinic's
+ * presets, otherwise just the time range.
+ */
+export function formatSession(
+  session: { startTime: string; endTime: string },
+  presets: { label: string; startTime: string; endTime: string }[] = []
+): string {
+  const range = formatTimeRange(session.startTime, session.endTime);
+  const preset = presets.find(
+    (item) =>
+      item.startTime.slice(0, 5) === session.startTime.slice(0, 5) &&
+      item.endTime.slice(0, 5) === session.endTime.slice(0, 5)
+  );
+  return preset ? `${preset.label} · ${range}` : range;
+}
+
+/**
+ * Reads a clock time typed any common way — "6", "6pm", "6:30 pm", "18:30",
+ * "1830" — as "HH:MM" (24-hour), or null if it can't be read. A bare hour
+ * from 1 to 12 without am/pm is ambiguous, so it needs one.
+ */
+export function parseClockInput(input: string): string | null {
+  const match = input
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, "")
+    .match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);
+  if (!match) return null;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] ? Number(match[2]) : 0;
+  const period = match[3]?.[0];
+  if (minutes > 59) return null;
+
+  if (period) {
+    if (hours < 1 || hours > 12) return null;
+    hours = (hours % 12) + (period === "p" ? 12 : 0);
+  } else if (hours < 13 && hours !== 0) {
+    return null;
+  } else if (hours > 23) {
+    return null;
+  }
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 /** Adds days to a 'YYYY-MM-DD' date without timezone drift. */
@@ -161,10 +196,8 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
-    case "SLOT_TAKEN":
-      return "Someone just booked that time. Please pick another.";
-    case "INVALID_SLOT":
-      return "That time isn't one of the session's slots. Please pick another.";
+    case "APPOINTMENT_NOT_FOUND":
+      return "That booking isn't available any more.";
     case "OUTSIDE_BOOKING_WINDOW":
       return "That date is too far ahead to book yet.";
     case "SESSION_IN_PAST":
@@ -174,7 +207,7 @@ export function errorMessage(error: unknown): string {
     case "SESSION_OVERLAP":
       return "That overlaps another session on the same day.";
     case "INVALID_SESSION_TIMES":
-      return "Pick times on the hour or half hour, with the end after the start.";
+      return "The end time must be after the start time.";
     case "ALREADY_RATED":
       return "You've already rated the app — thank you!";
     case "INVALID_RANGE":

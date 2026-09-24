@@ -47,7 +47,7 @@ const accentByStatus: Record<VisitStatus, string> = {
 
 /**
  * Tokens still in play today. Finished visits leave this screen — their
- * summaries live in Records — and so do tokens reception removed.
+ * summaries live in Last visits — and so do tokens reception removed.
  */
 const ACTIVE_STATUSES = new Set<VisitStatus>(["waiting", "called", "in_consultation", "skipped"]);
 
@@ -117,7 +117,7 @@ export default function QueuePage() {
       ) : entries.length === 0 ? (
         <EmptyState
           title="No active token"
-          description="Check in to get today's token and follow the queue live. Summaries of finished visits are in Records."
+          description="Check in to get today's token and follow the queue live. Summaries of finished visits are in Last visits."
           action={
             <div className="flex flex-col items-center gap-2">
               <Link href="/check-in">
@@ -127,7 +127,7 @@ export default function QueuePage() {
                 href="/records"
                 className="flex min-h-12 items-center px-4 font-semibold text-primary-600"
               >
-                Go to Records
+                Go to Last visits
               </Link>
             </div>
           }

@@ -297,9 +297,13 @@ function TrendsBody({
           hint={`${interrupted} of ${data.tokens.total} tokens`}
         />
         <StatTile
-          label="Missed appointments"
-          value={data.appointments.missed}
-          hint={appointmentsDue > 0 ? `of ${appointmentsDue} due` : "None due"}
+          label="Appointments kept"
+          value={formatPercent(data.appointments.attended, appointmentsDue)}
+          hint={
+            appointmentsDue > 0
+              ? `${data.appointments.attended} attended · ${data.appointments.missed} missed`
+              : "None due in this range"
+          }
         />
         <StatTile
           label="Follow-ups returned"
@@ -391,6 +395,34 @@ function TrendsBody({
             formatValue={formatCurrency}
             formatTick={formatCompactCurrency}
           />
+        </ChartCard>
+
+        <ChartCard
+          title="Booked appointments"
+          subtitle="Did children with a booking turn up? Bookings still ahead aren't counted."
+          table={
+            <DataTable
+              columns={["", "Children", "Share"]}
+              rows={[
+                ["Attended", data.appointments.attended, formatPercent(data.appointments.attended, appointmentsDue)],
+                ["Missed", data.appointments.missed, formatPercent(data.appointments.missed, appointmentsDue)],
+              ]}
+            />
+          }
+        >
+          {appointmentsDue === 0 ? (
+            <p className="py-6 text-center text-sm text-foreground-muted">
+              No booked appointments were due in this range.
+            </p>
+          ) : (
+            <SplitBar
+              title={`${appointmentsDue} booked ${appointmentsDue === 1 ? "appointment" : "appointments"} due`}
+              parts={[
+                { label: "Attended", value: data.appointments.attended, colorClass: "bg-chart-1" },
+                { label: "Missed", value: data.appointments.missed, colorClass: "bg-chart-2" },
+              ]}
+            />
+          )}
         </ChartCard>
 
         <ChartCard

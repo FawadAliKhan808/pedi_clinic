@@ -94,12 +94,20 @@ export function renderNotification(
         body: `${sessionLabel(payload)}. Check in with the app when you arrive.`,
         url: "/appointments",
       };
-    case "booking_request":
+    case "booking_request": {
+      // Sent when a parent books, or moves a booking. No approval needed.
+      const reason =
+        payload.visit_reason === "vaccination"
+          ? "Vaccination"
+          : payload.visit_reason === "general_checkup"
+            ? "General checkup"
+            : null;
       return {
-        title: `Booking request: ${child}`,
-        body: `${sessionLabel(payload)}. Approve or reject it.`,
-        url: "/admin/notifications",
+        title: `New appointment: ${child}`,
+        body: [sessionLabel(payload), reason].filter(Boolean).join(" · "),
+        url: "/admin/appointments",
       };
+    }
     case "booking_update":
       return payload.decision === "approved"
         ? {

@@ -63,13 +63,13 @@ npm run db:types   # regenerate database.types.ts after a schema change
 ## Scripts
 
 ```bash
-npm run provision         # clinic + settings + doctor/pharmacist/owner logins (idempotent)
-npm run test:concurrency  # proves tokens can't duplicate, stock can't oversell, sessions can't overbook
+npm run provision         # clinic + settings (incl. session presets) + doctor/pharmacist/owner logins (idempotent)
+npm run test:concurrency  # proves tokens can't duplicate, stock can't oversell, a cancelled session keeps no bookings
 npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
 npm run test:visit        # end-to-end: complete a visit, and who may see the money
 npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
 npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
-npm run test:appointments # booking rules, doctor changes, arrival linking, scheduled jobs
+npm run test:appointments # open sessions, instant booking with a reason, check-in with a booking, scheduled jobs
 npm run test:analytics    # role gates, ranges, and every analytics number moving as it should
 npm run reset             # dry run: shows what a reset would delete
 npm run reset -- --yes    # clears all clinic data; keeps the clinic, settings and staff logins

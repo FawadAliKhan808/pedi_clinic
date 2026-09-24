@@ -7,12 +7,13 @@ import type {
   ISODateString,
   ParentAppointment,
   UUID,
+  VisitReason,
 } from "./types";
 
 export interface AppointmentsApi {
-  /** Today and the bookable range, computed server-side from clinic settings. */
+  /** Today, the bookable range and the session presets, from clinic settings. */
   getBookingWindow(): Promise<BookingWindow>;
-  /** Live sessions in a range with how many slots are taken. No personal data. */
+  /** Live sessions in a range (ones already over today left out). No personal data. */
   listSessions(
     clinicId: UUID,
     fromDate: ISODateString,
@@ -21,40 +22,27 @@ export interface AppointmentsApi {
 
   // --- Parent -------------------------------------------------------------
 
+  /** Upcoming confirmed bookings, today onwards. */
   listMyAppointments(): Promise<ParentAppointment[]>;
   /**
-   * Books the slot the parent picked. Race-safe: a slot someone else just
-   * took throws `SLOT_TAKEN`; off-grid or past slots throw `INVALID_SLOT` /
-   * `SESSION_IN_PAST`.
+   * Books a session for a child and a reason. Confirmed immediately (no
+   * approval, no capacity); the doctor gets a notification.
    */
-  book(input: { sessionId: UUID; childId: UUID; slotTime: ClockTime }): Promise<Appointment>;
-  /** To a picked slot, in another session or the same one. Parents are held to the booking window; the doctor isn't. */
-  reschedule(
-    appointmentId: UUID,
-    newSessionId: UUID,
-    slotTime: ClockTime
-  ): Promise<Appointment>;
+  book(input: { sessionId: UUID; childId: UUID; visitReason: VisitReason }): Promise<Appointment>;
+  /** Parents are held to the booking window; the doctor isn't. */
+  reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment>;
   /** No cutoff. When the doctor cancels, the parent is notified. */
   cancel(appointmentId: UUID): Promise<Appointment>;
 
-  /**
-   * Doctor decides a pending request; the parent is notified either way.
-   * Decided exactly once — a second decision throws INVALID_APPOINTMENT_STATUS.
-   */
-  approve(appointmentId: UUID): Promise<Appointment>;
-  reject(appointmentId: UUID): Promise<Appointment>;
-
   // --- Doctor -------------------------------------------------------------
 
+  /** Every session in range with who booked it and why. */
   listClinicSchedule(
     clinicId: UUID,
     fromDate: ISODateString,
     toDate: ISODateString
   ): Promise<ClinicSessionSchedule[]>;
-  /**
-   * Times must fall on slot boundaries (`BookingWindow.slotMinutes`); the
-   * session's capacity is how many slots fit. Throws INVALID_SESSION_TIMES.
-   */
+  /** Any times (end after start); throws INVALID_SESSION_TIMES or SESSION_OVERLAP. */
   createSession(input: {
     clinicId: UUID;
     date: ISODateString;

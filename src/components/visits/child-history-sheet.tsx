@@ -37,7 +37,7 @@ export function ChildHistorySheet({
   parentPhone?: string;
   open: boolean;
   onClose: () => void;
-  /** Parent's Records: each visit opens its full summary. */
+  /** Each visit links to its full summary (for a parent's own view). */
   summaryLinks?: boolean;
 }) {
   const toast = useToast();

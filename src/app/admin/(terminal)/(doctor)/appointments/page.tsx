@@ -1,13 +1,9 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Stethoscope, Syringe } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
-import {
-  SessionPicker,
-  reconcileSelection,
-  type SlotSelection,
-} from "@/components/appointments/session-picker";
+import { BookingList } from "@/components/appointments/booking-list";
+import { SessionPicker } from "@/components/appointments/session-picker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -18,20 +14,12 @@ import type {
   AvailabilitySession,
   ClinicAppointment,
   ClinicSessionSchedule,
+  SessionPreset,
   UUID,
 } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { onNotificationsChanged } from "@/lib/notifications/unread";
+import { addDays, errorMessage, formatDayShort, formatSession } from "@/lib/format";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
-import {
-  addDays,
-  errorMessage,
-  formatAge,
-  formatClock,
-  formatDayShort,
-  formatPhone,
-  formatTimeRange,
-} from "@/lib/format";
 
 const DAYS_SHOWN = 14;
 
@@ -39,6 +27,20 @@ interface Range {
   clinicId: UUID;
   today: string;
   to: string;
+  presets: SessionPreset[];
+}
+
+/** "3 booked · 2 vaccination, 1 general checkup" — the session at a glance. */
+function sessionSummary(session: ClinicSessionSchedule): string {
+  const live = session.appointments.filter((item) => item.status !== "missed");
+  if (live.length === 0) return "No bookings yet";
+  const vaccination = live.filter((item) => item.visitReason === "vaccination").length;
+  const checkup = live.length - vaccination;
+  const parts = [
+    vaccination > 0 && `${vaccination} vaccination`,
+    checkup > 0 && `${checkup} general checkup`,
+  ].filter(Boolean);
+  return `${live.length} booked · ${parts.join(", ")}`;
 }
 
 export default function DoctorAppointmentsPage() {
@@ -60,6 +62,7 @@ export default function DoctorAppointmentsPage() {
           clinicId: staff.clinicId,
           today: window.today,
           to: addDays(window.today, DAYS_SHOWN - 1),
+          presets: window.sessionPresets,
         });
       })
       .catch((caught) => {
@@ -83,11 +86,9 @@ export default function DoctorAppointmentsPage() {
 
   useEffect(() => {
     void refresh();
-    // A new booking request arriving (see the Alerts tab) refreshes this too.
-    return onNotificationsChanged(() => void refresh());
   }, [refresh]);
 
-  // Bookings, cancellations and moves from any device appear as they happen.
+  // New bookings, cancellations and moves from any device appear as they happen.
   useLiveRefresh("appointments", range?.clinicId, refresh);
 
   /** Every change here notifies the affected parents immediately. */
@@ -112,15 +113,14 @@ export default function DoctorAppointmentsPage() {
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
         <p className="text-sm text-foreground-muted">
-          Today and the next two weeks. Parents are told about any change you make.
+          Who is coming, and why — today and the next two weeks. Parents are told about
+          any change you make.
         </p>
       </header>
 
       <div className="flex flex-col gap-6 px-5 py-3">
         {schedule === null && loadError ? (
-          <div className="col-span-full">
-            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
-          </div>
+          <ErrorState message={loadError} onRetry={() => window.location.reload()} />
         ) : schedule === null ? (
           <>
             <Skeleton className="h-32 w-full" />
@@ -130,7 +130,7 @@ export default function DoctorAppointmentsPage() {
           <EmptyState
             icon={<CalendarDays className="size-8" />}
             title="No sessions scheduled"
-            description="Open appointment slots from the Availability tab."
+            description="Open a session from the Availability tab."
           />
         ) : (
           [...byDate.entries()].map(([date, sessions]) => (
@@ -155,109 +155,51 @@ export default function DoctorAppointmentsPage() {
               </div>
 
               {sessions.map((session) => (
-                <Card key={session.sessionId} className="flex flex-col gap-3">
+                <Card key={session.sessionId} className="flex flex-col gap-2">
                   <div>
-                    <p className="whitespace-nowrap font-semibold text-foreground">
-                      {formatTimeRange(session.startTime, session.endTime)}
+                    <p className="font-semibold text-foreground">
+                      {formatSession(session, range?.presets)}
                     </p>
-                    <p className="text-sm text-foreground-muted">
-                      {session.bookedCount} of {session.maxBookings} booked
+                    <p className="flex items-center gap-1.5 text-sm text-foreground-muted">
+                      {session.appointments.some((item) => item.visitReason === "vaccination") ? (
+                        <Syringe aria-hidden className="size-3.5" />
+                      ) : (
+                        <Stethoscope aria-hidden className="size-3.5" />
+                      )}
+                      {sessionSummary(session)}
                     </p>
                   </div>
 
-                  {session.appointments.length === 0 ? (
-                    <p className="text-sm text-foreground-muted">No bookings yet.</p>
-                  ) : (
-                    <ul className="flex flex-col divide-y divide-border">
-                      {session.appointments.map((appointment) => (
-                        <li key={appointment.appointmentId} className="flex flex-col gap-2 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-foreground">
-                                {appointment.slotTime && (
-                                  <span className="tabular-nums text-primary-700 dark:text-primary-300">
-                                    {formatClock(appointment.slotTime)} ·{" "}
-                                  </span>
-                                )}
-                                {appointment.childName}
-                              </p>
-                              <p className="text-sm text-foreground-muted">
-                                {formatAge(appointment.childDob)} ·{" "}
-                                {appointment.parentName ? `${appointment.parentName}, ` : ""}
-                                {formatPhone(appointment.parentPhone)}
-                                {appointment.tokenSeq !== null
-                                  ? ` · token ${appointment.tokenSeq}`
-                                  : ""}
-                              </p>
-                            </div>
-                            <AppointmentStatusPill status={appointment.status} />
-                          </div>
-
-                          {appointment.status === "booked" && (
-                            <div className="flex gap-2">
-                              <Button
-                                variant="secondary"
-                                className="flex-1"
-                                onClick={() =>
-                                  setRescheduling({ appointment, sessionId: session.sessionId })
-                                }
-                              >
-                                Reschedule
-                              </Button>
-                              <ConfirmButton
-                                className="flex-1"
-                                variant="ghost"
-                                label="Cancel"
-                                confirmLabel="Tap again"
-                                onConfirm={() =>
-                                  change(
-                                    () =>
-                                      getBrowserApi().appointments.cancel(
-                                        appointment.appointmentId
-                                      ),
-                                    "Appointment cancelled — parent notified"
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-
-                          {appointment.status === "pending" && (
-                            <div className="flex gap-2">
-                              <Button
-                                className="flex-1"
-                                onClick={() =>
-                                  change(
-                                    () =>
-                                      getBrowserApi().appointments.approve(
-                                        appointment.appointmentId
-                                      ),
-                                    "Approved — parent notified"
-                                  )
-                                }
-                              >
-                                Approve
-                              </Button>
-                              <ConfirmButton
-                                className="flex-1"
-                                label="Reject"
-                                confirmLabel="Tap again to reject"
-                                onConfirm={() =>
-                                  change(
-                                    () =>
-                                      getBrowserApi().appointments.reject(
-                                        appointment.appointmentId
-                                      ),
-                                    "Rejected — parent notified"
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <BookingList
+                    appointments={session.appointments}
+                    actions={(appointment) =>
+                      appointment.status === "booked" && (
+                        <div className="flex gap-2 pl-10">
+                          <Button
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() =>
+                              setRescheduling({ appointment, sessionId: session.sessionId })
+                            }
+                          >
+                            Reschedule
+                          </Button>
+                          <ConfirmButton
+                            className="flex-1"
+                            variant="ghost"
+                            label="Cancel"
+                            confirmLabel="Tap again"
+                            onConfirm={() =>
+                              change(
+                                () => getBrowserApi().appointments.cancel(appointment.appointmentId),
+                                "Appointment cancelled — parent notified"
+                              )
+                            }
+                          />
+                        </div>
+                      )
+                    }
+                  />
 
                   <ConfirmButton
                     variant="ghost"
@@ -270,7 +212,7 @@ export default function DoctorAppointmentsPage() {
                     onConfirm={() =>
                       change(
                         () => getBrowserApi().appointments.cancelSession(session.sessionId),
-                        "Session cancelled — parents notified"
+                        "Session cancelled"
                       )
                     }
                   />
@@ -285,14 +227,14 @@ export default function DoctorAppointmentsPage() {
         <DoctorRescheduleSheet
           range={range}
           appointment={rescheduling.appointment}
+          currentSessionId={rescheduling.sessionId}
           onClose={() => setRescheduling(null)}
-          onMove={(sessionId, slotTime) =>
+          onMove={(sessionId) =>
             change(
               () =>
                 getBrowserApi().appointments.reschedule(
                   rescheduling.appointment.appointmentId,
-                  sessionId,
-                  slotTime
+                  sessionId
                 ),
               "Appointment moved — parent notified"
             )
@@ -306,41 +248,39 @@ export default function DoctorAppointmentsPage() {
 function DoctorRescheduleSheet({
   range,
   appointment,
+  currentSessionId,
   onClose,
   onMove,
 }: {
   range: Range;
   appointment: ClinicAppointment;
+  currentSessionId: UUID;
   onClose: () => void;
-  onMove: (sessionId: UUID, slotTime: string) => Promise<void>;
+  onMove: (sessionId: UUID) => Promise<void>;
 }) {
   const toast = useToast();
   const [sessions, setSessions] = useState<AvailabilitySession[] | null>(null);
-  const [selected, setSelected] = useState<SlotSelection | null>(null);
+  const [selected, setSelected] = useState<AvailabilitySession | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    getBrowserApi()
-      .appointments.listSessions(range.clinicId, range.today, range.to)
-      .then((list) => {
-        if (!cancelled) setSessions(list);
-      })
-      .catch((caught) => toast(errorMessage(caught), "error"));
-    return () => {
-      cancelled = true;
-    };
-  }, [range, toast]);
-
-  useLiveRefresh("appointments", range.clinicId, () =>
-    getBrowserApi()
-      .appointments.listSessions(range.clinicId, range.today, range.to)
-      .then((list) => {
-        setSessions(list);
-        setSelected((current) => reconcileSelection(current, list));
-      })
-      .catch(() => undefined)
+  const load = useCallback(
+    () =>
+      getBrowserApi()
+        .appointments.listSessions(range.clinicId, range.today, range.to)
+        .then((list) => {
+          setSessions(list);
+          setSelected((current) =>
+            current && list.some((item) => item.id === current.id) ? current : null
+          );
+        }),
+    [range]
   );
+
+  useEffect(() => {
+    load().catch((caught) => toast(errorMessage(caught), "error"));
+  }, [load, toast]);
+
+  useLiveRefresh("appointments", range.clinicId, () => load().catch(() => undefined));
 
   return (
     <Sheet
@@ -355,7 +295,7 @@ function DoctorRescheduleSheet({
           onClick={async () => {
             if (!selected) return;
             setBusy(true);
-            await onMove(selected.session.id, selected.slotTime);
+            await onMove(selected.id);
             setBusy(false);
             onClose();
           }}
@@ -369,8 +309,10 @@ function DoctorRescheduleSheet({
       ) : (
         <SessionPicker
           sessions={sessions}
-          selection={selected}
+          presets={range.presets}
+          selectedSessionId={selected?.id ?? null}
           onSelect={setSelected}
+          excludeSessionId={currentSessionId}
         />
       )}
     </Sheet>

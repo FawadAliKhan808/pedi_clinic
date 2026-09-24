@@ -47,9 +47,9 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
-          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
         Insert: {
           appointment_date: string
@@ -58,9 +58,9 @@ export type Database = {
           created_at?: string
           id?: string
           session_id: string
-          slot_time?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
         Update: {
           appointment_date?: string
@@ -69,9 +69,9 @@ export type Database = {
           created_at?: string
           id?: string
           session_id?: string
-          slot_time?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
+          visit_reason?: Database["public"]["Enums"]["visit_reason"]
         }
         Relationships: [
           {
@@ -98,7 +98,6 @@ export type Database = {
           date: string
           end_time: string
           id: string
-          max_bookings: number
           start_time: string
           updated_at: string
         }
@@ -109,7 +108,6 @@ export type Database = {
           date: string
           end_time: string
           id?: string
-          max_bookings: number
           start_time: string
           updated_at?: string
         }
@@ -120,7 +118,6 @@ export type Database = {
           date?: string
           end_time?: string
           id?: string
-          max_bookings?: number
           start_time?: string
           updated_at?: string
         }
@@ -836,8 +833,6 @@ export type Database = {
           clinic_id: string
           date: string
           end_time: string
-          free_slots: string[]
-          max_bookings: number
           session_id: string
           start_time: string
         }[]
@@ -846,14 +841,6 @@ export type Database = {
         Args: {
           p_enforce_window: boolean
           p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
-        }
-        Returns: undefined
-      }
-      assert_slot_free: {
-        Args: {
-          p_ignore_appointment: string
-          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
-          p_slot: string
         }
         Returns: undefined
       }
@@ -890,7 +877,11 @@ export type Database = {
         }
       }
       book_appointment: {
-        Args: { p_child_id: string; p_session_id: string; p_slot_time: string }
+        Args: {
+          p_child_id: string
+          p_session_id: string
+          p_visit_reason: Database["public"]["Enums"]["visit_reason"]
+        }
         Returns: {
           appointment_date: string
           cancelled_at: string | null
@@ -898,9 +889,9 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
-          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
         SetofOptions: {
           from: "*"
@@ -914,10 +905,14 @@ export type Database = {
         Returns: {
           clinic_id: string
           from_date: string
-          slot_minutes: number
+          session_presets: Json
           to_date: string
           today: string
         }[]
+      }
+      broadcast_appointments_change: {
+        Args: { p_clinic_id: string }
+        Returns: undefined
       }
       call_visit: {
         Args: { p_visit_id: string }
@@ -956,9 +951,9 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
-          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
         SetofOptions: {
           from: "*"
@@ -1043,13 +1038,12 @@ export type Database = {
           child_name: string
           date: string
           end_time: string
-          max_bookings: number
           parent_name: string
           parent_phone: string
           session_id: string
-          slot_time: string
           start_time: string
           token_seq: number
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }[]
       }
       clinic_local_time: { Args: { p_clinic_id: string }; Returns: string }
@@ -1118,7 +1112,6 @@ export type Database = {
           date: string
           end_time: string
           id: string
-          max_bookings: number
           start_time: string
           updated_at: string
         }
@@ -1135,26 +1128,6 @@ export type Database = {
           clinic_id: string
           role: Database["public"]["Enums"]["staff_role"]
         }[]
-      }
-      decide_appointment: {
-        Args: { p_appointment_id: string; p_approve: boolean }
-        Returns: {
-          appointment_date: string
-          cancelled_at: string | null
-          child_id: string
-          created_at: string
-          id: string
-          session_id: string
-          slot_time: string | null
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       default_clinic_id: { Args: never; Returns: string }
       dispense_order: {
@@ -1234,17 +1207,13 @@ export type Database = {
           date: string
           end_time: string
           session_id: string
-          slot_time: string
           start_time: string
           status: Database["public"]["Enums"]["appointment_status"]
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }[]
       }
       notify_appointment_change: {
         Args: { p_appointment_id: string; p_change: string }
-        Returns: undefined
-      }
-      notify_booking_decision: {
-        Args: { p_appointment_id: string; p_decision: string }
         Returns: undefined
       }
       notify_booking_request: {
@@ -1340,11 +1309,7 @@ export type Database = {
       }
       request_push_dispatch: { Args: never; Returns: undefined }
       reschedule_appointment: {
-        Args: {
-          p_appointment_id: string
-          p_new_session_id: string
-          p_slot_time: string
-        }
+        Args: { p_appointment_id: string; p_new_session_id: string }
         Returns: {
           appointment_date: string
           cancelled_at: string | null
@@ -1352,9 +1317,9 @@ export type Database = {
           created_at: string
           id: string
           session_id: string
-          slot_time: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
+          visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
         SetofOptions: {
           from: "*"
@@ -1408,12 +1373,6 @@ export type Database = {
       send_follow_up_reminders: {
         Args: { p_clinic_id: string; p_today: string }
         Returns: number
-      }
-      session_free_slots: {
-        Args: {
-          p_session: Database["public"]["Tables"]["availability_sessions"]["Row"]
-        }
-        Returns: string[]
       }
       setting_int: {
         Args: { p_clinic_id: string; p_key: string }

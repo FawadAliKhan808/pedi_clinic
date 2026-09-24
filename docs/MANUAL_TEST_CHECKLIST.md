@@ -152,65 +152,58 @@ Analytics screen was checked in a desktop browser at 390px and 820px.
       still viewable offline (the service worker no longer caches
       cross-origin images).
 
-## Refinements after the first test pass
+## Appointments, check-in and screens (latest changes)
 
-Database rules are covered by the test scripts. These screens weren't viewed
-in a browser during development (no signed-in session was available), so
-check each one:
+Database rules are covered by `npm run test:appointments` and
+`npm run test:concurrency`; these screens weren't viewed in a browser during
+development (no signed-in session was available):
 
-- [ ] **Availability**: start/end are hour + :00/:30 + AM/PM dropdowns; the
-      form shows how many 30-minute appointments the range makes (e.g.
-      10:00 AM–12:00 PM → 4, with the times); there's no slot-count field or
-      +/− stepper any more.
-- [ ] **Booking**: pick a day, then a time from the grid of free 30-minute
-      times (e.g. a 5:00–7:00 PM session shows 5:00, 5:30, 6:00, 6:30). The
-      toast, the Appointments list and the doctor's Appointments tab show that
-      exact time, and it disappears from the grid for the next person. Today's
-      past times aren't offered.
-- [ ] Reschedule (parent and doctor) uses the same time grid, including a
-      different time in the same session.
-- [ ] The same child can book two appointments on one day, and can take a
-      second token on one day (up to the per-phone daily limit).
-- [ ] Notifications about an appointment (request, confirmed, moved,
-      reminders) name the exact time.
-- [ ] **Doctor → Queue → tap a child**: the sheet shows the parent's name and
-      phone ("Name not given yet" for a walk-in whose parent never signed in).
-- [ ] **Analytics**: End of day shows Total collected, Consultations and
-      Pharmacy sales (with order count); Trends has the same tiles plus a
-      "Pharmacy sales" chart. Dispense an order and see it counted.
-- [ ] **Parent → Your queue**: only today's active tokens; once a visit is
-      completed it leaves this screen.
-- [ ] **Parent → Records → a child**: every past visit has "View visit
-      summary".
-- [ ] **Rating**: the first visit summary asks for a rating; after rating
-      once, no later summary asks again (also on a second phone signed in
-      with the same number).
-- [ ] **Parent notifications (bell)**: each card has a small bin button;
-      tapping it removes the notification, and it stays gone after reopening
-      the app. Tapping the card itself still opens it.
+- [ ] **Availability**: "Morning (10 am – 1 pm)" and "Evening (6 pm – 9 pm)"
+      add that session in one tap and then show as open; "Or a custom time"
+      takes plain text ("5pm", "5:30 pm", "17:30"), shows how it read each
+      field, and refuses an end before the start. No dropdowns, no slot counts.
+- [ ] Each session card on Availability lists every child booked, their reason,
+      parent name and a tap-to-call number.
+- [ ] **Booking (parent)** feels like check-in: child → reason → day and
+      session → "Book appointment". It's confirmed at once ("Booked"), with no
+      "awaiting approval". Several children can book the same session.
+- [ ] **Doctor → Appointments**: each session shows who booked and why (name,
+      reason, age, parent, phone), plus a "3 booked · 2 vaccination, 1 general
+      checkup" line. No approve/reject buttons anywhere.
+- [ ] **Doctor → Notification** (renamed from Alerts): "New appointment: …"
+      with the reason; tapping "See all bookings" opens Appointments.
+- [ ] **Check-in with an upcoming booking**: book a child for a later day, then
+      check that child in today → "Are you coming for the same reason you
+      booked your upcoming appointment?" → **Yes** gives a token straight away
+      with the booked reason, and the booking disappears from Appointments;
+      **No** goes to the normal reason choice.
+- [ ] **Last visits** (renamed from Records): every finished visit as a card
+      (child, date, reason, fee, follow-up, prescription photos, "View visit
+      summary"), newest first; filter chips for child and reason; "Clear
+      filters" when nothing matches.
+- [ ] **Missed**: a booking whose day passes with no check-in shows as Missed
+      the next morning; **Analytics → Trends** shows "Appointments kept" and
+      the "Booked appointments" attended-vs-missed chart; End of day shows the
+      same split.
+- [ ] **Analytics**: Total collected, Consultations and Pharmacy sales tiles;
+      the Pharmacy sales chart.
+- [ ] **Doctor → Queue → tap a child**: parent's name and phone.
+- [ ] **Parent → Your queue** shows only today's active tokens.
+- [ ] **Rating** is asked once per parent, ever.
+- [ ] **Parent notifications (bell)**: the bin button deletes one.
 
-## Live updates, slot grid and time pickers
+## Live updates
 
-Broadcasts are verified by `npm run test:appointments`; these need two
-real devices (or a phone and a laptop) side by side:
+Broadcasts are verified by `npm run test:appointments`; these need two real
+devices side by side:
 
-- [ ] Doctor adds a session → the parent's open booking screen shows its
-      times without a refresh.
-- [ ] Parent A selects a time, parent B books that same time → A's
-      selection clears with "That time was just taken".
-- [ ] Parent books → the doctor's Availability grid turns that slot amber
-      (Requested) live; approving turns it red (Booked) and the parent's
-      Appointments list shows Confirmed live.
-- [ ] Doctor calls a token → the parent's home screen token card and Your
-      queue update live; the pharmacist feed updates when a visit completes.
-- [ ] Lock the phone for a few minutes, unlock → screens catch up on their
-      own.
-- [ ] **Availability session cards**: every 30-minute slot shows as a tile
-      (green Free, amber Requested, red Booked/Arrived, grey Past); tapping a
-      booked tile shows the child, age, parent name, a tappable phone number
-      and a link to manage it; tapping again (or ×) closes it.
-- [ ] **Add a session** dropdowns: hour, minutes and AM/PM show in full
-      ("12", ":30", "PM") on a phone, a tablet and a laptop.
+- [ ] Doctor adds a session → the parent's open booking screen shows it
+      without a refresh; cancelling it removes it (and clears it if selected).
+- [ ] Parent books → the doctor's Appointments and Availability lists show the
+      child and reason at once.
+- [ ] Doctor calls a token → the parent's home token card and Your queue
+      update live; the pharmacist feed updates when a visit completes.
+- [ ] Lock the phone for a few minutes, unlock → screens catch up on their own.
 
 ## Before real patient data
 

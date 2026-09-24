@@ -94,6 +94,22 @@ export function EndOfDayView({
             <StatTile label="Appointments missed" value={data.appointments.missed} />
           </div>
 
+          <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
+            <SplitBar
+              title="Booked appointments: attended vs missed"
+              parts={[
+                { label: "Attended", value: data.appointments.attended, colorClass: "bg-chart-1" },
+                { label: "Missed", value: data.appointments.missed, colorClass: "bg-chart-2" },
+              ]}
+            />
+            {data.appointments.notArrived > 0 && (
+              <p className="text-sm text-foreground-muted">
+                {data.appointments.notArrived} still expected today — marked missed overnight if
+                they don&apos;t check in.
+              </p>
+            )}
+          </section>
+
           <section className="grid gap-5 rounded-xl border border-border bg-surface-raised p-4 shadow-sm @2xl:grid-cols-2">
             <SplitBar
               title="Consultations by payment mode"

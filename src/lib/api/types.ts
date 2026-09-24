@@ -212,10 +212,15 @@ export interface AvailabilitySession {
   date: ISODateString;
   startTime: ClockTime;
   endTime: ClockTime;
-  maxBookings: number;
+  /** Confirmed or arrived bookings. Sessions have no capacity. */
   bookedCount: number;
-  /** Slots still open to book, in order (past ones left out for today). */
-  freeSlots: ClockTime[];
+}
+
+/** One of the doctor's one-tap sessions (setting `session_presets`), e.g. Evening 18:00–21:00. */
+export interface SessionPreset {
+  label: string;
+  startTime: ClockTime;
+  endTime: ClockTime;
 }
 
 /** "Today" and the bookable range, as the clinic's timezone and settings define them. */
@@ -224,11 +229,13 @@ export interface BookingWindow {
   today: ISODateString;
   fromDate: ISODateString;
   toDate: ISODateString;
-  /** Appointment slot length (setting); session times snap to it. */
-  slotMinutes: number;
+  sessionPresets: SessionPreset[];
 }
 
-/** A parent's booking is a request ('pending') until the doctor approves it ('booked') or rejects it. */
+/**
+ * A booking is confirmed ('booked') the moment it's made. 'pending' and
+ * 'rejected' only exist on rows from the retired approval flow.
+ */
 export type AppointmentStatus =
   | "pending"
   | "booked"
@@ -242,8 +249,7 @@ export interface Appointment {
   sessionId: UUID;
   childId: UUID;
   appointmentDate: ISODateString;
-  /** The exact time this booking holds within its session. */
-  slotTime: ClockTime | null;
+  visitReason: VisitReason;
   status: AppointmentStatus;
   createdAt: ISODateTimeString;
 }
@@ -257,16 +263,14 @@ export interface ParentAppointment {
   date: ISODateString;
   startTime: ClockTime;
   endTime: ClockTime;
-  /** The exact appointment time within the session. */
-  slotTime: ClockTime | null;
+  visitReason: VisitReason;
   status: AppointmentStatus;
 }
 
 export interface ClinicAppointment {
   appointmentId: UUID;
   status: AppointmentStatus;
-  /** The exact appointment time within the session. */
-  slotTime: ClockTime | null;
+  visitReason: VisitReason;
   childId: UUID;
   childName: string;
   childDob: ISODateString;
@@ -282,8 +286,8 @@ export interface ClinicSessionSchedule {
   date: ISODateString;
   startTime: ClockTime;
   endTime: ClockTime;
-  maxBookings: number;
   bookedCount: number;
+  /** Everyone who booked it (confirmed, arrived or missed), in booking order. */
   appointments: ClinicAppointment[];
 }
 

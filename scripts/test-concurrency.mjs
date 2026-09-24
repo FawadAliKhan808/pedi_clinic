@@ -32,12 +32,14 @@ function check(description, passed, detail) {
   if (!passed) failures += 1;
 }
 
+/**
+ * Throws (rather than exiting) on failure, so the `finally` below still
+ * removes whatever the run created — an early exit would leave test tokens
+ * sitting in the live queue.
+ */
 async function must(step, promise) {
   const { data, error } = await promise;
-  if (error) {
-    console.error(`✗ ${step}:`, error.message);
-    process.exit(1);
-  }
+  if (error) throw new Error(`${step}: ${error.message}`);
   return data;
 }
 
@@ -76,13 +78,13 @@ async function assignToken(childId) {
 }
 
 /**
- * Eight parents' taps on "Book" landing at once for a session with three
- * times, several picking the same time. book_appointment locks the session
- * row before checking, so each time goes to exactly one booking (the rest get
- * SLOT_TAKEN or SESSION_FULL) and the session is never overbooked.
+ * Sessions have no capacity, so eight parents booking one session at the same
+ * instant all succeed. And a session the doctor cancels while bookings are
+ * landing never ends up with live bookings: book_appointment and
+ * cancel_session both lock the session row, so each booking either lands
+ * before the cancel (and is cancelled with it) or is refused after it.
  */
 async function testBookingRace() {
-  const SLOTS = 3;
   const ATTEMPTS = 8;
 
   const parentClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
@@ -102,24 +104,32 @@ async function testBookingRace() {
     "booking parent",
     parentClient.rpc("upsert_parent_profile", { p_name: null })
   );
+  const doctorClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await must(
+    "doctor sign-in",
+    doctorClient.auth.signInWithPassword({
+      email: process.env.DEMO_DOCTOR_EMAIL ?? "doctor@pediclinic.test",
+      password: process.env.DEMO_DOCTOR_PASSWORD ?? "pedi-doctor-demo",
+    })
+  );
 
   const [window] = await must("booking window", parentClient.rpc("booking_window"));
   const tomorrow = new Date(`${window.today}T00:00:00Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const date = tomorrow.toISOString().slice(0, 10);
 
-  const session = await must(
-    "create session",
+  const [open, contested] = await must(
+    "create sessions",
     db
       .from("availability_sessions")
-      .insert({
-        clinic_id: clinic.id,
-        date: tomorrow.toISOString().slice(0, 10),
-        start_time: "09:00",
-        end_time: "10:30",
-        max_bookings: SLOTS,
-      })
-      .select("id")
-      .single()
+      .insert([
+        { clinic_id: clinic.id, date, start_time: "06:00", end_time: "07:00" },
+        { clinic_id: clinic.id, date, start_time: "07:00", end_time: "08:00" },
+      ])
+      .select("id, start_time")
+      .order("start_time")
   );
 
   const racers = await must(
@@ -136,62 +146,45 @@ async function testBookingRace() {
       .select("id")
   );
 
-  try {
-    const attempts = await Promise.all(
-      racers.map((child, index) =>
-        parentClient.rpc("book_appointment", {
-          p_session_id: session.id,
-          p_child_id: child.id,
-          // 09:00, 09:30, 10:00, 09:00, … — every time is contested.
-          p_slot_time: ["09:00", "09:30", "10:00"][index % SLOTS],
-        })
-      )
-    );
+  const book = (sessionId, child) =>
+    parentClient.rpc("book_appointment", {
+      p_session_id: sessionId,
+      p_child_id: child.id,
+      p_visit_reason: "general_checkup",
+    });
 
+  try {
+    // 1. No capacity: everyone gets in.
+    const attempts = await Promise.all(racers.map((child) => book(open.id, child)));
     const booked = attempts.filter((result) => !result.error);
-    const full = attempts.filter((result) =>
-      /SESSION_FULL|SLOT_TAKEN/.test(result.error?.message ?? "")
-    );
-    const times = new Set(booked.map((result) => result.data.slot_time));
     const { count } = await db
       .from("appointments")
       .select("id", { count: "exact", head: true })
-      .eq("session_id", session.id)
-      // New bookings are requests awaiting approval; they still hold their slot.
-      .eq("status", "pending");
-
+      .eq("session_id", open.id)
+      .eq("status", "booked");
     check(
-      `only ${SLOTS} of ${ATTEMPTS} concurrent bookings succeed`,
-      booked.length === SLOTS && full.length === ATTEMPTS - SLOTS,
-      `${booked.length} booked, ${full.length} full`
+      `all ${ATTEMPTS} concurrent bookings for one session succeed`,
+      booked.length === ATTEMPTS && count === ATTEMPTS,
+      `${booked.length} booked, ${count} stored`
     );
-    check("a session is never overbooked", count === SLOTS, `${count} bookings stored`);
-    check("no time is ever booked twice", times.size === booked.length, [...times].join(", "));
 
-    // Approve and reject landing on the same request at the same instant.
-    const doctorClient = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    await must(
-      "doctor sign-in",
-      doctorClient.auth.signInWithPassword({
-        email: process.env.DEMO_DOCTOR_EMAIL ?? "doctor@pediclinic.test",
-        password: process.env.DEMO_DOCTOR_PASSWORD ?? "pedi-doctor-demo",
-      })
-    );
-    const contested = booked[0].data.id;
-    const decisions = await Promise.all([
-      doctorClient.rpc("decide_appointment", { p_appointment_id: contested, p_approve: true }),
-      doctorClient.rpc("decide_appointment", { p_appointment_id: contested, p_approve: false }),
+    // 2. Cancel a session while bookings are landing on it.
+    const [cancelled] = await Promise.all([
+      doctorClient.rpc("cancel_session", { p_session_id: contested.id }),
+      ...racers.map((child) => book(contested.id, child)),
     ]);
-    const decided = decisions.filter((result) => !result.error);
+    const { count: live } = await db
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", contested.id)
+      .eq("status", "booked");
     check(
-      "two simultaneous decisions on one request: exactly one wins",
-      decided.length === 1,
-      `${decided.length} succeeded, then status ${decided[0]?.data?.status}`
+      "a session cancelled mid-flurry is left with no live bookings",
+      !cancelled.error && live === 0,
+      cancelled.error?.message ?? `${live} still booked`
     );
   } finally {
-    await db.from("availability_sessions").delete().eq("id", session.id);
+    await db.from("availability_sessions").delete().in("id", [open.id, contested.id]);
     await db.from("children").delete().in("id", racers.map((child) => child.id));
   }
 }
@@ -349,8 +342,11 @@ try {
   // 3. Dispensing: eight simultaneous orders against stock that only covers five.
   await testDispenseRace();
 
-  // 4. Booking: eight simultaneous bookings for a session with three slots.
+  // 4. Booking: open sessions take everyone; a cancelled one keeps no one.
   await testBookingRace();
+} catch (error) {
+  console.error("✗", error.message);
+  failures += 1;
 } finally {
   // children/visits/orders cascade from the parent row; medicines can only go
   // once the order_items referencing them are gone.

@@ -1,27 +1,18 @@
 "use client";
 
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  SessionPicker,
-  reconcileSelection,
-  type SlotSelection,
-} from "@/components/appointments/session-picker";
+import { SessionPicker } from "@/components/appointments/session-picker";
 import { StickyActionBar } from "@/components/layout/nav-shell";
+import { ChildPicker, ReasonPicker } from "@/components/parent/visit-pickers";
 import { Button } from "@/components/ui/button";
-import { SelectableCard } from "@/components/ui/card";
-import { EmptyState, Skeleton } from "@/components/ui/feedback";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
-import type { AvailabilitySession, BookingWindow, Child } from "@/lib/api";
+import type { AvailabilitySession, BookingWindow, Child, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { errorMessage, formatDayShort, formatSession } from "@/lib/format";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
-import {
-  errorMessage,
-  formatAge,
-  formatClock,
-  formatDayShort,
-} from "@/lib/format";
 
 interface BookingData {
   window: BookingWindow;
@@ -42,13 +33,18 @@ async function loadBookingData(): Promise<BookingData | null> {
   return { window, children, sessions };
 }
 
-/** Child → date → time → confirm, all on one scrolling screen. */
+/**
+ * Booking works like joining the queue — who, why — plus when. It's
+ * confirmed as soon as it's made; the doctor just gets told.
+ */
 export default function BookAppointmentPage() {
   const router = useRouter();
   const toast = useToast();
   const [data, setData] = useState<BookingData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [childId, setChildId] = useState<string | null>(null);
-  const [selection, setSelection] = useState<SlotSelection | null>(null);
+  const [reason, setReason] = useState<VisitReason | null>(null);
+  const [session, setSession] = useState<AvailabilitySession | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -63,14 +59,15 @@ export default function BookAppointmentPage() {
         setData(result);
         if (result.children.length === 1) setChildId(result.children[0].id);
       })
-      .catch((caught) => toast(errorMessage(caught), "error"));
+      .catch((caught) => {
+        if (!cancelled) setLoadError(errorMessage(caught));
+      });
     return () => {
       cancelled = true;
     };
-  }, [router, toast]);
+  }, [router]);
 
-  // Sessions the doctor opens or cancels, and times other parents take,
-  // appear here as they happen.
+  // Sessions the doctor opens or cancels appear (or go) as it happens.
   const bookingWindow = data?.window;
   useLiveRefresh("appointments", bookingWindow?.clinicId, () => {
     if (!bookingWindow) return;
@@ -82,28 +79,26 @@ export default function BookAppointmentPage() {
       )
       .then((sessions) => {
         setData((current) => current && { ...current, sessions });
-        const next = reconcileSelection(selection, sessions);
-        if (selection && !next) toast("That time was just taken. Please pick another.", "error");
-        setSelection(next);
+        if (session && !sessions.some((item) => item.id === session.id)) {
+          toast("That session was just closed. Please pick another.", "error");
+          setSession(null);
+        }
       })
       .catch(() => undefined);
   });
 
   async function book() {
-    if (!childId || !selection) return;
+    if (!childId || !reason || !session) return;
     setBusy(true);
     try {
       const api = getBrowserApi();
-      await api.appointments.book({
-        sessionId: selection.session.id,
-        childId,
-        slotTime: selection.slotTime,
-      });
+      await api.appointments.book({ sessionId: session.id, childId, visitReason: reason });
       void api.notifications.dispatchPending();
       toast(
-        `Request sent for ${formatDayShort(selection.session.date)}, ${formatClock(
-          selection.slotTime
-        )} — the doctor will confirm it`,
+        `Booked for ${formatDayShort(session.date)}, ${formatSession(
+          session,
+          data?.window.sessionPresets
+        )}`,
         "success"
       );
       router.replace("/appointments");
@@ -126,7 +121,9 @@ export default function BookAppointmentPage() {
         <h1 className="text-xl font-bold text-foreground">Book an appointment</h1>
       </header>
 
-      {data === null ? (
+      {data === null && loadError ? (
+        <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+      ) : data === null ? (
         <div className="flex flex-col gap-3 px-5 py-3">
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-40 w-full" />
@@ -138,35 +135,22 @@ export default function BookAppointmentPage() {
         />
       ) : (
         <>
-          <section className="grid gap-3 px-5 py-3 md:grid-cols-2">
-            <h2 className="col-span-full text-sm font-semibold uppercase tracking-wide text-foreground-muted">
-              Who is the appointment for?
-            </h2>
-            {data.children.map((child) => (
-              <SelectableCard
-                key={child.id}
-                selected={childId === child.id}
-                onSelect={() => setChildId(child.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">{child.name}</p>
-                    <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
-                  </div>
-                  {childId === child.id && <Check className="size-5 text-primary-600" />}
-                </div>
-              </SelectableCard>
-            ))}
-          </section>
-
+          <ChildPicker
+            title="Who is the appointment for?"
+            options={data.children}
+            selectedId={childId}
+            onSelect={setChildId}
+          />
+          <ReasonPicker selected={reason} onSelect={setReason} />
           <section className="flex flex-col gap-3 px-5 py-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
-              Pick a time
+              When
             </h2>
             <SessionPicker
               sessions={data.sessions}
-              selection={selection}
-              onSelect={setSelection}
+              presets={data.window.sessionPresets}
+              selectedSessionId={session?.id ?? null}
+              onSelect={setSession}
             />
           </section>
         </>
@@ -177,10 +161,10 @@ export default function BookAppointmentPage() {
           fullWidth
           variant="accent"
           loading={busy}
-          disabled={!childId || !selection}
+          disabled={!childId || !reason || !session}
           onClick={() => void book()}
         >
-          Request appointment
+          Book appointment
         </Button>
       </StickyActionBar>
     </div>
