@@ -26,13 +26,10 @@ export interface AppointmentsApi {
   listMyAppointments(): Promise<ParentAppointment[]>;
   /**
    * Books a session for a child and a reason. Confirmed immediately (no
-   * approval, no capacity); the doctor gets a notification.
+   * approval, no capacity); the doctor gets a notification. A booking is
+   * permanent: nobody can cancel or move it.
    */
   book(input: { sessionId: UUID; childId: UUID; visitReason: VisitReason }): Promise<Appointment>;
-  /** Parents are held to the booking window; the doctor isn't. */
-  reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment>;
-  /** No cutoff. When the doctor cancels, the parent is notified. */
-  cancel(appointmentId: UUID): Promise<Appointment>;
 
   // --- Doctor -------------------------------------------------------------
 
@@ -49,10 +46,10 @@ export interface AppointmentsApi {
     startTime: ClockTime;
     endTime: ClockTime;
   }): Promise<AvailabilitySession>;
-  /** Cancels the session and its bookings, notifying each parent. Returns bookings affected. */
-  cancelSession(sessionId: UUID): Promise<number>;
-  /** "Mark day closed". Returns bookings affected. */
-  closeDay(clinicId: UUID, date: ISODateString): Promise<number>;
+  /** Takes down a session nobody has booked; throws SESSION_HAS_BOOKINGS otherwise. */
+  cancelSession(sessionId: UUID): Promise<void>;
+  /** "Mark day closed" — only when none of that day's sessions has a booking. */
+  closeDay(clinicId: UUID, date: ISODateString): Promise<void>;
   /** "Copy last week". Returns sessions created. */
   copyWeek(
     clinicId: UUID,

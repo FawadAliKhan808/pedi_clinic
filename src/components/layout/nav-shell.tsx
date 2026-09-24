@@ -12,6 +12,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Unread count shown on the item; hidden when 0. */
   badge?: number;
+  /** A small orange dot (e.g. "patients waiting"); its text is read to screen readers. */
+  dot?: string | false;
 }
 
 /**
@@ -53,7 +55,7 @@ export function NavShell({
           Pedi Clinic
         </p>
 
-        {items.map(({ href, label, icon: Icon, badge }) => {
+        {items.map(({ href, label, icon: Icon, badge, dot }) => {
           const active = pathname === href;
           return (
             <Link
@@ -75,6 +77,14 @@ export function NavShell({
                   <span className="absolute -right-2.5 -top-2 flex min-w-5 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold leading-5 text-foreground-on-accent">
                     {badge > 9 ? "9+" : badge}
                   </span>
+                ) : dot ? (
+                  <>
+                    <span
+                      aria-hidden
+                      className="absolute -right-1 -top-1 size-2.5 rounded-full bg-accent-500 ring-2 ring-surface-raised"
+                    />
+                    <span className="sr-only">, {dot}</span>
+                  </>
                 ) : null}
               </span>
               {label}

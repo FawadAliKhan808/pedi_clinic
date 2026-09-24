@@ -78,9 +78,11 @@ export function formatSession(
 /**
  * Reads a clock time typed any common way — "6", "6pm", "6:30 pm", "18:30",
  * "1830" — as "HH:MM" (24-hour), or null if it can't be read. A bare hour
- * from 1 to 12 without am/pm is ambiguous, so it needs one.
+ * from 1 to 12 without am/pm takes `fallbackPeriod` (the AM/PM toggle next
+ * to the field); with no fallback it's ambiguous and left unread. Typed am/pm
+ * always wins.
  */
-export function parseClockInput(input: string): string | null {
+export function parseClockInput(input: string, fallbackPeriod?: "am" | "pm"): string | null {
   const match = input
     .trim()
     .toLowerCase()
@@ -90,7 +92,8 @@ export function parseClockInput(input: string): string | null {
 
   let hours = Number(match[1]);
   const minutes = match[2] ? Number(match[2]) : 0;
-  const period = match[3]?.[0];
+  const period =
+    match[3]?.[0] ?? (hours >= 1 && hours <= 12 ? fallbackPeriod?.[0] : undefined);
   if (minutes > 59) return null;
 
   if (period) {
@@ -196,6 +199,8 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
+    case "SESSION_HAS_BOOKINGS":
+      return "Children have booked this, so it can't be taken down. Bookings are permanent.";
     case "APPOINTMENT_NOT_FOUND":
       return "That booking isn't available any more.";
     case "OUTSIDE_BOOKING_WINDOW":

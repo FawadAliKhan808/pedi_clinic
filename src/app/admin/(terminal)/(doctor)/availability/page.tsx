@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
-import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, SessionPreset, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -187,17 +186,20 @@ export default function AvailabilityPage() {
                 <Copy className="size-4" />
                 Copy last week
               </Button>
-              <ConfirmButton
-                className="flex-1 px-3 text-sm"
-                label="Mark day closed"
-                confirmLabel="Tap again to close"
-                onConfirm={() =>
-                  change(
-                    () => getBrowserApi().appointments.closeDay(clinicId, date),
-                    `${formatDayShort(date)} closed — parents notified`
-                  ).then(() => undefined)
-                }
-              />
+              {/* Bookings are permanent, so a day can only close while nobody has booked. */}
+              {sessions && sessions.length > 0 && !sessions.some((item) => item.appointments.length > 0) && (
+                <ConfirmButton
+                  className="flex-1 px-3 text-sm"
+                  label="Mark day closed"
+                  confirmLabel="Tap again to close"
+                  onConfirm={() =>
+                    change(
+                      () => getBrowserApi().appointments.closeDay(clinicId, date),
+                      `${formatDayShort(date)} closed`
+                    ).then(() => undefined)
+                  }
+                />
+              )}
             </div>
           </Card>
 
@@ -225,21 +227,23 @@ export default function AvailabilityPage() {
                   </p>
                 </div>
                 <BookingList appointments={session.appointments} />
-                <ConfirmButton
-                  variant="ghost"
-                  label="Cancel session"
-                  confirmLabel={
-                    session.bookedCount > 0
-                      ? `Tap again — ${session.bookedCount} parent(s) will be told`
-                      : "Tap again to cancel"
-                  }
-                  onConfirm={() =>
-                    change(
-                      () => getBrowserApi().appointments.cancelSession(session.sessionId),
-                      "Session cancelled"
-                    ).then(() => undefined)
-                  }
-                />
+                {session.appointments.length === 0 ? (
+                  <ConfirmButton
+                    variant="ghost"
+                    label="Remove session"
+                    confirmLabel="Tap again to remove"
+                    onConfirm={() =>
+                      change(
+                        () => getBrowserApi().appointments.cancelSession(session.sessionId),
+                        "Session removed"
+                      ).then(() => undefined)
+                    }
+                  />
+                ) : (
+                  <p className="text-xs text-foreground-muted">
+                    Booked sessions stay on — bookings are permanent.
+                  </p>
+                )}
               </Card>
             ))
           )}
@@ -279,9 +283,13 @@ function PresetButton({
   );
 }
 
+type Period = "am" | "pm";
+
 /**
- * Any other session, typed plainly: "5pm", "5:30 pm" or "17:30". Each field
- * shows how it was read, so a typo is caught before anything is saved.
+ * Any other session: type the time ("5", "5:30" — a number pad on phones) and
+ * tap AM/PM beside it. Typing "pm" or a 24-hour time also works and moves the
+ * toggle to match. Each field shows how it was read, so a typo is caught
+ * before anything is saved.
  */
 function CustomSessionForm({
   onAdd,
@@ -290,17 +298,14 @@ function CustomSessionForm({
 }) {
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
+  const [startPeriod, setStartPeriod] = useState<Period>("pm");
+  const [endPeriod, setEndPeriod] = useState<Period>("pm");
   const [busy, setBusy] = useState(false);
 
-  const start = parseClockInput(startText);
-  const end = parseClockInput(endText);
+  const start = parseClockInput(startText, startPeriod);
+  const end = parseClockInput(endText, endPeriod);
   const endBeforeStart = start !== null && end !== null && end <= start;
   const ready = start !== null && end !== null && !endBeforeStart;
-
-  function hint(text: string, parsed: string | null): string {
-    if (!text.trim()) return "e.g. 5pm, 5:30 pm or 17:30";
-    return parsed ? `Reads as ${formatClock(parsed)}` : "Add am or pm, e.g. 5pm";
-  }
 
   return (
     <form
@@ -318,30 +323,25 @@ function CustomSessionForm({
       }}
     >
       <p className="text-sm font-semibold text-foreground">Or a custom time</p>
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TimeWithPeriod
+          id="custom-start"
           label="From"
-          inputMode="text"
-          autoComplete="off"
-          value={startText}
-          onChange={(event) => setStartText(event.target.value)}
-          hint={hint(startText, start)}
-          error={startText.trim() && start === null ? hint(startText, start) : undefined}
+          text={startText}
+          period={startPeriod}
+          parsed={start}
+          onTextChange={setStartText}
+          onPeriodChange={setStartPeriod}
         />
-        <TextField
+        <TimeWithPeriod
+          id="custom-end"
           label="To"
-          inputMode="text"
-          autoComplete="off"
-          value={endText}
-          onChange={(event) => setEndText(event.target.value)}
-          hint={hint(endText, end)}
-          error={
-            endText.trim() && end === null
-              ? hint(endText, end)
-              : endBeforeStart
-                ? "Must be after the start"
-                : undefined
-          }
+          text={endText}
+          period={endPeriod}
+          parsed={end}
+          onTextChange={setEndText}
+          onPeriodChange={setEndPeriod}
+          error={endBeforeStart ? "Must be after the start" : undefined}
         />
       </div>
       <Button type="submit" variant="secondary" loading={busy} disabled={!ready}>
@@ -349,5 +349,85 @@ function CustomSessionForm({
         Add custom session
       </Button>
     </form>
+  );
+}
+
+/** A time box with a one-tap AM/PM toggle glued to its right edge. */
+function TimeWithPeriod({
+  id,
+  label,
+  text,
+  period,
+  parsed,
+  onTextChange,
+  onPeriodChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  text: string;
+  period: Period;
+  parsed: string | null;
+  onTextChange: (text: string) => void;
+  onPeriodChange: (period: Period) => void;
+  error?: string;
+}) {
+  const unreadable = text.trim() !== "" && parsed === null;
+  const message = error ?? (unreadable ? "Type a time like 5 or 5:30" : undefined);
+  const hint = !text.trim()
+    ? "e.g. 5 or 5:30"
+    : parsed
+      ? `Reads as ${formatClock(parsed)}`
+      : undefined;
+
+  function handleText(value: string) {
+    onTextChange(value);
+    // Typed am/pm moves the toggle, so the two never disagree.
+    const typed = value.trim().toLowerCase().match(/(a|p)m?$/)?.[1];
+    if (typed) onPeriodChange(typed === "a" ? "am" : "pm");
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-semibold text-foreground">
+        {label}
+      </label>
+      <div className="flex">
+        <input
+          id={id}
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder="5:30"
+          value={text}
+          onChange={(event) => handleText(event.target.value)}
+          aria-invalid={Boolean(message)}
+          aria-describedby={`${id}-note`}
+          className={cn(
+            "min-h-12 min-w-0 flex-1 rounded-l-lg border border-r-0 bg-surface px-4 text-base tabular-nums text-foreground",
+            "placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500",
+            message ? "border-danger" : "border-border"
+          )}
+        />
+        <button
+          type="button"
+          onClick={() => onPeriodChange(period === "am" ? "pm" : "am")}
+          aria-label={`${label} time is ${period.toUpperCase()}. Tap to switch to ${period === "am" ? "PM" : "AM"}`}
+          className={cn(
+            "min-h-12 w-16 shrink-0 rounded-r-lg border text-base font-bold tracking-wide transition-colors active:scale-95",
+            period === "am"
+              ? "border-primary-300 bg-primary-50 text-primary-800 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-200"
+              : "border-accent-300 bg-accent-50 text-accent-700 dark:border-accent-800 dark:bg-accent-900/30 dark:text-accent-200"
+          )}
+        >
+          {period.toUpperCase()}
+        </button>
+      </div>
+      <p
+        id={`${id}-note`}
+        className={cn("text-sm", message ? "text-danger" : "text-foreground-muted")}
+      >
+        {message ?? hint}
+      </p>
+    </div>
   );
 }

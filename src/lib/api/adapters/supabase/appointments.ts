@@ -124,23 +124,6 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
     return mapAppointment(data);
   }
 
-  async reschedule(appointmentId: UUID, newSessionId: UUID): Promise<Appointment> {
-    const { data, error } = await this.client.rpc("reschedule_appointment", {
-      p_appointment_id: appointmentId,
-      p_new_session_id: newSessionId,
-    });
-    if (error) throw toApiError(error, "RESCHEDULE_APPOINTMENT_FAILED");
-    return mapAppointment(data);
-  }
-
-  async cancel(appointmentId: UUID): Promise<Appointment> {
-    const { data, error } = await this.client.rpc("cancel_appointment", {
-      p_appointment_id: appointmentId,
-    });
-    if (error) throw toApiError(error, "CANCEL_APPOINTMENT_FAILED");
-    return mapAppointment(data);
-  }
-
   async listClinicSchedule(
     clinicId: UUID,
     fromDate: ISODateString,
@@ -201,21 +184,19 @@ export class SupabaseAppointmentsApi implements AppointmentsApi {
     return mapSession(data, 0);
   }
 
-  async cancelSession(sessionId: UUID): Promise<number> {
-    const { data, error } = await this.client.rpc("cancel_session", {
+  async cancelSession(sessionId: UUID): Promise<void> {
+    const { error } = await this.client.rpc("cancel_session", {
       p_session_id: sessionId,
     });
     if (error) throw toApiError(error, "CANCEL_SESSION_FAILED");
-    return data ?? 0;
   }
 
-  async closeDay(clinicId: UUID, date: ISODateString): Promise<number> {
-    const { data, error } = await this.client.rpc("close_day", {
+  async closeDay(clinicId: UUID, date: ISODateString): Promise<void> {
+    const { error } = await this.client.rpc("close_day", {
       p_clinic_id: clinicId,
       p_date: date,
     });
     if (error) throw toApiError(error, "CLOSE_DAY_FAILED");
-    return data ?? 0;
   }
 
   async copyWeek(

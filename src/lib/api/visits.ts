@@ -1,10 +1,12 @@
 import type {
   ChildVisitHistoryEntry,
+  DayPatient,
   ISODateString,
   PaymentMode,
   UUID,
   Visit,
   VisitSummary,
+  VisitTimelineEntry,
 } from "./types";
 
 export interface CompleteVisitInput {
@@ -40,4 +42,11 @@ export interface VisitsApi {
   submitRating(visitId: UUID, stars: 1 | 2 | 3 | 4 | 5): Promise<void>;
   /** Whether the signed-in parent has already rated the app. */
   hasRatedApp(): Promise<boolean>;
+
+  // --- Doctor: patient history -------------------------------------------
+
+  /** Every child with a token that day (any status), in token order. Doctor only. */
+  listPatientsOn(clinicId: UUID, date: ISODateString): Promise<DayPatient[]>;
+  /** A child's visits, newest first, with fees, payments, prescriptions and medicines. Doctor only. */
+  getChildTimeline(childId: UUID): Promise<VisitTimelineEntry[]>;
 }

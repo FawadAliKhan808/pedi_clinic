@@ -79,10 +79,9 @@ async function assignToken(childId) {
 
 /**
  * Sessions have no capacity, so eight parents booking one session at the same
- * instant all succeed. And a session the doctor cancels while bookings are
- * landing never ends up with live bookings: book_appointment and
- * cancel_session both lock the session row, so each booking either lands
- * before the cancel (and is cancelled with it) or is refused after it.
+ * instant all succeed. And a session the doctor removes while bookings are
+ * landing never strands one: book_appointment and cancel_session both lock
+ * the session row, and a session with bookings can't be removed.
  */
 async function testBookingRace() {
   const ATTEMPTS = 8;
@@ -168,8 +167,11 @@ async function testBookingRace() {
       `${booked.length} booked, ${count} stored`
     );
 
-    // 2. Cancel a session while bookings are landing on it.
-    const [cancelled] = await Promise.all([
+    // 2. The doctor removes a session while bookings are landing on it.
+    //    Bookings are permanent, so either the removal wins (and every booking
+    //    after it is refused) or a booking wins (and the removal is refused) —
+    //    never a booking left in a removed session.
+    const [removal, ...bookings] = await Promise.all([
       doctorClient.rpc("cancel_session", { p_session_id: contested.id }),
       ...racers.map((child) => book(contested.id, child)),
     ]);
@@ -178,10 +180,13 @@ async function testBookingRace() {
       .select("id", { count: "exact", head: true })
       .eq("session_id", contested.id)
       .eq("status", "booked");
+    const landed = bookings.filter((result) => !result.error).length;
     check(
-      "a session cancelled mid-flurry is left with no live bookings",
-      !cancelled.error && live === 0,
-      cancelled.error?.message ?? `${live} still booked`
+      "removing a session mid-flurry never strands a booking",
+      removal.error
+        ? removal.error.message.includes("SESSION_HAS_BOOKINGS") && live === landed && landed > 0
+        : live === 0 && landed === 0,
+      removal.error ? `removal refused, ${live} kept` : `removed first, ${landed} booked`
     );
   } finally {
     await db.from("availability_sessions").delete().in("id", [open.id, contested.id]);
@@ -342,7 +347,7 @@ try {
   // 3. Dispensing: eight simultaneous orders against stock that only covers five.
   await testDispenseRace();
 
-  // 4. Booking: open sessions take everyone; a cancelled one keeps no one.
+  // 4. Booking: open sessions take everyone; removal never strands a booking.
   await testBookingRace();
 } catch (error) {
   console.error("✗", error.message);

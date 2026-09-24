@@ -192,6 +192,33 @@ development (no signed-in session was available):
 - [ ] **Rating** is asked once per parent, ever.
 - [ ] **Parent notifications (bell)**: the bin button deletes one.
 
+## Locked bookings, queue dot, AM/PM, patient history
+
+Rules are covered by the test scripts; these screens weren't viewed in a
+browser during development:
+
+- [ ] **No cancel or reschedule anywhere**: parent Appointments shows bookings
+      with no buttons ("Bookings can't be changed once made"); the doctor's
+      Appointments tab is read-only.
+- [ ] A session with bookings shows "Booked sessions stay on"; only an empty
+      session has "Remove session". "Mark day closed" only appears when nobody
+      has booked that day.
+- [ ] **Queue dot**: with nobody waiting the Queue tab is plain; check a child
+      in from a phone → an orange dot appears on Queue on the doctor's screen
+      (any tab, phone/tablet/laptop) without a refresh; complete the last one →
+      the dot goes.
+- [ ] **Custom session AM/PM**: type "5" or "5:30" (number pad on a phone), tap
+      the AM/PM button beside each box to flip it; "Reads as 5:30 PM" confirms;
+      typing "5pm" also flips the button.
+- [ ] **History tab** (doctor): today's patients by default, live as the queue
+      moves; ‹ › and the date box pick any day; Reason and Seen/Not seen
+      filters; the search bar finds children by child name, parent name or
+      phone number.
+- [ ] Tapping a patient opens their timeline: every past consultation, newest
+      first — date, token, reason, booked-appointment tag, minutes with the
+      doctor, fees and how they were paid, follow-up, prescription photos, and
+      medicines dispensed.
+
 ## Live updates
 
 Broadcasts are verified by `npm run test:appointments`; these need two real

@@ -942,26 +942,6 @@ export type Database = {
       }
       can_access_visit: { Args: { p_visit_id: string }; Returns: boolean }
       can_edit_visit: { Args: { p_visit_id: string }; Returns: boolean }
-      cancel_appointment: {
-        Args: { p_appointment_id: string }
-        Returns: {
-          appointment_date: string
-          cancelled_at: string | null
-          child_id: string
-          created_at: string
-          id: string
-          session_id: string
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          visit_reason: Database["public"]["Enums"]["visit_reason"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       cancel_session: { Args: { p_session_id: string }; Returns: number }
       check_in: {
         Args: {
@@ -1002,6 +982,28 @@ export type Database = {
           reason: Database["public"]["Enums"]["visit_reason"]
           status: Database["public"]["Enums"]["visit_status"]
           storage_keys: string[]
+          visit_date: string
+          visit_id: string
+        }[]
+      }
+      child_visit_timeline: {
+        Args: { p_child_id: string }
+        Returns: {
+          called_at: string
+          completed_at: string
+          consultation: number
+          follow_up_date: string
+          from_appointment: boolean
+          medicines: Json
+          other: number
+          payments: Json
+          pharmacy_status: Database["public"]["Enums"]["pharmacy_order_status"]
+          pharmacy_total: number
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          storage_keys: string[]
+          vaccination: number
           visit_date: string
           visit_id: string
         }[]
@@ -1047,6 +1049,21 @@ export type Database = {
         }[]
       }
       clinic_local_time: { Args: { p_clinic_id: string }; Returns: string }
+      clinic_patients_on: {
+        Args: { p_clinic_id: string; p_date: string }
+        Returns: {
+          child_dob: string
+          child_id: string
+          child_name: string
+          parent_name: string
+          parent_phone: string
+          reason: Database["public"]["Enums"]["visit_reason"]
+          seq: number
+          status: Database["public"]["Enums"]["visit_status"]
+          visit_count: number
+          visit_id: string
+        }[]
+      }
       clinic_today: { Args: { p_clinic_id: string }; Returns: string }
       close_day: {
         Args: { p_clinic_id: string; p_date: string }
@@ -1308,26 +1325,6 @@ export type Database = {
         }
       }
       request_push_dispatch: { Args: never; Returns: undefined }
-      reschedule_appointment: {
-        Args: { p_appointment_id: string; p_new_session_id: string }
-        Returns: {
-          appointment_date: string
-          cancelled_at: string | null
-          child_id: string
-          created_at: string
-          id: string
-          session_id: string
-          status: Database["public"]["Enums"]["appointment_status"]
-          updated_at: string
-          visit_reason: Database["public"]["Enums"]["visit_reason"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "appointments"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       reset_clinic_data: { Args: never; Returns: Json }
       restock_medicine: {
         Args: { p_medicine_id: string; p_quantity: number }

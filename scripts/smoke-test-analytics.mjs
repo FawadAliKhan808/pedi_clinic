@@ -216,6 +216,57 @@ async function main() {
     await admin.from("ratings").insert({ visit_id: visit.id, parent_id: parent.id, stars: 5 })
   );
 
+  // --- patient history ------------------------------------------------------
+  const timeline = unwrap(
+    "child timeline",
+    await doctor.rpc("child_visit_timeline", { p_child_id: child.id })
+  );
+  const entry = timeline.find((row) => row.visit_id === visit.id);
+  check(
+    "patient history: the visit shows its fees, payments and reason",
+    entry?.reason === "vaccination" &&
+      Number(entry.consultation) === 200 &&
+      Number(entry.vaccination) === 300 &&
+      entry.payments.length === 2 &&
+      entry.payments.some((pay) => pay.mode === "cash" && Number(pay.amount) === 300)
+  );
+  check(
+    "patient history: …and what the pharmacy dispensed",
+    entry?.pharmacy_status === "dispensed" &&
+      Number(entry.pharmacy_total) === 150 &&
+      entry.medicines.length === 1 &&
+      entry.medicines[0].quantity === 2
+  );
+  const onDay = unwrap(
+    "patients today",
+    await doctor.rpc("clinic_patients_on", { p_clinic_id: clinicId, p_date: today })
+  );
+  check(
+    "patient history: today's list includes the child, with the parent's name",
+    onDay.some(
+      (row) => row.visit_id === visit.id && row.parent_name === "Analytics Test Parent"
+    )
+  );
+  const byParent = unwrap(
+    "search by parent name",
+    await doctor.rpc("search_children", { p_clinic_id: clinicId, p_query: "analytics test par" })
+  );
+  check(
+    "patient history: search finds a child by the parent's name",
+    byParent.some((row) => row.child_id === child.id)
+  );
+  check(
+    "patient history is the doctor's only",
+    unwrap(
+      "pharmacist timeline",
+      await pharmacist.rpc("child_visit_timeline", { p_child_id: child.id })
+    ).length === 0 &&
+      unwrap(
+        "pharmacist day",
+        await pharmacist.rpc("clinic_patients_on", { p_clinic_id: clinicId, p_date: today })
+      ).length === 0
+  );
+
   const walkInPhone = `analytics-walk-in-${stamp}`;
   cleanups.push(() => admin.from("parents").delete().eq("phone", walkInPhone));
   const walkIn = unwrap(

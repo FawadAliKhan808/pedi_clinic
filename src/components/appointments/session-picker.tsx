@@ -17,16 +17,13 @@ export function SessionPicker({
   presets,
   selectedSessionId,
   onSelect,
-  excludeSessionId,
 }: {
   sessions: AvailabilitySession[];
   presets?: SessionPreset[];
   selectedSessionId: UUID | null;
   onSelect: (session: AvailabilitySession) => void;
-  /** Hides the session the booking is already in (rescheduling). */
-  excludeSessionId?: UUID;
 }) {
-  const open = sessions.filter((session) => session.id !== excludeSessionId);
+  const open = sessions;
   const dates = [...new Set(open.map((session) => session.date))];
 
   const [pickedDate, setPickedDate] = useState<string | null>(null);

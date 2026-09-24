@@ -1,5 +1,4 @@
 import { Phone, Stethoscope, Syringe } from "lucide-react";
-import type { ReactNode } from "react";
 import { AppointmentStatusPill } from "@/components/appointments/appointment-status-pill";
 import type { ClinicAppointment } from "@/lib/api";
 import { cn, formatAge, formatPhone, visitReasonLabels } from "@/lib/format";
@@ -7,15 +6,13 @@ import { cn, formatAge, formatPhone, visitReasonLabels } from "@/lib/format";
 /**
  * Who booked a session and why — one row per child: name, reason, age,
  * parent and a tap-to-call number, status, and the token once they arrive.
- * `actions` renders extra controls under a row (e.g. reschedule / cancel).
+ * Read-only: bookings are permanent.
  */
 export function BookingList({
   appointments,
-  actions,
   className,
 }: {
   appointments: ClinicAppointment[];
-  actions?: (appointment: ClinicAppointment) => ReactNode;
   className?: string;
 }) {
   if (appointments.length === 0) {
@@ -55,7 +52,6 @@ export function BookingList({
                 </a>
               </div>
             </div>
-            {actions?.(appointment)}
           </li>
         );
       })}

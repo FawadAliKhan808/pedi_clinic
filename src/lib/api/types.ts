@@ -159,6 +159,43 @@ export interface ChildVisitHistoryEntry {
   storageKeys: string[];
 }
 
+/** A child who had a token on a given day — the doctor's patient history list. */
+export interface DayPatient {
+  visitId: UUID;
+  seq: number;
+  status: VisitStatus;
+  reason: VisitReason;
+  childId: UUID;
+  childName: string;
+  childDob: ISODateString;
+  parentName: string | null;
+  parentPhone: string;
+  /** Completed visits at this clinic, all time. */
+  visitCount: number;
+}
+
+/** One visit in a child's history, as the doctor sees it. */
+export interface VisitTimelineEntry {
+  visitId: UUID;
+  visitDate: ISODateString;
+  seq: number;
+  status: VisitStatus;
+  reason: VisitReason;
+  fromAppointment: boolean;
+  calledAt: ISODateTimeString | null;
+  completedAt: ISODateTimeString | null;
+  /** Null until the visit is completed. */
+  fees: { consultation: number; vaccination: number; other: number } | null;
+  payments: { mode: PaymentMode; amount: number }[];
+  followUpDate: ISODateString | null;
+  storageKeys: string[];
+  pharmacy: {
+    status: "pending" | "dispensed" | "skipped";
+    total: number;
+    medicines: { name: string; unit: string; quantity: number; unitPrice: number }[];
+  } | null;
+}
+
 export interface Medicine {
   id: UUID;
   clinicId: UUID;
