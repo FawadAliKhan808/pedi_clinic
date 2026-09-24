@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, Download, Share, Smartphone } from "lucide-react";
+import { Download, Share, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,11 +17,7 @@ import {
   type Platform,
 } from "@/lib/pwa/environment";
 import { promptInstall, useInstallPrompt } from "@/lib/pwa/install-prompt";
-import {
-  enableNotifications,
-  syncPushSubscription,
-  useNotificationPermission,
-} from "@/lib/pwa/push";
+import { syncPushSubscription, useNotificationPermission } from "@/lib/pwa/push";
 
 /**
  * Drives the two adoption steps the brief cares about:
@@ -42,11 +38,13 @@ export function InstallAndNotifications() {
 // In the installed app
 // ---------------------------------------------------------------------------
 
+/**
+ * In the installed app: records the install, keeps the push subscription
+ * fresh, and — if notifications were blocked — explains how to unblock them.
+ * Asking to turn them on is NotificationPermissionPrompt's job.
+ */
 function InstalledAppNotifications() {
-  const toast = useToast();
-  // Shared with the pop-up, so turning them on in either place updates both.
   const permission = useNotificationPermission();
-  const [busy, setBusy] = useState(false);
   const [platform] = useState<Platform>(detectPlatform);
 
   useEffect(() => {
@@ -64,44 +62,12 @@ function InstalledAppNotifications() {
     }
   }, [permission]);
 
-  async function turnOn() {
-    setBusy(true);
-    try {
-      const result = await enableNotifications();
-      if (result === "granted") toast("Notifications are on", "success");
-    } catch {
-      toast("Couldn't turn on notifications. Please try again.", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (permission === "granted" || permission === "unsupported") return null;
-
-  if (permission === "denied") {
-    return (
-      <Card className="flex flex-col gap-2 border-warning/40 bg-warning/10">
-        <p className="font-semibold text-foreground">Notifications are blocked</p>
-        <p className="text-sm text-foreground-muted">{unblockInstructions(platform)}</p>
-      </Card>
-    );
-  }
+  if (permission !== "denied") return null;
 
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start gap-3">
-        <BellRing className="mt-0.5 size-5 shrink-0 text-primary-600" />
-        <div>
-          <p className="font-semibold text-foreground">Get told when it&apos;s your turn</p>
-          <p className="text-sm text-foreground-muted">
-            We&apos;ll let you know when you&apos;re 3rd in line and when the doctor
-            calls you — so you don&apos;t have to watch the screen.
-          </p>
-        </div>
-      </div>
-      <Button fullWidth loading={busy} onClick={() => void turnOn()}>
-        Turn on notifications
-      </Button>
+    <Card className="flex flex-col gap-2 border-warning/40 bg-warning/10">
+      <p className="font-semibold text-foreground">Notifications are blocked</p>
+      <p className="text-sm text-foreground-muted">{unblockInstructions(platform)}</p>
     </Card>
   );
 }

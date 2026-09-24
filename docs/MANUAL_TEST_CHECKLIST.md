@@ -250,13 +250,21 @@ devices side by side:
       the tab is covered by "App installed successfully! Please close this
       browser tab and open Pedi Clinic directly from your phone's home screen
       to continue." with no way back into the tab.
-- [ ] **Notification pop-up** (installed app, or a browser tab after the
-      install prompt was dismissed): appears on opening the app while
-      notifications are undecided; "Not now" closes it; it comes back on the
-      next screen change and every 3 minutes; after **Allow** it never shows
-      again (and the notification card goes too); after **Block** it stops.
-      On iPhone Safari (not installed) it never appears — iOS only allows
-      notifications in the installed app.
+- [ ] **Notification prompt** (installed app, notifications not yet decided):
+  - [ ] First time on Home this visit → one soft modal, "Get live alerts when
+        your turn is approaching". Moving between screens doesn't bring it back;
+        nothing repeats on a timer.
+  - [ ] Get a token → the queue screen opens the modal ("…almost your
+        turn?"); book an appointment → the Appointments screen opens it
+        ("…reminded about this appointment").
+  - [ ] "Not now" (or tapping outside / Escape) → no more modals this visit;
+        a compact banner stays at the top: "Enable notifications for live queue
+        alerts [Turn on]".
+  - [ ] **Allow** or **Block** (from the modal or the banner) → modal and
+        banner are gone for good; after Block, Home shows how to unblock.
+  - [ ] In a browser tab (Android Chrome): no modals — the install prompt owns
+        those moments — just the banner. iPhone Safari (not installed): nothing,
+        since iOS only allows notifications in the installed app.
 
 ## Before real patient data
 

@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import type { AvailabilitySession, BookingWindow, Child, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatDayShort, formatSession } from "@/lib/format";
+import { NOTIFY_AFTER_BOOKING, sessionFlag } from "@/lib/pwa/environment";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 interface BookingData {
@@ -94,6 +95,8 @@ export default function BookAppointmentPage() {
       const api = getBrowserApi();
       await api.appointments.book({ sessionId: session.id, childId, visitReason: reason });
       void api.notifications.dispatchPending();
+      // High-intent moment: the appointments screen asks to turn notifications on.
+      sessionFlag.set(NOTIFY_AFTER_BOOKING, true);
       toast(
         `Booked for ${formatDayShort(session.date)}, ${formatSession(
           session,

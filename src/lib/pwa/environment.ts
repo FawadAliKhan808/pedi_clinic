@@ -61,3 +61,11 @@ export const sessionFlag = {
 export const SHOW_INSTALL_AFTER_TOKEN = "pedi.showInstallAfterToken";
 /** "Not now" — hides the popup for the rest of this visit only. */
 export const INSTALL_DISMISSED_THIS_VISIT = "pedi.installDismissed";
+
+/** Set by check-in / booking so the next screen asks to turn notifications on. */
+export const NOTIFY_AFTER_TOKEN = "pedi.notifyAfterToken";
+export const NOTIFY_AFTER_BOOKING = "pedi.notifyAfterBooking";
+/** The Home screen's notification modal has had its one showing this visit. */
+export const NOTIFY_HOME_SHOWN_THIS_VISIT = "pedi.notifyHomeShown";
+/** "Not now" on the notification modal — banner only for the rest of the visit. */
+export const NOTIFY_DISMISSED_THIS_VISIT = "pedi.notifyDismissed";

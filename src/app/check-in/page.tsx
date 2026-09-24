@@ -17,7 +17,11 @@ import {
   formatTimeRange,
   visitReasonLabels,
 } from "@/lib/format";
-import { sessionFlag, SHOW_INSTALL_AFTER_TOKEN } from "@/lib/pwa/environment";
+import {
+  NOTIFY_AFTER_TOKEN,
+  sessionFlag,
+  SHOW_INSTALL_AFTER_TOKEN,
+} from "@/lib/pwa/environment";
 
 interface CheckInData {
   children: Child[];
@@ -82,6 +86,8 @@ export default function CheckInPage() {
       void api.notifications.dispatchPending();
       // The brief asks for the install popup again right after a token.
       sessionFlag.set(SHOW_INSTALL_AFTER_TOKEN, true);
+      // High-intent moment: the queue screen asks to turn notifications on.
+      sessionFlag.set(NOTIFY_AFTER_TOKEN, true);
       router.replace("/queue");
     } catch (caught) {
       toast(errorMessage(caught), "error");
