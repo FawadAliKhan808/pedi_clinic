@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Pencil, Plus, UserRound } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Stethoscope, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
@@ -200,14 +200,19 @@ export default function ParentHome() {
         )}
       </section>
 
-      {children.length > 0 && (
-        <StickyActionBar aboveNav>
+      {children.length > 0 ? (
+        <StickyActionBar aboveNav tall>
+          <KnowYourDoctorLink />
           <Link href="/check-in">
             <Button fullWidth variant="accent">
               Check in
             </Button>
           </Link>
         </StickyActionBar>
+      ) : (
+        <div className="px-5 pb-6">
+          <KnowYourDoctorLink />
+        </div>
       )}
 
       <AddChildSheet
@@ -320,5 +325,20 @@ function ChildCard({
         </Link>
       )}
     </Card>
+  );
+}
+
+/** Bottom-right of Home: the way into the doctor's profile. */
+function KnowYourDoctorLink() {
+  return (
+    <div className="flex justify-end pb-2">
+      <Link
+        href="/doctor"
+        className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
+      >
+        <Stethoscope aria-hidden className="size-4" />
+        Know about your doctor
+      </Link>
+    </div>
   );
 }

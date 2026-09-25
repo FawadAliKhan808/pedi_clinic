@@ -1,6 +1,7 @@
 import type { AnalyticsApi } from "./analytics";
 import type { AppointmentsApi } from "./appointments";
 import type { AuthApi } from "./auth";
+import type { ClinicApi } from "./clinic";
 import type { NotificationsApi } from "./notifications";
 import type { ParentsApi } from "./parents";
 import type { PharmacyApi } from "./pharmacy";
@@ -17,6 +18,7 @@ import type { VisitsApi } from "./visits";
  */
 export interface Api {
   auth: AuthApi;
+  clinic: ClinicApi;
   parents: ParentsApi;
   queue: QueueApi;
   visits: VisitsApi;
@@ -31,6 +33,7 @@ export interface Api {
 export * from "./analytics";
 export * from "./appointments";
 export * from "./auth";
+export * from "./clinic";
 export * from "./notifications";
 export * from "./parents";
 export * from "./pharmacy";

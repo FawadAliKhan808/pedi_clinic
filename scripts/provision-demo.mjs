@@ -56,6 +56,35 @@ const settings = {
   // Analytics: a follow-up counts as "returned" if the child is seen again
   // within this many days after the follow-up date.
   follow_up_return_grace_days: Number(process.env.DEMO_FOLLOW_UP_GRACE_DAYS ?? 7),
+  // "Know about your doctor" — shown to parents. Edit here (or in the
+  // settings table) rather than in app code.
+  doctor_profile: {
+    name: "Dr. Syed Tajamul",
+    photo: "/dr-syed.png",
+    title: "Pediatrician & Neonatologist",
+    experience: "20+ Years Experience",
+    location: "Cloudnine Hospital, Bellandur, Bengaluru",
+    qualifications: [
+      "MD (Paediatrics)",
+      "DNB (Pediatrics)",
+      "DCH (Australia)",
+      "Fellowship in Neonatology",
+      "FRSPH (London)",
+    ],
+    languages: ["English", "Hindi", "Kannada", "Urdu", "Malayalam", "Tamil"],
+    expertise: [
+      "Pediatric Allergy & Asthma",
+      "Neonatal Care (NICU)",
+      "Respiratory Disorders in Children",
+      "Child Infections & Immunization",
+    ],
+    highlights: [
+      "Senior Consultant Pediatrician at Cloudnine",
+      "Extensive experience in newborn and child care",
+      "Known for a child-friendly and clear consultation approach",
+      "High patient satisfaction and trust",
+    ],
+  },
   // The doctor's one-tap session buttons on the Availability screen.
   session_presets: [
     { label: "Morning", start: "10:00", end: "13:00" },

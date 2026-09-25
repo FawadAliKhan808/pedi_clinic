@@ -106,14 +106,17 @@ export function NavShell({
 export function StickyActionBar({
   children,
   aboveNav = false,
+  tall = false,
 }: {
   children: ReactNode;
   aboveNav?: boolean;
+  /** A second, small line above the main button (e.g. a text link). */
+  tall?: boolean;
 }) {
   return (
     <>
       {/* Keeps the last of the content clear of the pinned bar on phones. */}
-      <div aria-hidden className="h-20 shrink-0 md:hidden" />
+      <div aria-hidden className={cn("shrink-0 md:hidden", tall ? "h-28" : "h-20")} />
       <div
         className={cn(
           "fixed inset-x-0 z-30 border-t border-border bg-surface px-5 py-3",

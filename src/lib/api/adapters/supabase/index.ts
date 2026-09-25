@@ -2,6 +2,7 @@ import type { Api } from "../..";
 import { SupabaseAnalyticsApi } from "./analytics";
 import { SupabaseAppointmentsApi } from "./appointments";
 import { SupabaseAuthApi } from "./auth";
+import { SupabaseClinicApi } from "./clinic";
 import type { TypedSupabaseClient } from "./client.browser";
 import { SupabaseNotificationsApi } from "./notifications";
 import { SupabaseParentsApi } from "./parents";
@@ -18,6 +19,7 @@ export type { Database } from "./database.types";
 export function createSupabaseApi(client: TypedSupabaseClient): Api {
   return {
     auth: new SupabaseAuthApi(client),
+    clinic: new SupabaseClinicApi(client),
     parents: new SupabaseParentsApi(client),
     queue: new SupabaseQueueApi(client),
     realtime: new SupabaseRealtimeApi(client),

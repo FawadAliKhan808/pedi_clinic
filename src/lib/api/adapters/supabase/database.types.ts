@@ -1171,6 +1171,7 @@ export type Database = {
         Args: { p_clinic_id: string; p_from: string; p_to: string }
         Returns: Json
       }
+      doctor_profile: { Args: never; Returns: Json }
       doctor_queue: {
         Args: { p_clinic_id: string }
         Returns: {
