@@ -10,15 +10,7 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked > src/lib/api/adapters/supabase/database.types.ts",
     "provision": "node --env-file=.env.local scripts/provision-demo.mjs",
-    "test:concurrency": "node --env-file=.env.local scripts/test-concurrency.mjs",
-    "test:queue": "node --env-file=.env.local scripts/smoke-test-queue.mjs",
-    "test:visit": "node --env-file=.env.local scripts/smoke-test-visit.mjs",
-    "test:pharmacy": "node --env-file=.env.local scripts/smoke-test-pharmacy.mjs",
-    "test:notifications": "node --env-file=.env.local scripts/smoke-test-notifications.mjs",
-    "configure:dispatch": "node --env-file=.env.local scripts/configure-dispatch.mjs",
-    "test:appointments": "node --env-file=.env.local scripts/smoke-test-appointments.mjs",
-    "test:analytics": "node --env-file=.env.local scripts/smoke-test-analytics.mjs",
-    "reset": "node --env-file=.env.local scripts/reset.mjs"
+    "configure:dispatch": "node --env-file=.env.local scripts/configure-dispatch.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

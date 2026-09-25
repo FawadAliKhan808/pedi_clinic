@@ -41,3 +41,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only: brief, docs, test and reset scripts (not needed to run the app)
+/dev-only/
+
+# agent instructions (next dev regenerates these)
+/AGENTS.md
+/CLAUDE.md

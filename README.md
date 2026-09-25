@@ -4,9 +4,7 @@ A phone-first, installable web app for a pediatric clinic. Parents check in
 and follow a live queue; the doctor runs the day from their phone; the
 in-house pharmacy dispenses against every completed visit.
 
-See [`CLAUDE_CODE_BRIEF.md`](./CLAUDE_CODE_BRIEF.md) for the full product
-brief and [`docs/BACKEND_CONTRACT.md`](./docs/BACKEND_CONTRACT.md) for the
-API layer's method-by-method contract.
+This repository holds only what's needed to build, run and deploy the app.
 
 ## Stack
 
@@ -64,33 +62,11 @@ npm run db:types   # regenerate database.types.ts after a schema change
 
 ```bash
 npm run provision         # clinic + settings (incl. session presets) + doctor/pharmacist/owner logins (idempotent)
-npm run test:concurrency  # proves tokens can't duplicate, stock can't oversell, a booking is never stranded
-npm run test:queue        # end-to-end: parent check-in → doctor call/skip/recall
-npm run test:visit        # end-to-end: complete a visit, and who may see the money
-npm run test:pharmacy     # end-to-end: feed → dispense → stock, and role limits
-npm run test:notifications # triggers, dedupe, RLS, dispatch (needs the app running on :3200)
-npm run test:appointments # open sessions, permanent bookings with a reason, check-in with a booking, scheduled jobs
-npm run test:analytics    # role gates, ranges, every analytics number, and patient history
-npm run reset             # dry run: shows what a reset would delete
-npm run reset -- --yes    # clears all clinic data; keeps the clinic, settings and staff logins
 npm run configure:dispatch # after deploying: lets scheduled reminders trigger push (APP_URL=https://…)
 ```
 
-The test scripts run against the live project. They create only their own data,
-delete it afterwards, and restore anything they had to move out of the way — so
-they're safe to run while someone else is demoing.
-
 `provision` is the minimum the app needs to run. Default staff logins are
 printed when it runs, and can be overridden with `DEMO_*` env vars.
-
-`reset` removes every parent (and their login), child, visit, appointment,
-session, medicine, pharmacy order, rating, notification, install record and
-prescription photo. It keeps the clinic, its settings and the staff logins, so
-the app works straight after. It is irreversible: without `--yes` it only
-prints the counts. The database side (`reset_clinic_data`) can be called only
-with the service-role key, never by a signed-in user.
-
-A demo-data seed script is deliberately not included yet.
 
 Parents sign in with a phone number — the demo uses the Supabase test numbers
 in `supabase/config.toml` under `[auth.sms.test_otp]`, which accept a fixed
@@ -112,9 +88,7 @@ src/
   lib/api/                Backend-agnostic interfaces (Auth, Parents, Queue, ...)
     adapters/supabase/    The one implementation, today
   proxy.ts                Refreshes the auth session on every navigation
-docs/
-  BACKEND_CONTRACT.md     Every src/lib/api/ method: inputs, outputs, errors, auth rules
-scripts/                  Provisioning and test scripts
+scripts/                  Provisioning and push-dispatch setup
 supabase/
   migrations/             SQL migrations (source of truth for schema + RLS)
   config.toml             Mirrors the hosted project's auth/api/storage config
@@ -156,5 +130,4 @@ Vercel, on the default `vercel.app` domain.
    shared by every deployment and by `npm run dev`).
 
 Web Push and installing to the home screen need HTTPS, so test those on
-the deployed URL, not on `localhost` from a phone. `docs/MANUAL_TEST_CHECKLIST.md`
-lists everything to check on real devices.
+the deployed URL, not on `localhost` from a phone.
