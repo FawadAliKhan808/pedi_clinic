@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Plus, UserRound } from "lucide-react";
+import { ChevronRight, Pencil, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
@@ -57,6 +57,7 @@ export default function ParentHome() {
   const [tokens, setTokens] = useState<ParentQueueEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [addChildOpen, setAddChildOpen] = useState(false);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const bootstrap = useCallback(
@@ -188,21 +189,12 @@ export default function ParentHome() {
         ) : (
           <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
           {children.map((child) => (
-            <Card key={child.id} className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-foreground">{child.name}</p>
-                <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
-              </div>
-              {tokens.some((token) => token.childId === child.id) && (
-                <span className="text-sm text-foreground-muted">
-                  {
-                    visitReasonLabels[
-                      tokens.find((token) => token.childId === child.id)!.reason
-                    ]
-                  }
-                </span>
-              )}
-            </Card>
+            <ChildCard
+              key={child.id}
+              child={child}
+              activeToken={tokens.find((token) => token.childId === child.id) ?? null}
+              onEdit={() => setEditingChild(child)}
+            />
           ))}
           </div>
         )}
@@ -223,6 +215,16 @@ export default function ParentHome() {
         onClose={() => setAddChildOpen(false)}
         onAdded={(child) => setChildren((current) => [...current, child])}
       />
+
+      {editingChild && (
+        <AddChildSheet
+          key={editingChild.id}
+          open
+          child={editingChild}
+          onClose={() => setEditingChild(null)}
+          onChanged={() => void bootstrap()}
+        />
+      )}
 
     </ParentShell>
   );
@@ -268,5 +270,55 @@ function NameStep({ onSaved }: { onSaved: () => void }) {
         Continue
       </Button>
     </form>
+  );
+}
+
+/**
+ * A child on Home: name and exact age, an edit button, and their own check-in
+ * button — which reads "Currently in Queue" (and is disabled) while that child
+ * is waiting, called or with the doctor.
+ */
+function ChildCard({
+  child,
+  activeToken,
+  onEdit,
+}: {
+  child: Child;
+  activeToken: ParentQueueEntry | null;
+  onEdit: () => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-foreground">{child.name}</p>
+          <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
+          {activeToken && (
+            <p className="text-sm text-foreground-muted">
+              Token {activeToken.seq} · {visitReasonLabels[activeToken.reason]}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label={`Edit ${child.name}`}
+          onClick={onEdit}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
+        >
+          <Pencil className="size-4" />
+        </button>
+      </div>
+      {activeToken ? (
+        <Button fullWidth variant="secondary" disabled>
+          Currently in Queue
+        </Button>
+      ) : (
+        <Link href={`/check-in?child=${child.id}`}>
+          <Button fullWidth variant="secondary">
+            Check in {child.name}
+          </Button>
+        </Link>
+      )}
+    </Card>
   );
 }

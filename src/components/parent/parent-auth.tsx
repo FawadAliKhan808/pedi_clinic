@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, normalizePhone } from "@/lib/format";
+import { errorMessage, isValidPhone, normalizePhone, phoneError } from "@/lib/format";
 
 export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
   const [step, setStep] = useState<"phone" | "code">("phone");
@@ -16,6 +16,8 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
   const normalized = normalizePhone(phone);
 
   async function sendCode() {
+    // Exactly 10 digits, or nothing is sent.
+    if (!isValidPhone(phone)) return;
     setBusy(true);
     setError(null);
     try {
@@ -65,11 +67,15 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
             inputMode="numeric"
             autoComplete="tel"
             placeholder="10-digit mobile number"
+            maxLength={12}
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            error={error ?? undefined}
+            onChange={(event) => {
+              setPhone(event.target.value);
+              setError(null);
+            }}
+            error={phoneError(phone) ?? error ?? undefined}
           />
-          <Button type="submit" fullWidth loading={busy} disabled={normalized.length < 10}>
+          <Button type="submit" fullWidth loading={busy} disabled={!isValidPhone(phone)}>
             Send code
           </Button>
         </form>

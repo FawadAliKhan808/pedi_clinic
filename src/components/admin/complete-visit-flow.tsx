@@ -9,7 +9,13 @@ import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { PaymentMode, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatCurrency, parseAmount, paymentModeLabels } from "@/lib/format";
+import {
+  errorMessage,
+  formatCurrency,
+  parseAmount,
+  paymentModeLabels,
+  todayISO,
+} from "@/lib/format";
 import { compressImage } from "@/lib/image";
 
 type Step = "photos" | "fees" | "payment" | "followup" | "review";
@@ -54,8 +60,26 @@ export function CompleteVisitFlow({
     card: "",
   });
 
+  // Starts empty for every consultation (the flow is keyed by visit).
   const [followUpDate, setFollowUpDate] = useState("");
   const [completing, setCompleting] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+
+  // Anything the doctor has entered that closing would throw away.
+  const hasUnsavedWork =
+    photos.length > 0 ||
+    consultation.trim() !== "" ||
+    vaccination.trim() !== "" ||
+    other.trim() !== "" ||
+    paymentChoice !== null ||
+    followUpDate !== "";
+
+  /** Close, unless that would lose what's been entered — then ask first. */
+  function requestClose() {
+    if (completing) return;
+    if (hasUnsavedWork) setConfirmingClose(true);
+    else onClose();
+  }
 
   const fees = {
     consultation: parseAmount(consultation),
@@ -307,7 +331,7 @@ export function CompleteVisitFlow({
           <TextField
             label="Follow-up date"
             type="date"
-            min={new Date().toISOString().slice(0, 10)}
+            min={todayISO()}
             value={followUpDate}
             onChange={(event) => setFollowUpDate(event.target.value)}
           />
@@ -394,9 +418,46 @@ export function CompleteVisitFlow({
   const current = steps[step];
 
   return (
-    <Sheet open={open} onClose={onClose} title={current.title} footer={current.footer}>
-      {current.body}
-    </Sheet>
+    <>
+      <Sheet open={open} onClose={requestClose} title={current.title} footer={current.footer}>
+        {current.body}
+      </Sheet>
+      {confirmingClose && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-900/50 p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="discard-title"
+            className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-surface-raised p-6 shadow-2xl"
+          >
+            <h2 id="discard-title" className="text-lg font-bold text-foreground">
+              Are you sure? Unsaved data will be lost.
+            </h2>
+            <p className="text-sm text-foreground-muted">
+              The prescription, amounts and follow-up you&apos;ve entered for {childName} will
+              be discarded. The visit stays open in the queue.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row-reverse">
+              <Button className="flex-1" autoFocus onClick={() => setConfirmingClose(false)}>
+                Keep editing
+              </Button>
+              <Button
+                className="flex-1"
+                variant="danger"
+                onClick={() => {
+                  setConfirmingClose(false);
+                  // Photos already uploaded aren't attached to the visit; tidy them up.
+                  for (const photo of photos) void discardPhoto(photo);
+                  onClose();
+                }}
+              >
+                Discard and close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

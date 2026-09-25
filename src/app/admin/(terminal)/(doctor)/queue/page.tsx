@@ -252,6 +252,8 @@ export default function DoctorQueuePage() {
 
       {completingVisit && (
         <CompleteVisitFlow
+          // Keyed by visit: every consultation starts with an empty form (follow-up included).
+          key={completingVisit.visitId}
           open
           visitId={completingVisit.visitId}
           childName={completingVisit.childName}

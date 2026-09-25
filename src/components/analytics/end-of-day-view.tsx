@@ -25,6 +25,11 @@ export function EndOfDayView({
   );
 
   const collected = data ? data.byMode.cash + data.byMode.upi + data.byMode.card : 0;
+  const feeTotal = data
+    ? data.byFeeType.consultation + data.byFeeType.vaccination + data.byFeeType.other
+    : 0;
+  const feeShare = (amount: number) =>
+    feeTotal > 0 ? `${Math.round((amount / feeTotal) * 100)}% of visit fees` : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,7 +81,7 @@ export function EndOfDayView({
               value={formatCurrency(collected + data.pharmacy.total)}
               hint="Consultations and pharmacy"
             />
-            <StatTile label="Consultations" value={formatCurrency(collected)} />
+            <StatTile label="Visit fees" value={formatCurrency(collected)} hint="All consultation-visit money" />
             <StatTile
               label="Pharmacy sales"
               value={formatCurrency(data.pharmacy.total)}
@@ -93,6 +98,31 @@ export function EndOfDayView({
             />
             <StatTile label="Appointments missed" value={data.appointments.missed} />
           </div>
+
+<section className="flex flex-col gap-3" aria-labelledby="fee-split-title">
+            <h3 id="fee-split-title" className="font-semibold text-foreground">
+              Revenue by fee type
+            </h3>
+            <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-3">
+              <StatTile
+                label="Consultation fees"
+                value={formatCurrency(data.byFeeType.consultation)}
+                hint={feeShare(data.byFeeType.consultation)}
+              />
+              <StatTile
+                label="Vaccination fees"
+                value={formatCurrency(data.byFeeType.vaccination)}
+                hint={feeShare(data.byFeeType.vaccination)}
+              />
+              {data.byFeeType.other > 0 && (
+                <StatTile
+                  label="Other fees"
+                  value={formatCurrency(data.byFeeType.other)}
+                  hint={feeShare(data.byFeeType.other)}
+                />
+              )}
+            </div>
+          </section>
 
           <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
             <SplitBar

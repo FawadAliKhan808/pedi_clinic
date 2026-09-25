@@ -1147,6 +1147,7 @@ export type Database = {
         }[]
       }
       default_clinic_id: { Args: never; Returns: string }
+      delete_child: { Args: { p_child_id: string }; Returns: undefined }
       dispense_order: {
         Args: { p_items: Json; p_visit_id: string }
         Returns: {
@@ -1477,6 +1478,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_child: {
+        Args: { p_child_id: string; p_dob: string; p_name: string }
+        Returns: {
+          created_at: string
+          dob: string
+          id: string
+          name: string
+          parent_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "children"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       upsert_parent_profile: {
         Args: { p_name?: string }
         Returns: {
@@ -1530,6 +1548,8 @@ export type Database = {
         | "appointment_changed"
         | "booking_request"
         | "booking_update"
+        | "token_skipped"
+        | "token_removed"
       payment_mode: "cash" | "upi" | "card"
       pharmacy_order_status: "pending" | "dispensed" | "skipped"
       staff_role: "doctor" | "pharmacist" | "owner"
@@ -1689,6 +1709,8 @@ export const Constants = {
         "appointment_changed",
         "booking_request",
         "booking_update",
+        "token_skipped",
+        "token_removed",
       ],
       payment_mode: ["cash", "upi", "card"],
       pharmacy_order_status: ["pending", "dispensed", "skipped"],

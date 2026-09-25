@@ -48,6 +48,8 @@ from email or a client-stored value.
 | `completeProfile` | `{ name }` | `Parent` | same as `ensureProfile` | Signed-in parent |
 | `listMyChildren` | — | `Child[]` | `CHILDREN_LIST_FAILED` | Signed-in parent; own children only |
 | `addChild` | `{ name, dob }` | `Child` | `PROFILE_INCOMPLETE`, `CHILD_ADD_FAILED` | Signed-in parent; own children only |
+| `updateChild` | `childId, { name, dob }` | `Child` | `CHILD_NOT_FOUND`, `INVALID_INPUT`, `INVALID_DOB` | Parent of that child |
+| `deleteChild` | `childId` | `void` | `CHILD_NOT_FOUND`, `CHILD_HAS_VISITS` (a child with any visit keeps their records) | Parent of that child |
 
 `ensureProfile` calls the `upsert_parent_profile` database function, which keys
 off the **verified phone number in the caller's JWT**. If the doctor already
@@ -70,20 +72,24 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
 | `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
-| `checkIn` | `{ childId, visitReason, appointmentId? }` — with `appointmentId`, the booking's reason is used | `Visit` | `CHILD_NOT_FOUND`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
+| `checkIn` | `{ childId, visitReason, appointmentId? }` — with `appointmentId`, the booking's reason is used | `Visit` | `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `searchChildren` | `clinicId, query` — matches child name, parent name or phone | `ChildSearchResult[]` | `CHILD_SEARCH_FAILED` | Clinic doctor/pharmacist |
-| `addWalkIn` | `{ clinicId, name, dob, parentPhone, visitReason }` | `Visit` | `FORBIDDEN`, `INVALID_INPUT` | Clinic doctor |
+| `addWalkIn` | `{ clinicId, name, dob, parentPhone, visitReason }` | `Visit` | `FORBIDDEN`, `INVALID_INPUT`, `INVALID_PHONE` (exactly 10 digits), `INVALID_DOB`, `ACTIVE_TOKEN_EXISTS` | Clinic doctor |
+
+**Dates of birth** can't be in the future: a trigger on `children` refuses
+one (`INVALID_DOB`) on insert or update, whatever the path.
 
 **Token assignment.** `checkIn` and `addWalkIn` both go through the
 `assign_token` database function, which takes a transaction-scoped advisory
 lock per clinic-day before reading the next `seq` — so concurrent check-ins
 can't be handed the same token. A child may hold more than one token on the
-same day, and there is **no daily limit** per phone number on tokens,
-bookings or consultations; two simultaneous check-ins for one child get two
-distinct numbers.
+same day, but **not while one is still in play**: a child who is waiting,
+called or with the doctor can't get another token (`ACTIVE_TOKEN_EXISTS`,
+checked under the same clinic-day lock, so two simultaneous check-ins yield
+exactly one). There is no daily limit per phone number.
 `scripts/test-concurrency.mjs` proves both against the live database.
 
 **Parent position counts.** Parents can't read each other's rows, so
@@ -229,7 +235,7 @@ prescription photos they need to fill the order.
 | `getBookingWindow` | — | `BookingWindow` (with `sessionPresets`) | `BOOKING_WINDOW_FAILED`, `NO_CLINIC_CONFIGURED` | Signed-in user |
 | `listSessions` | `clinicId, fromDate, toDate` | `AvailabilitySession[]` | `SESSIONS_LIST_FAILED` | Signed-in user (no personal data) |
 | `listMyAppointments` | — | `ParentAppointment[]` (with `visitReason`) | `MY_APPOINTMENTS_FAILED` | Signed-in parent; own, today onwards, booked |
-| `book` | `{ sessionId, childId, visitReason }` | `Appointment` (`booked`) | `CHILD_NOT_FOUND`, `INVALID_INPUT`, `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW` | Parent of that child |
+| `book` | `{ sessionId, childId, visitReason }` | `Appointment` (`booked`) | `CHILD_NOT_FOUND`, `INVALID_INPUT`, `APPOINTMENT_EXISTS_FOR_DAY` (one per child per day), `SESSION_NOT_FOUND`, `SESSION_CANCELLED`, `SESSION_IN_PAST`, `OUTSIDE_BOOKING_WINDOW` | Parent of that child |
 | `listClinicSchedule` | `clinicId, fromDate, toDate` | `ClinicSessionSchedule[]` — every booking with child, reason, parent | `CLINIC_SCHEDULE_FAILED` | Clinic doctor |
 | `createSession` | `{ clinicId, date, startTime, endTime }` | `AvailabilitySession` | `FORBIDDEN`, `SESSION_IN_PAST`, `INVALID_SESSION_TIMES` (end ≤ start), `SESSION_OVERLAP` | Clinic doctor |
 | `cancelSession` | `sessionId` | bookings cancelled | `SESSION_NOT_FOUND`, `FORBIDDEN` | Clinic doctor |
@@ -392,6 +398,10 @@ Definitions:
 - **Follow-ups returned**: follow-ups due in the range (up to today) whose
   child had a completed visit within `follow_up_return_grace_days` (setting,
   default 7) of the due date.
+- **Arrived** (`appointments.attended`): tokens issued in the range that are
+  linked to a booking — counted on the day the child came, whatever date the
+  booking was for. **Missed**: bookings in the range whose day passed with no
+  check-in.
 - **End of day** `notArrived`: still `booked` with no token — becomes
   `missed` after the day ends.
 - **Owner usage** uses `visits.source` (`app` | `walk_in`, set by

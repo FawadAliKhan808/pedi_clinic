@@ -290,7 +290,22 @@ async function main() {
       ).length === 0
   );
 
-  const walkInPhone = `analytics-walk-in-${stamp}`;
+  // Exactly 10 digits; starting with 5 can't clash with a real Indian mobile.
+  const walkInPhone = `5${String(stamp).slice(-9)}`;
+  check(
+    "a walk-in phone must be exactly 10 digits",
+    /INVALID_PHONE/.test(
+      (
+        await doctor.rpc("add_walk_in", {
+          p_clinic_id: clinicId,
+          p_child_name: "Bad Phone Child",
+          p_child_dob: "2022-06-01",
+          p_parent_phone: "98765",
+          p_visit_reason: "general_checkup",
+        })
+      ).error?.message ?? ""
+    )
+  );
   cleanups.push(() => admin.from("parents").delete().eq("phone", walkInPhone));
   const walkIn = unwrap(
     "walk-in",

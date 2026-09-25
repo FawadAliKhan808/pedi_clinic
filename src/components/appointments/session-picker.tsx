@@ -17,11 +17,14 @@ export function SessionPicker({
   presets,
   selectedSessionId,
   onSelect,
+  blockedDates = {},
 }: {
   sessions: AvailabilitySession[];
   presets?: SessionPreset[];
   selectedSessionId: UUID | null;
   onSelect: (session: AvailabilitySession) => void;
+  /** Days that can't be booked, with why (e.g. the child already has a booking). */
+  blockedDates?: Record<string, string>;
 }) {
   const open = sessions;
   const dates = [...new Set(open.map((session) => session.date))];
@@ -42,24 +45,34 @@ export function SessionPicker({
   return (
     <div className="@container flex flex-col gap-4">
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {dates.map((date) => (
-          <button
-            key={date}
-            type="button"
-            onClick={() => setPickedDate(date)}
-            aria-pressed={selectedDate === date}
-            className={cn(
-              "min-h-12 shrink-0 rounded-lg border-2 px-4 text-sm font-semibold",
-              selectedDate === date
-                ? "border-primary-600 bg-primary-50 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200"
-                : "border-border text-foreground"
-            )}
-          >
-            {formatDayShort(date)}
-          </button>
-        ))}
+        {dates.map((date) => {
+          const blocked = blockedDates[date];
+          return (
+            <button
+              key={date}
+              type="button"
+              onClick={() => setPickedDate(date)}
+              aria-pressed={selectedDate === date}
+              className={cn(
+                "flex min-h-12 shrink-0 flex-col items-center justify-center rounded-lg border-2 px-4 text-sm font-semibold",
+                selectedDate === date
+                  ? "border-primary-600 bg-primary-50 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200"
+                  : "border-border text-foreground",
+                blocked && "border-dashed text-foreground-muted"
+              )}
+            >
+              {formatDayShort(date)}
+              {blocked && <span className="text-[11px] font-medium">{blocked}</span>}
+            </button>
+          );
+        })}
       </div>
 
+      {selectedDate && blockedDates[selectedDate] ? (
+        <p className="rounded-xl bg-surface-sunken px-4 py-3 text-sm text-foreground-muted">
+          {blockedDates[selectedDate]} — only one appointment per child per day. Pick another day.
+        </p>
+      ) : (
       <div className="grid gap-3 @lg:grid-cols-2">
         {open
           .filter((session) => session.date === selectedDate)
@@ -78,6 +91,7 @@ export function SessionPicker({
             </SelectableCard>
           ))}
       </div>
+      )}
     </div>
   );
 }

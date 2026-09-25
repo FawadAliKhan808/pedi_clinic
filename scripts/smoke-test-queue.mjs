@@ -84,25 +84,33 @@ const visit = unwrap(
 );
 check("check-in assigned a token", Number.isInteger(visit.seq), `token ${visit.seq}`);
 
-// A child may hold more than one token a day — there is no daily limit.
+// While a child is in the queue they can't get a second token.
 const second = await parent.rpc("check_in", {
   p_child_id: child.id,
   p_visit_reason: "vaccination",
 });
 check(
-  "a second token for the same child today is allowed",
-  !second.error && second.data?.seq > visit.seq,
-  second.error?.message ?? `token ${second.data?.seq}`
+  "a child already in the queue can't check in again",
+  Boolean(second.error?.message?.includes("ACTIVE_TOKEN_EXISTS")),
+  second.error?.message ?? "second token was issued"
 );
-// Take it straight back out so the rest of the run sees one token.
 if (second.data) await admin.from("visits").delete().eq("id", second.data.id);
 
-// No daily limit per phone: several more check-ins from the same parent all
-// succeed (the old limit was 3 a day). Removed again straight away.
+// No daily limit per phone: several more children from the same parent all
+// check in (the old limit was 3 a day). Removed again straight away.
+const extraChildren = unwrap(
+  "extra children",
+  await parent
+    .from("children")
+    .insert(
+      [1, 2, 3, 4].map((n) => ({ parent_id: profile.id, name: `Smoke Extra ${n}`, dob: "2022-01-01" }))
+    )
+    .select("id")
+);
 const extra = [];
-for (let index = 0; index < 4; index += 1) {
+for (const extraChild of extraChildren) {
   extra.push(
-    await parent.rpc("check_in", { p_child_id: child.id, p_visit_reason: "general_checkup" })
+    await parent.rpc("check_in", { p_child_id: extraChild.id, p_visit_reason: "general_checkup" })
   );
 }
 check(
@@ -110,8 +118,7 @@ check(
   extra.every((result) => !result.error),
   extra.find((result) => result.error)?.error.message
 );
-const extraIds = extra.filter((result) => result.data).map((result) => result.data.id);
-if (extraIds.length) await admin.from("visits").delete().in("id", extraIds);
+await admin.from("children").delete().in("id", extraChildren.map((row) => row.id));
 
 // A parent must not be able to read the visits table directly beyond their own.
 const otherRows = unwrap(
@@ -166,6 +173,17 @@ check("doctor called the child", called.status === "called");
 
 const skipped = unwrap("skip", await doctor.rpc("skip_visit", { p_visit_id: visit.id }));
 check("doctor skipped the child", skipped.status === "skipped");
+check(
+  "the parent is told their token was skipped",
+  unwrap(
+    "skip notice",
+    await parent
+      .from("notifications")
+      .select("type")
+      .eq("visit_id", visit.id)
+      .eq("type", "token_skipped")
+  ).length === 1
+);
 
 const skippedQueue = unwrap(
   "queue after skip",
@@ -218,6 +236,20 @@ check(
   walkInAsParent.error?.message
 );
 
+
+// Removing the token tells the parent too.
+unwrap("remove", await doctor.rpc("remove_visit", { p_visit_id: visit.id }));
+check(
+  "the parent is told their token was removed",
+  unwrap(
+    "remove notice",
+    await parent
+      .from("notifications")
+      .select("type")
+      .eq("visit_id", visit.id)
+      .eq("type", "token_removed")
+  ).length === 1
+);
 } catch (error) {
   console.error("✗", error.message);
   failures += 1;

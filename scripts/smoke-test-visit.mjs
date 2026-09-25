@@ -262,6 +262,44 @@ async function main() {
   );
 
   // --- parent's post-visit screen ------------------------------------------
+  // --- child profiles: exact rules ------------------------------------------
+  check(
+    "a child's date of birth can't be in the future",
+    /INVALID_DOB/.test(
+      (
+        await parent.rpc("update_child", {
+          p_child_id: child.id,
+          p_name: "Visit Test Child",
+          p_dob: "2099-01-01",
+        })
+      ).error?.message ?? ""
+    )
+  );
+  const renamed = unwrap(
+    "edit child",
+    await parent.rpc("update_child", { p_child_id: child.id, p_name: "Visit Test Child", p_dob: "2021-05-11" })
+  );
+  check("a parent can correct a child's details", renamed.dob === "2021-05-11");
+  check(
+    "a child with visit records can't be deleted",
+    /CHILD_HAS_VISITS/.test(
+      (await parent.rpc("delete_child", { p_child_id: child.id })).error?.message ?? ""
+    )
+  );
+  const mistake = unwrap(
+    "mistaken child",
+    await parent
+      .from("children")
+      .insert({ parent_id: profile.id, name: "Added By Mistake", dob: "2023-01-01" })
+      .select("id")
+      .single()
+  );
+  unwrap("delete mistaken child", await parent.rpc("delete_child", { p_child_id: mistake.id }));
+  check(
+    "a child added by mistake can be deleted",
+    unwrap("mistake gone", await admin.from("children").select("id").eq("id", mistake.id)).length === 0
+  );
+
   const summaryRows = unwrap(
     "visit summary",
     await parent.rpc("visit_summary", { p_visit_id: visit.id })

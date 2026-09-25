@@ -275,11 +275,9 @@ async function main() {
     many.find((result) => result.error)?.error.message
   );
 
-  const againForA = await book(morning.id, children.A);
   check(
-    "a child can book twice on the same day",
-    !againForA.error,
-    againForA.error?.message
+    "a child can't be booked twice on the same day",
+    refusedWith(await book(morning.id, children.A), "APPOINTMENT_EXISTS_FOR_DAY")
   );
 
   const outside = await createSession(addDays(today, 7), "10:00", "13:00");
@@ -514,6 +512,10 @@ async function main() {
 
   // --- "coming for the same reason?" — an upcoming booking used today --------
   const upcoming = unwrap("H's upcoming booking", await book(morning.id, children.H, "vaccination"));
+  const arrivedBefore = unwrap(
+    "today's summary before",
+    await doctor.rpc("end_of_day_summary", { p_clinic_id: clinicId, p_date: today })
+  ).appointments.attended;
   const sameReason = unwrap(
     "check in with the upcoming booking",
     await parent.rpc("check_in", {
@@ -532,6 +534,15 @@ async function main() {
       sameReason.appointment_id === upcoming.id &&
       upcomingAfter.status === "attended",
     `${sameReason.visit_reason}, booking ${upcomingAfter.status}`
+  );
+  const arrivedAfter = unwrap(
+    "today's summary after",
+    await doctor.rpc("end_of_day_summary", { p_clinic_id: clinicId, p_date: today })
+  ).appointments.attended;
+  check(
+    "analytics count the arrival on the day the child came, not the booking's date",
+    arrivedAfter - arrivedBefore === 1,
+    `${arrivedBefore} → ${arrivedAfter}`
   );
   unwrap(
     "take H's token back out",

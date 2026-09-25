@@ -32,29 +32,52 @@ export function ChildPicker({
   options,
   selectedId,
   onSelect,
+  unavailable = {},
 }: {
   title: string;
   options: Child[];
   selectedId: string | null;
   onSelect: (childId: string) => void;
+  /** Children who can't be picked here, with the reason shown on their card. */
+  unavailable?: Record<string, string>;
 }) {
   return (
     <PickerSection title={title}>
-      {options.map((child) => (
-        <SelectableCard
-          key={child.id}
-          selected={selectedId === child.id}
-          onSelect={() => onSelect(child.id)}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-foreground">{child.name}</p>
-              <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
+      {options.map((child) => {
+        const reason = unavailable[child.id];
+        if (reason) {
+          return (
+            <div
+              key={child.id}
+              aria-disabled="true"
+              className="flex min-h-16 items-center justify-between gap-3 rounded-xl border-2 border-border bg-surface-sunken px-4 py-3 opacity-80"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-foreground-muted">{child.name}</p>
+                <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-foreground-muted">
+                {reason}
+              </span>
             </div>
-            {selectedId === child.id && <Check className="size-5 text-primary-600" />}
-          </div>
-        </SelectableCard>
-      ))}
+          );
+        }
+        return (
+          <SelectableCard
+            key={child.id}
+            selected={selectedId === child.id}
+            onSelect={() => onSelect(child.id)}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-foreground">{child.name}</p>
+                <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
+              </div>
+              {selectedId === child.id && <Check className="size-5 text-primary-600" />}
+            </div>
+          </SelectableCard>
+        );
+      })}
     </PickerSection>
   );
 }

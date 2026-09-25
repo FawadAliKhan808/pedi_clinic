@@ -28,6 +28,8 @@ interface CheckInData {
   today: string;
   /** Confirmed bookings from tomorrow on — today's are linked automatically. */
   upcoming: ParentAppointment[];
+  /** Children already waiting, called or with the doctor — they can't check in again yet. */
+  inQueue: Set<UUID>;
 }
 
 export default function CheckInPage() {
@@ -49,19 +51,30 @@ export default function CheckInPage() {
         router.replace("/");
         return;
       }
-      const [children, window, appointments] = await Promise.all([
+      const [children, window, appointments, queue] = await Promise.all([
         api.parents.listMyChildren(),
         api.appointments.getBookingWindow(),
         api.appointments.listMyAppointments(),
+        api.queue.getParentQueueView(),
       ]);
+      const inQueue = new Set(
+        queue
+          .filter((entry) => ["waiting", "called", "in_consultation"].includes(entry.status))
+          .map((entry) => entry.childId)
+      );
       setData({
         children,
         today: window.today,
         upcoming: appointments.filter(
           (item) => item.status === "booked" && item.date > window.today
         ),
+        inQueue,
       });
-      if (children.length === 1) setChildId(children[0].id);
+      // Pre-select the child whose "Check in" button was tapped (or the only one).
+      const requested = new URLSearchParams(globalThis.location.search).get("child");
+      const available = children.filter((child) => !inQueue.has(child.id));
+      if (requested && available.some((child) => child.id === requested)) setChildId(requested);
+      else if (available.length === 1) setChildId(available[0].id);
     })().catch((caught) => setLoadError(errorMessage(caught)));
   }, [router]);
 
@@ -122,6 +135,9 @@ export default function CheckInPage() {
             options={data.children}
             selectedId={childId}
             onSelect={setChildId}
+            unavailable={Object.fromEntries(
+              [...data.inQueue].map((id) => [id, "Currently in queue"])
+            )}
           />
 
           {upcoming ? (

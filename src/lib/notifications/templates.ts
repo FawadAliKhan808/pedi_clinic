@@ -12,7 +12,9 @@ export type NotificationType =
   | "appointment_today"
   | "appointment_changed"
   | "booking_request"
-  | "booking_update";
+  | "booking_update"
+  | "token_skipped"
+  | "token_removed";
 
 export interface RenderedNotification {
   title: string;
@@ -73,6 +75,18 @@ export function renderNotification(
         title: `${tokenLabel}: it's your turn now`,
         body: `Please bring ${child} in to see the doctor.`,
         url: "/queue",
+      };
+    case "token_skipped":
+      return {
+        title: `${tokenLabel} was skipped`,
+        body: `The doctor skipped ${child}'s turn. Please check with reception — you may be called again.`,
+        url: "/queue",
+      };
+    case "token_removed":
+      return {
+        title: `${tokenLabel} was removed from the queue`,
+        body: `${child} has been taken off today's queue. Please check with reception if this is a mistake.`,
+        url: "/",
       };
     case "follow_up_reminder":
       return {

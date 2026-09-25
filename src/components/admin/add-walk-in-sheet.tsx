@@ -8,7 +8,14 @@ import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { UUID, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, normalizePhone, visitReasonLabels } from "@/lib/format";
+import {
+  errorMessage,
+  isValidPhone,
+  normalizePhone,
+  phoneError,
+  todayISO,
+  visitReasonLabels,
+} from "@/lib/format";
 
 const reasons: VisitReason[] = ["general_checkup", "vaccination"];
 
@@ -31,9 +38,11 @@ export function AddWalkInSheet({
   const [busy, setBusy] = useState(false);
 
   const normalizedPhone = normalizePhone(phone);
-  const ready = name.trim() && dob && normalizedPhone.length >= 10;
+  const dobInFuture = dob !== "" && dob > todayISO();
+  const ready = name.trim() && dob && !dobInFuture && isValidPhone(phone);
 
   async function save() {
+    if (!ready) return;
     setBusy(true);
     try {
       const visit = await getBrowserApi().queue.addWalkIn({
@@ -76,16 +85,20 @@ export function AddWalkInSheet({
         <TextField
           label="Date of birth"
           type="date"
-          max={new Date().toISOString().slice(0, 10)}
+          max={todayISO()}
           value={dob}
           onChange={(event) => setDob(event.target.value)}
+          error={dobInFuture ? "The date of birth can't be in the future." : undefined}
         />
         <TextField
           label="Parent's mobile number"
           type="tel"
           inputMode="numeric"
+          maxLength={12}
+          placeholder="10-digit mobile number"
           value={phone}
           hint="The visit links to this number and appears in their app when they sign in."
+          error={phoneError(phone)}
           onChange={(event) => setPhone(event.target.value)}
         />
 

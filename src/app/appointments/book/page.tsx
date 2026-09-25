@@ -9,7 +9,7 @@ import { ChildPicker, ReasonPicker } from "@/components/parent/visit-pickers";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
-import type { AvailabilitySession, BookingWindow, Child, VisitReason } from "@/lib/api";
+import type { AvailabilitySession, BookingWindow, Child, ParentAppointment, VisitReason } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatDayShort, formatSession } from "@/lib/format";
 import { NOTIFY_AFTER_BOOKING, sessionFlag } from "@/lib/pwa/environment";
@@ -19,6 +19,8 @@ interface BookingData {
   window: BookingWindow;
   children: Child[];
   sessions: AvailabilitySession[];
+  /** The parent's upcoming bookings — one per child per day. */
+  booked: ParentAppointment[];
 }
 
 /** Null when there's no session, so the caller can send them home. */
@@ -27,11 +29,12 @@ async function loadBookingData(): Promise<BookingData | null> {
   if (!(await api.auth.getCurrentUserId())) return null;
 
   const window = await api.appointments.getBookingWindow();
-  const [children, sessions] = await Promise.all([
+  const [children, sessions, booked] = await Promise.all([
     api.parents.listMyChildren(),
     api.appointments.listSessions(window.clinicId, window.fromDate, window.toDate),
+    api.appointments.listMyAppointments(),
   ]);
-  return { window, children, sessions };
+  return { window, children, sessions, booked };
 }
 
 /**
@@ -88,8 +91,15 @@ export default function BookAppointmentPage() {
       .catch(() => undefined);
   });
 
+  const blockedDates: Record<string, string> = Object.fromEntries(
+    (data?.booked ?? [])
+      .filter((item) => item.childId === childId && item.status === "booked")
+      .map((item) => [item.date, "Already booked"])
+  );
+  const sessionBlocked = session !== null && Boolean(blockedDates[session.date]);
+
   async function book() {
-    if (!childId || !reason || !session) return;
+    if (!childId || !reason || !session || sessionBlocked) return;
     setBusy(true);
     try {
       const api = getBrowserApi();
@@ -154,6 +164,7 @@ export default function BookAppointmentPage() {
               presets={data.window.sessionPresets}
               selectedSessionId={session?.id ?? null}
               onSelect={setSession}
+              blockedDates={blockedDates}
             />
           </section>
         </>
@@ -164,7 +175,7 @@ export default function BookAppointmentPage() {
           fullWidth
           variant="accent"
           loading={busy}
-          disabled={!childId || !reason || !session}
+          disabled={!childId || !reason || !session || sessionBlocked}
           onClick={() => void book()}
         >
           Book appointment

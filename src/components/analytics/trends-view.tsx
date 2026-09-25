@@ -238,6 +238,14 @@ function TrendsBody({
   );
   const pharmacy = data.daily.reduce((sum, day) => sum + day.pharmacy, 0);
   const pharmacyOrders = data.daily.reduce((sum, day) => sum + day.pharmacyOrders, 0);
+  // Revenue split by what the doctor entered on each visit summary.
+  const fees = {
+    consultation: data.daily.reduce((sum, day) => sum + day.consultation, 0),
+    vaccination: data.daily.reduce((sum, day) => sum + day.vaccination, 0),
+    other: data.daily.reduce((sum, day) => sum + day.other, 0),
+  };
+  const feeShare = (amount: number) =>
+    revenue > 0 ? `${Math.round((amount / revenue) * 100)}% of visit fees` : undefined;
 
   if (patients === 0 && data.tokens.total === 0 && pharmacyOrders === 0) {
     return (
@@ -277,7 +285,7 @@ function TrendsBody({
               : "Consultations and pharmacy"
           }
         />
-        <StatTile label="Consultations" value={formatCurrency(revenue)} />
+        <StatTile label="Visit fees" value={formatCurrency(revenue)} hint="All consultation-visit money" />
         <StatTile
           label="Pharmacy sales"
           value={formatCurrency(pharmacy)}
@@ -315,6 +323,31 @@ function TrendsBody({
           }
         />
       </div>
+
+      <section className="flex flex-col gap-3" aria-labelledby="fee-split-title">
+        <h3 id="fee-split-title" className="font-semibold text-foreground">
+          Revenue by fee type
+        </h3>
+        <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-3">
+          <StatTile
+            label="Consultation fees"
+            value={formatCurrency(fees.consultation)}
+            hint={feeShare(fees.consultation)}
+          />
+          <StatTile
+            label="Vaccination fees"
+            value={formatCurrency(fees.vaccination)}
+            hint={feeShare(fees.vaccination)}
+          />
+          {fees.other > 0 && (
+            <StatTile
+              label="Other fees"
+              value={formatCurrency(fees.other)}
+              hint={feeShare(fees.other)}
+            />
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-4 @4xl:grid-cols-2">
         <ChartCard

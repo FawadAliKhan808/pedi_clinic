@@ -1,4 +1,4 @@
-import type { Child, ISODateString, Parent } from "./types";
+import type { Child, ISODateString, Parent, UUID } from "./types";
 
 export interface ParentsApi {
   /**
@@ -13,5 +13,13 @@ export interface ParentsApi {
   completeProfile(input: { name: string }): Promise<Parent>;
 
   listMyChildren(): Promise<Child[]>;
+  /** Date of birth can't be in the future (INVALID_DOB). */
   addChild(input: { name: string; dob: ISODateString }): Promise<Child>;
+  /** Corrects a child's name or date of birth. Own child only. */
+  updateChild(childId: UUID, input: { name: string; dob: ISODateString }): Promise<Child>;
+  /**
+   * Deletes a child added by mistake (and their upcoming bookings). A child
+   * who has been to the clinic keeps their records: throws CHILD_HAS_VISITS.
+   */
+  deleteChild(childId: UUID): Promise<void>;
 }

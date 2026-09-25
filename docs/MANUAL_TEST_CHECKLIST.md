@@ -266,6 +266,40 @@ devices side by side:
         those moments — just the banner. iPhone Safari (not installed): nothing,
         since iOS only allows notifications in the installed app.
 
+## QA fixes (dates, age, phones, children, bookings, guardrail, analytics, skip/remove)
+
+- [ ] Date-of-birth pickers (add/edit child, doctor's walk-in) stop at today,
+      and a typed future date is refused. History and Analytics pickers stop at
+      today. The follow-up date is the one picker that looks forward (it's a
+      future date by nature); booking uses the session picker.
+- [ ] Open a consultation, pick a follow-up date, close without completing
+      (confirm "Discard") → open the next child's consultation: follow-up is
+      empty.
+- [ ] Ages everywhere read "2 years, 3 months, 5 days" / "3 months, 12 days" /
+      "12 days"; check one against a calendar.
+- [ ] Phone fields (parent sign-in, walk-in): 9 digits or 11 digits or
+      letters show an error and the button stays disabled; exactly 10 works.
+- [ ] Home → pencil on a child → edit name/date of birth → saved; "Delete" on
+      a child added by mistake (two taps) removes them; on a child who has
+      visited, it explains they can't be deleted.
+- [ ] Check a child in → on Home their button reads "Currently in Queue"
+      (disabled) while the other children can still check in; on the check-in
+      screen that child shows "Currently in queue" and can't be picked. After
+      the visit is completed, they can check in again.
+- [ ] Book a child for a day, then try booking the same child again: that day
+      shows "Already booked" and can't be chosen. Another child can still book
+      it.
+- [ ] Doctor: enter an amount or a photo in the visit summary, tap Close →
+      "Are you sure? Unsaved data will be lost." — Keep editing / Discard and
+      close. With nothing entered, Close just closes.
+- [ ] Analytics: "Appointments arrived" counts a child who checked in with a
+      booking on the day they came (including "same reason" early check-ins).
+      A "Revenue by fee type" section shows Consultation and Vaccination fees
+      (and Other when used) with their share — End of day and Trends.
+- [ ] Doctor taps Skip / Remove → the parent's phone gets "Token N was
+      skipped" / "Token N was removed from the queue" (push on an installed
+      phone; always in the bell).
+
 ## Before real patient data
 
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.

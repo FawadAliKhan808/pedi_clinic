@@ -1,5 +1,5 @@
 import type { ParentsApi } from "../../parents";
-import { ApiError, type Child, type ISODateString, type Parent } from "../../types";
+import { ApiError, type Child, type ISODateString, type Parent, type UUID } from "../../types";
 import type { TypedSupabaseClient } from "./client.browser";
 import { toApiError } from "./errors";
 import { mapChildRow, mapParentRow } from "./mappers";
@@ -68,7 +68,25 @@ export class SupabaseParentsApi implements ParentsApi {
       .select("*")
       .single();
 
-    if (error) throw new ApiError(error.message, "CHILD_ADD_FAILED", error);
+    if (error) throw toApiError(error, "CHILD_ADD_FAILED");
     return mapChildRow(data);
+  }
+
+  async updateChild(
+    childId: UUID,
+    { name, dob }: { name: string; dob: ISODateString }
+  ): Promise<Child> {
+    const { data, error } = await this.client.rpc("update_child", {
+      p_child_id: childId,
+      p_name: name,
+      p_dob: dob,
+    });
+    if (error) throw toApiError(error, "CHILD_UPDATE_FAILED");
+    return mapChildRow(data);
+  }
+
+  async deleteChild(childId: UUID): Promise<void> {
+    const { error } = await this.client.rpc("delete_child", { p_child_id: childId });
+    if (error) throw toApiError(error, "CHILD_DELETE_FAILED");
   }
 }

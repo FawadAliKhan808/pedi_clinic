@@ -320,8 +320,8 @@ try {
     `${Math.min(...seqs)}..${Math.max(...seqs)}`
   );
 
-  // 2. The same child checking in twice at the same instant. A child may hold
-  //    more than one token a day, so both succeed — with different numbers.
+  // 2. The same child checking in twice at the same instant: a child already in
+  //    the queue can't get a second token, so exactly one wins.
   const raceChild = await must(
     "create race-test child",
     db
@@ -337,10 +337,10 @@ try {
   ]);
   const succeeded = raceAttempts.filter((result) => !result.error);
   check(
-    "two simultaneous check-ins for one child get two distinct tokens",
-    succeeded.length === 2 && succeeded[0].data.seq !== succeeded[1].data.seq,
-    succeeded.map((result) => result.data.seq).join(" and ") ||
-      raceAttempts.find((result) => result.error)?.error.message
+    "two simultaneous check-ins for one child yield exactly one token",
+    succeeded.length === 1 &&
+      raceAttempts.some((result) => result.error?.message.includes("ACTIVE_TOKEN_EXISTS")),
+    `${succeeded.length} succeeded`
   );
 
   // 3. Dispensing: eight simultaneous orders against stock that only covers five.

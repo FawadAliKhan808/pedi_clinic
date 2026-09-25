@@ -4,28 +4,49 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-/** Age is always derived from date of birth — never stored. */
-export function formatAge(dob: ISODateString): string {
-  const birth = new Date(`${dob}T00:00:00`);
-  const now = new Date();
+/**
+ * Exact age from a date of birth, in whole years, months and days — so the
+ * doctor can track vaccine schedules. Computed like a calendar: count whole
+ * years, then whole months, then the days left (borrowing the length of the
+ * previous month when needed). `asOf` defaults to today.
+ */
+export function ageParts(
+  dob: ISODateString,
+  asOf: Date = new Date()
+): { years: number; months: number; days: number } {
+  const [birthYear, birthMonth, birthDay] = dob.split("-").map(Number);
+  let years = asOf.getFullYear() - birthYear;
+  let months = asOf.getMonth() + 1 - birthMonth;
+  let days = asOf.getDate() - birthDay;
 
-  let months =
-    (now.getFullYear() - birth.getFullYear()) * 12 +
-    (now.getMonth() - birth.getMonth());
-  if (now.getDate() < birth.getDate()) months -= 1;
-
-  if (months < 1) {
-    const days = Math.max(
-      0,
-      Math.floor((now.getTime() - birth.getTime()) / 86_400_000)
-    );
-    return `${days} ${days === 1 ? "day" : "days"}`;
+  if (days < 0) {
+    months -= 1;
+    // Days in the month before asOf's month.
+    days += new Date(asOf.getFullYear(), asOf.getMonth(), 0).getDate();
   }
-  if (months < 24) return `${months} mo`;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years < 0) return { years: 0, months: 0, days: 0 };
+  return { years, months, days };
+}
 
-  const years = Math.floor(months / 12);
-  const remainder = months % 12;
-  return remainder === 0 ? `${years}y` : `${years}y ${remainder}m`;
+function plural(count: number, unit: string): string {
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * "2 years, 3 months, 5 days"; for infants "3 months, 5 days" or "12 days".
+ * Age is always derived from date of birth — never stored.
+ */
+export function formatAge(dob: ISODateString, asOf?: Date): string {
+  const { years, months, days } = ageParts(dob, asOf);
+  if (years > 0) {
+    return [plural(years, "year"), plural(months, "month"), plural(days, "day")].join(", ");
+  }
+  if (months > 0) return `${plural(months, "month")}, ${plural(days, "day")}`;
+  return plural(days, "day");
 }
 
 export function formatDate(date: ISODateString): string {
@@ -177,6 +198,31 @@ export function normalizePhone(input: string): string {
   return input.replace(/\D/g, "");
 }
 
+/**
+ * Phone numbers are exactly 10 digits — no more, no less, digits only
+ * (spaces are tolerated while typing). Used by every phone field.
+ */
+export function isValidPhone(input: string): boolean {
+  return /^\d{10}$/.test(input.replace(/\s/g, ""));
+}
+
+/** The message a phone field shows while its value isn't a valid number yet. */
+export function phoneError(input: string): string | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+  if (/[^\d\s]/.test(trimmed)) return "Use digits only.";
+  const digits = trimmed.replace(/\s/g, "").length;
+  if (digits < 10) return `Enter all 10 digits (${digits} so far).`;
+  if (digits > 10) return "That's more than 10 digits.";
+  return undefined;
+}
+
+/** Today as "YYYY-MM-DD" on this device — the max for date-of-birth pickers. */
+export function todayISO(): ISODateString {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 export function formatPhone(phone: string): string {
   return phone.length === 10 ? `${phone.slice(0, 5)} ${phone.slice(5)}` : phone;
 }
@@ -197,6 +243,16 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
+    case "ACTIVE_TOKEN_EXISTS":
+      return "This child is already in the queue. They can check in again once this visit is over.";
+    case "APPOINTMENT_EXISTS_FOR_DAY":
+      return "This child already has an appointment that day.";
+    case "INVALID_PHONE":
+      return "Enter a 10-digit phone number.";
+    case "INVALID_DOB":
+      return "The date of birth can't be in the future.";
+    case "CHILD_HAS_VISITS":
+      return "This child has visit records, so they can't be deleted. You can still edit their details.";
     case "APPOINTMENT_NOT_FOUND":
       return "That booking isn't available any more.";
     case "OUTSIDE_BOOKING_WINDOW":
