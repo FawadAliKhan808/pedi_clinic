@@ -99,35 +99,34 @@ export function NavShell({
 }
 
 /**
- * The page's main action. On phones it's pinned to the bottom (above the tab
- * bar when there is one) so it's always within thumb reach; on wider screens
- * it simply sits in the page after the content.
+ * The bottom dock: the page's main action (and anything that belongs with it,
+ * stacked above), anchored to the bottom of the screen on every size — just
+ * above the tab bar on phones, at the very bottom beside the rail/sidebar on
+ * tablets and laptops.
+ *
+ * It's the last child of a full-height column: `mt-auto` pushes it down when
+ * the page is short, and `sticky` keeps it pinned while a long page scrolls
+ * under it. Children stack top to bottom; one that renders nothing (e.g. a
+ * hidden banner) leaves no gap, so the rest simply close up.
  */
 export function StickyActionBar({
   children,
   aboveNav = false,
-  tall = false,
 }: {
   children: ReactNode;
+  /** The page has the bottom tab bar (phones): sit just above it. */
   aboveNav?: boolean;
-  /** A second, small line above the main button (e.g. a text link). */
-  tall?: boolean;
 }) {
   return (
-    <>
-      {/* Keeps the last of the content clear of the pinned bar on phones. */}
-      <div aria-hidden className={cn("shrink-0 md:hidden", tall ? "h-28" : "h-20")} />
-      <div
-        className={cn(
-          "fixed inset-x-0 z-30 border-t border-border bg-surface px-5 py-3",
-          aboveNav
-            ? "bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
-            : "bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
-          "md:static md:z-auto md:border-0 md:bg-transparent md:px-5 md:pb-8 md:pt-2"
-        )}
-      >
-        <div className="md:max-w-xs">{children}</div>
-      </div>
-    </>
+    <div
+      className={cn(
+        "sticky z-30 mt-auto border-t border-border bg-surface/95 px-5 pt-3 backdrop-blur",
+        aboveNav
+          ? "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] pb-3 md:bottom-0 md:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          : "bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+      )}
+    >
+      <div className="flex flex-col gap-2">{children}</div>
+    </div>
   );
 }

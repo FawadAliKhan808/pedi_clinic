@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
 import { NotificationBell } from "@/components/parent/notification-bell";
+import { NotificationBanner } from "@/components/parent/notification-permission-prompt";
 import { ParentAuth } from "@/components/parent/parent-auth";
 import { StickyActionBar } from "@/components/layout/nav-shell";
 import { SignOutButton } from "@/components/layout/sign-out-button";
@@ -200,20 +201,19 @@ export default function ParentHome() {
         )}
       </section>
 
-      {children.length > 0 ? (
-        <StickyActionBar aboveNav tall>
-          <KnowYourDoctorLink />
+      {/* Bottom dock, top to bottom: doctor link, notifications banner (only
+          while undecided), Check in. Pinned to the bottom on every screen size. */}
+      <StickyActionBar aboveNav>
+        <KnowYourDoctorLink />
+        <NotificationBanner placement="dock" />
+        {children.length > 0 && (
           <Link href="/check-in">
-            <Button fullWidth variant="accent">
+            <Button fullWidth variant="accent" className="min-h-14 text-lg">
               Check in
             </Button>
           </Link>
-        </StickyActionBar>
-      ) : (
-        <div className="px-5 pb-6">
-          <KnowYourDoctorLink />
-        </div>
-      )}
+        )}
+      </StickyActionBar>
 
       <AddChildSheet
         open={addChildOpen}
@@ -279,9 +279,10 @@ function NameStep({ onSaved }: { onSaved: () => void }) {
 }
 
 /**
- * A child on Home: name and exact age, an edit button, and their own check-in
- * button — which reads "Currently in Queue" (and is disabled) while that child
- * is waiting, called or with the doctor.
+ * A child on Home: name and exact age, an edit button, and — while they're
+ * waiting, called or with the doctor — a "Currently in queue" label. Checking
+ * in is the main button in the bottom dock (which won't offer a child who's
+ * already in the queue).
  */
 function ChildCard({
   child,
@@ -313,16 +314,10 @@ function ChildCard({
           <Pencil className="size-4" />
         </button>
       </div>
-      {activeToken ? (
-        <Button fullWidth variant="secondary" disabled>
-          Currently in Queue
-        </Button>
-      ) : (
-        <Link href={`/check-in?child=${child.id}`}>
-          <Button fullWidth variant="secondary">
-            Check in {child.name}
-          </Button>
-        </Link>
+      {activeToken && (
+        <span className="self-start rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800 dark:bg-primary-900/30 dark:text-primary-200">
+          Currently in queue
+        </span>
       )}
     </Card>
   );
@@ -331,7 +326,7 @@ function ChildCard({
 /** Bottom-right of Home: the way into the doctor's profile. */
 function KnowYourDoctorLink() {
   return (
-    <div className="flex justify-end pb-2">
+    <div className="flex justify-end">
       <Link
         href="/doctor"
         className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"

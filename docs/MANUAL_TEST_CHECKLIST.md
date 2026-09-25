@@ -282,10 +282,10 @@ devices side by side:
 - [ ] Home → pencil on a child → edit name/date of birth → saved; "Delete" on
       a child added by mistake (two taps) removes them; on a child who has
       visited, it explains they can't be deleted.
-- [ ] Check a child in → on Home their button reads "Currently in Queue"
-      (disabled) while the other children can still check in; on the check-in
-      screen that child shows "Currently in queue" and can't be picked. After
-      the visit is completed, they can check in again.
+- [ ] Check a child in → on Home their card shows a "Currently in queue"
+      label; on the check-in screen that child shows "Currently in queue" and
+      can't be picked while the other children can. After the visit is
+      completed, they can check in again.
 - [ ] Book a child for a day, then try booking the same child again: that day
       shows "Already booked" and can't be chosen. Another child can still book
       it.
@@ -299,6 +299,21 @@ devices side by side:
 - [ ] Doctor taps Skip / Remove → the parent's phone gets "Token N was
       skipped" / "Token N was removed from the queue" (push on an installed
       phone; always in the bell).
+
+## Home bottom dock
+
+- [ ] Home, on a phone, a tablet and a laptop: the bottom dock sits at the
+      very bottom of the screen (just above the tab bar on phones), not in the
+      middle of the page — with one child or many. Scrolling a long page keeps
+      it pinned.
+- [ ] Inside it, top to bottom: "Know about your doctor", the "Enable
+      notifications for live queue alerts" banner (only while notifications
+      are undecided), then the wide orange **Check in** button. Once
+      notifications are allowed or blocked, the link sits right above Check in.
+- [ ] Child cards have no check-in button of their own.
+- [ ] On other parent screens the notification banner is at the top of the
+      screen (not the bottom), and their main buttons (Book an appointment,
+      Get token) are also pinned to the bottom on every screen size.
 
 ## Before real patient data
 

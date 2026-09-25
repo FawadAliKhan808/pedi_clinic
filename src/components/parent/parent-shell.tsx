@@ -4,7 +4,10 @@ import { CalendarDays, FolderClock, House } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
 import { SignOutButton } from "@/components/layout/sign-out-button";
-import { NotificationPermissionPrompt } from "@/components/parent/notification-permission-prompt";
+import {
+  NotificationPermissionPrompt,
+  TopNotificationBanner,
+} from "@/components/parent/notification-permission-prompt";
 import { useCompletedVisitRedirect } from "@/lib/realtime/use-completed-visit-redirect";
 
 const parentNav: NavItem[] = [
@@ -25,7 +28,9 @@ export function ParentShell({ children }: { children: ReactNode }) {
       items={parentNav}
       sidebarFooter={<SignOutButton redirectTo="/" variant="sidebar" />}
     >
+      <TopNotificationBanner />
       {children}
+      {/* The modal is fixed-position, so where it sits in the tree doesn't matter. */}
       <NotificationPermissionPrompt />
     </NavShell>
   );
