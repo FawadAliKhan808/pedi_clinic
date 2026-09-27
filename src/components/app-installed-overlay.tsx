@@ -2,7 +2,8 @@
 
 import { CheckCircle2, Smartphone } from "lucide-react";
 import { useEffect } from "react";
-import { brand } from "@/brand";
+import { usePathname } from "next/navigation";
+import { brand, staffApp } from "@/brand";
 import { getBrowserApi } from "@/lib/api/browser";
 import { useJustInstalled } from "@/lib/pwa/install-prompt";
 
@@ -14,13 +15,16 @@ import { useJustInstalled } from "@/lib/pwa/install-prompt";
  */
 export function AppInstalledOverlay() {
   const installed = useJustInstalled();
+  // Installed from a staff page: that's the staff app, and not a parent install.
+  const staff = usePathname().startsWith("/admin");
+  const appName = staff ? staffApp.name : brand.name;
 
   useEffect(() => {
-    if (!installed) return;
+    if (!installed || staff) return;
     // Count the install now, so the owner dashboard updates straight away.
     // (The installed app records it again on first open; repeats are ignored.)
     void getBrowserApi().notifications.recordInstall().catch(() => undefined);
-  }, [installed]);
+  }, [installed, staff]);
 
   if (!installed) return null;
 
@@ -40,12 +44,12 @@ export function AppInstalledOverlay() {
           App installed successfully!
         </h2>
         <p id="app-installed-body" className="text-foreground">
-          Please close this browser tab and open <strong>{brand.name}</strong> directly from
+          Please close this browser tab and open <strong>{appName}</strong> directly from
           your phone&apos;s home screen to continue.
         </p>
         <p className="flex items-center gap-2 rounded-xl bg-surface-sunken px-4 py-3 text-sm text-foreground-muted">
           <Smartphone aria-hidden className="size-5 shrink-0 text-primary-600" />
-          Look for the {brand.name} icon on your home screen or in your app list.
+          Look for the {appName} icon on your home screen or in your app list.
         </p>
       </div>
     </div>

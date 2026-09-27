@@ -15,6 +15,11 @@ export interface Brand {
   name: string;
   /** Label under the home-screen icon. Keep it ≤ 12 characters or phones cut it off. */
   shortName: string;
+  /**
+   * Label under the staff app's icon (doctor and pharmacist install it from
+   * /admin). Defaults to "<shortName> Staff"; set it when that's too long.
+   */
+  staffShortName?: string;
   /** Store-style one-liner: the manifest and search results. */
   description: string;
   /** The glyph drawn on the app icon and logo (see src/brand/mark.tsx). */

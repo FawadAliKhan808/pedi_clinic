@@ -7,13 +7,14 @@ import {
   Copy,
   Download,
   ExternalLink,
+  ListOrdered,
   Share,
   ShieldCheck,
   Smartphone,
   SquarePlus,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { brand } from "@/brand";
+import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { brand, staffApp } from "@/brand";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -50,17 +51,66 @@ export function InstallAndNotifications() {
 }
 
 /**
- * The install popup alone, for the signed-out sign-in screen: nothing in the
- * installed app, the popup and banner in a browser tab. (The installed-app
- * half of InstallAndNotifications needs a signed-in parent.)
+ * The install popup alone: for the sign-in screens and the staff terminal.
+ * Nothing in the installed app; the popup and banner in a browser tab. (The
+ * installed-app half of InstallAndNotifications needs a signed-in parent.)
+ * Renders only in the browser, since whether it's the installed app, and
+ * whether "Not now" was tapped this visit, can't be known on the server.
  */
-export function InstallPrompt({ variant = "card" }: { variant?: BannerVariant }) {
-  const [standalone] = useState(isStandalone);
-  return standalone ? null : <BrowserInstallPrompt variant={variant} />;
+export function InstallPrompt({
+  variant = "card",
+  audience = "parent",
+}: {
+  variant?: BannerVariant;
+  audience?: Audience;
+}) {
+  const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false);
+  if (!inBrowser || isStandalone()) return null;
+  return <BrowserInstallPrompt variant={variant} audience={audience} />;
 }
 
-/** `card`: inline on Home and the queue. `bar`: the sign-in screen's bottom bar. */
+const noSubscription = () => () => undefined;
+
+/** `card`: inline on Home, the queue and staff screens. `bar`: a sign-in screen's bottom bar. */
 type BannerVariant = "card" | "bar";
+
+/**
+ * Who's installing. Parents install the app for queue alerts; the doctor and
+ * pharmacist install the staff app, which opens straight to /admin.
+ */
+type Audience = "parent" | "staff";
+
+const installCopy = {
+  parent: {
+    appName: brand.name,
+    shortName: brand.shortName,
+    barLine: "Get an alert when it's your turn",
+    cardLine: "Install the app to get an alert when it's your turn.",
+    intro:
+      "Then we can send you a notification when you're 3rd in line and when it's your turn — no need to keep this page open.",
+    reasons: [
+      { icon: BellRing, text: "An alert when you're 3rd in line and when the doctor calls you" },
+      { icon: Smartphone, text: "Opens straight from your home screen, full screen" },
+      { icon: ShieldCheck, text: "No app store and no password — just your mobile number" },
+    ],
+  },
+  staff: {
+    appName: staffApp.name,
+    shortName: staffApp.shortName,
+    barLine: "Open the queue in one tap",
+    cardLine: "Install the staff app to open the queue in one tap from your home screen.",
+    intro:
+      "Then the queue opens in one tap, full screen — no browser tab to find and no address to type.",
+    reasons: [
+      { icon: ListOrdered, text: "Opens straight to the queue, full screen" },
+      { icon: Smartphone, text: "Its own icon on your home screen, next to your other apps" },
+      { icon: ShieldCheck, text: "Stays signed in on this device" },
+    ],
+  },
+};
+
+type InstallCopy = (typeof installCopy)[Audience];
+const CopyContext = createContext<InstallCopy>(installCopy.parent);
 
 // ---------------------------------------------------------------------------
 // In the installed app
@@ -121,7 +171,14 @@ function unblockInstructions(platform: Platform): string {
  * never gets here, a browser tab always does — even on a phone where the app
  * is already installed, since a tab can't tell.
  */
-function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant }) {
+function BrowserInstallPrompt({
+  variant = "card",
+  audience = "parent",
+}: {
+  variant?: BannerVariant;
+  audience?: Audience;
+}) {
+  const copy = installCopy[audience];
   const [open, setOpen] = useState(() => {
     // Right after getting a token, show it again even if dismissed earlier.
     if (sessionFlag.get(SHOW_INSTALL_AFTER_TOKEN)) {
@@ -139,7 +196,7 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
 
   async function install() {
     if (await promptInstall()) {
-      toast(`Installed — open ${brand.name} from your home screen`, "success");
+      toast(`Installed — open ${copy.appName} from your home screen`, "success");
     }
   }
 
@@ -164,17 +221,17 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
   );
 
   return (
-    <>
+    <CopyContext.Provider value={copy}>
       {variant === "bar" ? (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-raised p-3 shadow-sm">
           {/* The icon they'll look for on their home screen afterwards. */}
           <BrandLogo className="size-10" />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-display text-sm font-bold text-foreground">
-              Install {brand.shortName}
+              Install {copy.shortName}
             </span>
             <span className="block text-xs text-foreground-muted">
-              Get an alert when it&apos;s your turn
+              {copy.barLine}
             </span>
           </span>
           {action}
@@ -183,7 +240,7 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
         <Card className="flex items-center gap-3">
           <Smartphone className="size-5 shrink-0 text-primary-600" />
           <p className="flex-1 text-sm text-foreground">
-            Install the app to get an alert when it&apos;s your turn.
+            {copy.cardLine}
           </p>
           {action}
         </Card>
@@ -196,11 +253,12 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
           setOpen(false);
         }}
       />
-    </>
+    </CopyContext.Provider>
   );
 }
 
 function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const copy = useContext(CopyContext);
   const toast = useToast();
   const deferredPrompt = useInstallPrompt();
   const [platform] = useState<Platform>(detectPlatform);
@@ -209,14 +267,17 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
   async function install() {
     const accepted = await promptInstall();
     if (accepted) {
-      toast(`Installed — open ${brand.name} from your home screen`, "success");
+      toast(`Installed — open ${copy.appName} from your home screen`, "success");
       onClose();
     }
   }
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.origin);
+      // Staff need the staff area; parents the app itself.
+      await navigator.clipboard.writeText(
+        copy === installCopy.staff ? `${window.location.origin}/admin` : window.location.origin
+      );
       toast("Link copied — paste it into Safari or Chrome", "success");
     } catch {
       toast(`Open ${window.location.host} in Safari or Chrome`, "info");
@@ -227,7 +288,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
     <Sheet
       open={open}
       onClose={onClose}
-      title={`Install ${brand.name}`}
+      title={`Install ${copy.appName}`}
       footer={
         <div className="flex flex-col gap-2">
           {!inAppBrowser && platform !== "ios" && deferredPrompt && (
@@ -268,8 +329,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
             Add to your home screen
           </p>
           <p className="mt-1 text-sm text-foreground-muted">
-            Then we can send you a notification when you&apos;re 3rd in line and when
-            it&apos;s your turn — no need to keep this page open.
+            {copy.intro}
           </p>
         </div>
 
@@ -285,7 +345,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
                 </p>
                 <p className="mt-1 text-sm text-foreground-muted">
                   This page is open inside another app (like WhatsApp or Instagram),
-                  which can&apos;t install {brand.name}. Tap the menu (⋯) and choose{" "}
+                  which can&apos;t install {copy.appName}. Tap the menu (⋯) and choose{" "}
                   <strong>Open in {platform === "ios" ? "Safari" : "Chrome"}</strong>, or
                   copy the link and paste it there.
                 </p>
@@ -316,7 +376,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
               Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.
             </GuideStep>
             <GuideStep number={3} of={3} title="Open it from your home screen">
-              Look for the {brand.name} icon.
+              Look for the {copy.appName} icon.
             </GuideStep>
           </ol>
         )}
@@ -334,6 +394,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
  * screen edge: where Share sits depends on the iOS version and Safari layout.
  */
 function IosInstallSteps() {
+  const copy = useContext(CopyContext);
   return (
     <>
       <ol className="flex flex-col gap-3">
@@ -387,7 +448,7 @@ function IosInstallSteps() {
             Then look for this icon
           </p>
           <p className="mt-0.5 text-sm text-foreground-muted">
-            Open {brand.name} from your home screen — it opens full screen, without
+            Open {copy.appName} from your home screen — it opens full screen, without
             the browser bars.
           </p>
         </div>
@@ -438,11 +499,7 @@ function GuideStep({
 
 /** Why bother — only things the app really does. */
 function WhyInstall() {
-  const reasons = [
-    { icon: BellRing, text: "An alert when you're 3rd in line and when the doctor calls you" },
-    { icon: Smartphone, text: "Opens straight from your home screen, full screen" },
-    { icon: ShieldCheck, text: "No app store and no password — just your mobile number" },
-  ];
+  const { reasons } = useContext(CopyContext);
   return (
     <div className="rounded-xl bg-surface-sunken p-4">
       <p className="font-display text-xs font-bold uppercase tracking-wider text-foreground-muted">

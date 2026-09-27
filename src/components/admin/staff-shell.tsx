@@ -12,14 +12,25 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
+import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import type { StaffRole } from "@/lib/api";
 import { useUnreadNotificationCount } from "@/lib/notifications/unread";
 import { useActiveQueueCount } from "@/lib/realtime/use-active-queue";
 
 /** Frame for the staff terminal, with each role's own tabs. */
-export function StaffShell({ role, children }: { role: StaffRole; children: ReactNode }) {
+export function StaffShell({ role, children: page }: { role: StaffRole; children: ReactNode }) {
   const signOut = <SignOutButton redirectTo="/admin/login" variant="sidebar" />;
+  // In a browser tab, every staff screen asks to install the staff app
+  // (popup once per visit, then this card). The installed app shows neither.
+  const children = (
+    <>
+      <div className="px-5 pt-[calc(1rem+env(safe-area-inset-top))] empty:hidden">
+        <InstallPrompt audience="staff" />
+      </div>
+      {page}
+    </>
+  );
 
   if (role === "pharmacist") {
     return (

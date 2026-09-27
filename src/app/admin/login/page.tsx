@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -62,6 +63,9 @@ export default function StaffLoginPage() {
       <Button type="submit" fullWidth loading={busy} disabled={!email.trim() || !password}>
         Sign in
       </Button>
+
+      {/* In a browser tab, ask to install the staff app (opens straight to /admin). */}
+      <InstallPrompt variant="bar" audience="staff" />
     </form>
   );
 }

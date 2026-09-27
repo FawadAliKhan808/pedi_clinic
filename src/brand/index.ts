@@ -30,6 +30,12 @@ function selectBrand(): Brand {
 /** This deployment's brand, fixed when the app is built. */
 export const brand: Brand = selectBrand();
 
+/** The staff app (doctor, pharmacist): installed from /admin, opens straight to it. */
+export const staffApp = {
+  name: `${brand.name} Staff`,
+  shortName: brand.staffShortName ?? `${brand.shortName} Staff`,
+};
+
 /** The base primary, for places that need a literal colour (manifest, icons). */
 const BASE_PRIMARY_600 = "#23716d";
 
