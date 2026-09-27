@@ -2,6 +2,14 @@ import type { RealtimeApi, Unsubscribe } from "../../realtime";
 import type { UUID } from "../../types";
 import type { TypedSupabaseClient } from "./client.browser";
 
+/** One live channel per topic, shared by every screen listening to it. */
+interface SharedChannel {
+  channel: ReturnType<TypedSupabaseClient["channel"]>;
+  listeners: Set<() => void>;
+  /** Connected (SUBSCRIBED) right now. */
+  joined: boolean;
+}
+
 export class SupabaseRealtimeApi implements RealtimeApi {
   constructor(private readonly client: TypedSupabaseClient) {}
 
@@ -53,21 +61,49 @@ export class SupabaseRealtimeApi implements RealtimeApi {
     event: string,
     onChange: () => void
   ): Unsubscribe {
-    const channel = this.client
-      .channel(topic)
-      .on("broadcast", { event }, () => onChange())
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") onChange();
-      });
+    // Supabase hands back the same channel for the same topic, so two
+    // screens listening to one topic (the Queue page and the nav's queue dot)
+    // share it. Count the listeners and close the channel only when the last
+    // one leaves — otherwise leaving one screen silences the other.
+    let shared = this.channels.get(topic);
+    if (!shared) {
+      const entry: SharedChannel = {
+        channel: null as unknown as SharedChannel["channel"],
+        listeners: new Set(),
+        joined: false,
+      };
+      const notifyAll = () => entry.listeners.forEach((listener) => listener());
+      entry.channel = this.client
+        .channel(topic)
+        .on("broadcast", { event }, notifyAll)
+        .subscribe((status) => {
+          entry.joined = status === "SUBSCRIBED";
+          if (entry.joined) notifyAll();
+        });
+      shared = entry;
+      this.channels.set(topic, shared);
+    } else if (shared.joined) {
+      // Already connected: this listener missed the join, so catch it up now,
+      // as a fresh subscription would.
+      queueMicrotask(onChange);
+    }
+    shared.listeners.add(onChange);
 
     const onVisible = () => {
       if (document.visibilityState === "visible") onChange();
     };
     document.addEventListener("visibilitychange", onVisible);
 
+    const entry = shared;
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
-      void this.client.removeChannel(channel);
+      entry.listeners.delete(onChange);
+      if (entry.listeners.size === 0 && this.channels.get(topic) === entry) {
+        this.channels.delete(topic);
+        void this.client.removeChannel(entry.channel);
+      }
     };
   }
+
+  private readonly channels = new Map<string, SharedChannel>();
 }

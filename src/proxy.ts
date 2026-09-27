@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Refreshes the Supabase auth session on every navigation so Server
  * Components (notably the /admin role guard) always see a valid session.
+ * Kept cheap because it runs before every page.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -27,7 +28,10 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  // Refreshes an expired session (writing the new cookies) and verifies the
+  // JWT against the project's cached public key — no round trip to the Auth
+  // server on every navigation, unlike getUser().
+  await supabase.auth.getClaims();
 
   return response;
 }

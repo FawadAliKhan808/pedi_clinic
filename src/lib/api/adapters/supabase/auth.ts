@@ -52,20 +52,47 @@ export class SupabaseAuthApi implements AuthApi {
   }
 
   async signOut(): Promise<void> {
+    this.staffRole = null;
     const { error } = await this.client.auth.signOut();
     if (error) throw new ApiError(error.message, "AUTH_SIGNOUT_FAILED", error);
   }
 
+  /**
+   * The signed-in user, from the session's JWT verified against the
+   * project's public signing key — no round trip to the Auth server (the key
+   * is fetched once and cached). Refreshes an expired session first.
+   */
   async getCurrentUserId(): Promise<UUID | null> {
-    const { data, error } = await this.client.auth.getUser();
-    if (error) return null;
-    return data.user?.id ?? null;
+    const { data, error } = await this.client.auth.getClaims();
+    if (error || !data) return null;
+    return data.claims.sub ?? null;
   }
 
   async getStaffRole(): Promise<{ role: StaffRole; clinicId: UUID | null } | null> {
     const userId = await this.getCurrentUserId();
     if (!userId) return null;
 
+    // Every staff screen asks; the answer only changes with the account. One
+    // lookup per signed-in user for the life of this client (a page load in
+    // the browser, a single request on the server).
+    if (this.staffRole?.userId !== userId) {
+      const lookup = this.lookUpStaffRole(userId);
+      this.staffRole = { userId, lookup };
+      lookup.catch(() => {
+        if (this.staffRole?.lookup === lookup) this.staffRole = null;
+      });
+    }
+    return this.staffRole.lookup;
+  }
+
+  private staffRole: {
+    userId: UUID;
+    lookup: Promise<{ role: StaffRole; clinicId: UUID | null } | null>;
+  } | null = null;
+
+  private async lookUpStaffRole(
+    userId: UUID
+  ): Promise<{ role: StaffRole; clinicId: UUID | null } | null> {
     const { data, error } = await this.client
       .from("staff")
       .select("role, clinic_id")

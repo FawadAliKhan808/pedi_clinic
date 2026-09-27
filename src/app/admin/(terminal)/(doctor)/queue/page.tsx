@@ -95,11 +95,18 @@ export default function DoctorQueuePage() {
     setPendingVisitId(visitId);
     try {
       const api = getBrowserApi();
-      await api.queue[action](visitId);
+      const updated = await api.queue[action](visitId);
       // Calling, recalling, skipping or removing can each create a
       // "your turn" / "3rd in line" notification; push it out now.
       void api.notifications.dispatchPending();
-      await refresh();
+      // Show the new status the moment the server confirms it; the full
+      // refetch (new order, other changes) follows without holding the button.
+      setEntries((current) =>
+        current
+          ?.map((entry) => (entry.visitId === visitId ? { ...entry, status: updated.status } : entry))
+          .filter((entry) => entry.status !== "removed" && entry.status !== "completed") ?? null
+      );
+      void refresh();
     } catch (caught) {
       toast(errorMessage(caught), "error");
     } finally {
@@ -126,11 +133,11 @@ export default function DoctorQueuePage() {
           >
             <Plus className="size-5" />
           </button>
-          {/* The reception screen parents scan to check in. */}
+          {/* The check-in QR to print for reception. */}
           <Link
             href="/admin/check-in-qr"
-            aria-label="Check-in QR for reception"
-            title="Check-in QR for reception"
+            aria-label="Check-in QR to print for reception"
+            title="Check-in QR to print for reception"
             className="flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
           >
             <QrCode className="size-5" />

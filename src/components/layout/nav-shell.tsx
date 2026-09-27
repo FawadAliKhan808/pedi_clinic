@@ -62,6 +62,10 @@ export function NavShell({
             <Link
               key={href}
               href={href}
+              // Preload each tab fully (it's a small shell; the screen fetches
+              // its own data), so switching tabs is instant — no server wait
+              // and no loading screen holding the data back.
+              prefetch
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex min-h-[4.5rem] flex-1 flex-col items-center justify-center gap-1 text-xs font-semibold",
