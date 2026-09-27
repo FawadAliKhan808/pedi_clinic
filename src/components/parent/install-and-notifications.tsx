@@ -1,12 +1,13 @@
 "use client";
 
-import { Download, Share, Smartphone } from "lucide-react";
+import { Download, Share, Smartphone, SquarePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { getBrowserApi } from "@/lib/api/browser";
+import { cn } from "@/lib/format";
 import {
   detectPlatform,
   INSTALL_DISMISSED_THIS_VISIT,
@@ -218,18 +219,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
             </Button>
           </Card>
         ) : platform === "ios" ? (
-          <ol className="flex flex-col gap-3">
-            <Step number={1}>
-              Tap the <Share className="inline size-4 align-text-bottom" /> Share
-              button at the bottom of Safari.
-            </Step>
-            <Step number={2}>
-              Scroll down and tap <strong>Add to Home Screen</strong>.
-            </Step>
-            <Step number={3}>
-              Tap <strong>Add</strong>, then open Pedi Clinic from your home screen.
-            </Step>
-          </ol>
+          <IosInstallSteps />
         ) : deferredPrompt ? (
           <p className="text-sm text-foreground-muted">
             Tap <strong>Install app</strong> below. It takes a second and uses
@@ -248,6 +238,79 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * iPhones have no install dialog a page can open, so the parent does it by
+ * hand. Each step shows a small picture of the thing to tap, drawn to look
+ * like Safari's own buttons, so it's recognisable at a glance. No arrow at the
+ * screen edge: where Share sits depends on the iOS version and Safari layout.
+ */
+function IosInstallSteps() {
+  return (
+    <ol className="flex flex-col gap-5">
+      <Step number={1}>
+        <span className="flex flex-col gap-2">
+          <span>
+            Tap the <strong>Share</strong> button in Safari.
+          </span>
+          <IosMock>
+            <Share aria-hidden className="size-6 text-[#007aff]" />
+          </IosMock>
+          <span className="text-sm text-foreground-muted">
+            Don&apos;t see it? Tap <strong>•••</strong> first, then <strong>Share</strong>.
+          </span>
+        </span>
+      </Step>
+      <Step number={2}>
+        <span className="flex flex-col gap-2">
+          <span>
+            Scroll down and tap <strong>Add to Home Screen</strong>.
+          </span>
+          <IosMock wide>
+            <span className="flex-1 text-left text-foreground">Add to Home Screen</span>
+            <SquarePlus aria-hidden className="size-5 text-foreground" />
+          </IosMock>
+        </span>
+      </Step>
+      <Step number={3}>
+        <span className="flex flex-col gap-2">
+          <span>
+            Tap <strong>Add</strong> in the top corner.
+          </span>
+          <IosMock>
+            <span className="font-semibold text-[#007aff]">Add</span>
+          </IosMock>
+        </span>
+      </Step>
+      <Step number={4}>
+        <span className="flex flex-col gap-2">
+          <span>Open Pedi Clinic from your home screen.</span>
+          <span className="flex flex-col items-center gap-1 self-start">
+            {/* The app's real home-screen icon. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/192" alt="" className="size-14 rounded-[14px] shadow-md" />
+            <span className="text-xs text-foreground-muted">Pedi Clinic</span>
+          </span>
+        </span>
+      </Step>
+    </ol>
+  );
+}
+
+/** A small, Safari-like picture of a button or menu row. */
+function IosMock({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex min-h-12 items-center gap-3 self-start rounded-xl border border-border bg-surface-sunken px-4",
+        wide ? "w-full max-w-xs" : "justify-center"
+      )}
+    >
+      {children}
+    </span>
   );
 }
 
