@@ -125,7 +125,7 @@ export default function PatientHistoryPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search child, parent or phone"
             aria-label="Search patients by child name, parent name or phone number"
-            className="min-h-12 w-full rounded-xl border border-border bg-surface pl-11 pr-11 text-base text-foreground placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+            className="min-h-12 w-full rounded-full border border-border bg-surface-raised pl-11 pr-11 text-base text-foreground placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
           />
           {query && (
             <button
@@ -322,7 +322,7 @@ function DayPicker({
         max={today}
         value={date}
         onChange={(event) => event.target.value && onChange(event.target.value)}
-        className="min-h-12 rounded-xl border border-border bg-surface px-3 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+        className="min-h-12 rounded-full border border-border bg-surface-raised px-3 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
       />
       {date !== today && (
         <button

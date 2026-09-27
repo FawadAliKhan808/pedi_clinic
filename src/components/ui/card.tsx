@@ -11,7 +11,9 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-surface-raised p-4 shadow-sm",
+        // min-w-0: in a grid, a card never grows past its column to fit
+        // one-line (truncated) content — that would widen the whole page.
+        "min-w-0 rounded-xl border border-border bg-surface-raised p-5 shadow-md",
         className
       )}
     >
@@ -38,7 +40,7 @@ export function SelectableCard({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        "w-full rounded-xl border-2 p-4 text-left transition-colors duration-150",
+        "w-full rounded-xl border-2 p-4 shadow-sm text-left transition-colors duration-150",
         selected
           ? "border-primary-600 bg-primary-50 dark:bg-primary-900/30"
           : "border-border bg-surface-raised hover:border-primary-300",

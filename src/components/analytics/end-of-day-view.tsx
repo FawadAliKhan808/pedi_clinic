@@ -41,7 +41,7 @@ export function EndOfDayView({
             max={today}
             value={date}
             onChange={(event) => event.target.value && onDateChange(event.target.value)}
-            className="min-h-12 rounded-lg border border-border bg-surface px-4 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+            className="min-h-12 rounded-full border border-border bg-surface-raised px-4 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
           />
         </label>
         {date !== today && (

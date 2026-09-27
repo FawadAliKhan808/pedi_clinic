@@ -104,7 +104,7 @@ export default function StockPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search medicines"
               aria-label="Search medicines by name"
-              className="min-h-12 w-full rounded-xl border border-border bg-surface pl-11 pr-11 text-base text-foreground placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+              className="min-h-12 w-full rounded-full border border-border bg-surface-raised pl-11 pr-11 text-base text-foreground placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
             />
             {query && (
               <button

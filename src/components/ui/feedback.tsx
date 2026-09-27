@@ -40,7 +40,7 @@ export function EmptyState({
     // Spans every column when it sits in a card grid.
     <div className="col-span-full flex flex-col items-center gap-3 px-6 py-12 text-center">
       {icon && <div className="text-foreground-muted">{icon}</div>}
-      <p className="text-lg font-semibold text-foreground">{title}</p>
+      <p className="font-display text-lg font-bold text-foreground">{title}</p>
       {description && (
         <p className="max-w-xs text-sm text-foreground-muted">{description}</p>
       )}
@@ -58,12 +58,12 @@ export function ErrorState({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <p className="text-lg font-semibold text-foreground">Couldn&apos;t load this</p>
+      <p className="font-display text-lg font-bold text-foreground">Couldn&apos;t load this</p>
       <p className="max-w-xs text-sm text-foreground-muted">{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="min-h-12 rounded-lg px-5 font-semibold text-primary-600"
+          className="min-h-12 rounded-full px-5 font-display font-bold text-primary-600"
         >
           Try again
         </button>

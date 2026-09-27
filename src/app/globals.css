@@ -232,8 +232,22 @@
   }
 }
 
-body {
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+/*
+ * The look from the sign-in design, app-wide: a warm off-white page with
+ * white cards on it, and Plus Jakarta Sans for headings. In @layer base so
+ * any utility class on an element still wins.
+ */
+@layer base {
+  body {
+    background: var(--color-surface-sunken);
+    color: var(--color-foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
 }

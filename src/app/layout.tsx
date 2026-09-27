@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       // The white-label brand's colour overrides, if it has any.
       style={brandColorVariables()}
     >
-      <body className="min-h-full flex flex-col bg-surface text-foreground">
+      <body className="min-h-full flex flex-col bg-surface-sunken text-foreground">
         {/* Each screen sets its own width: phone-first, widening on tablets and laptops. */}
         <ToastProvider>{children}</ToastProvider>
         <OfflineBanner />

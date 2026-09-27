@@ -282,10 +282,12 @@ function PresetButton({
         await onAdd();
         setBusy(false);
       }}
-      className="justify-start"
+      // Full width, and the label wraps: on a narrow phone "Morning (10:00 am –
+      // 1:00 pm) — open" doesn't fit one line in the button font.
+      className="w-full min-w-0 justify-start py-2 text-left"
     >
       {icon}
-      <span className="truncate">{added ? `${label} — open` : label}</span>
+      <span className="min-w-0 leading-snug">{added ? `${label} — open` : label}</span>
     </Button>
   );
 }
@@ -330,7 +332,9 @@ function CustomSessionForm({
       }}
     >
       <p className="text-sm font-semibold text-foreground">Or a custom time</p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* grid-cols-1, not an automatic column: a text input's built-in width
+          would otherwise stretch the column past a 320 px phone. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <TimeWithPeriod
           id="custom-start"
           label="From"

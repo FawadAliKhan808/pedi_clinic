@@ -569,7 +569,7 @@ function DateInput({
         min={min}
         max={max}
         onChange={(event) => event.target.value && onChange(event.target.value)}
-        className="min-h-11 rounded-lg border border-border bg-surface px-3 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
+        className="min-h-11 rounded-full border border-border bg-surface-raised px-3 text-base text-foreground focus:outline-2 focus:outline-offset-1 focus:outline-primary-500"
       />
     </label>
   );

@@ -19,7 +19,7 @@ export function TextField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-sm font-semibold text-foreground">
+      <label htmlFor={inputId} className="font-display text-sm font-semibold text-foreground">
         {label}
       </label>
       <input
@@ -28,7 +28,7 @@ export function TextField({
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         className={cn(
-          "min-h-12 rounded-lg border bg-surface px-4 text-base text-foreground",
+          "min-h-14 rounded-full border bg-surface-raised px-4 text-base text-foreground",
           "placeholder:text-neutral-400 focus:outline-2 focus:outline-offset-1 focus:outline-primary-500",
           error ? "border-danger" : "border-border",
           className

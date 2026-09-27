@@ -50,9 +50,9 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex w-full flex-col bg-surface motion-safe:animate-[sheet-in_180ms_ease-out] md:w-[28rem] md:border-l md:border-border md:shadow-lg"
+        className="flex w-full flex-col bg-surface-sunken motion-safe:animate-[sheet-in_180ms_ease-out] md:w-[28rem] md:border-l md:border-border md:shadow-lg"
       >
-        <header className="flex items-center justify-between border-b border-border px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <header className="flex items-center justify-between border-b border-border bg-surface-raised px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>
           <button
             onClick={onClose}
@@ -66,7 +66,7 @@ export function Sheet({
         <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
 
         {footer && (
-          <div className="border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="border-t border-border bg-surface-raised px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}
