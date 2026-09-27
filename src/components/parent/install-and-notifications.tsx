@@ -113,6 +113,18 @@ function BrowserInstallPrompt() {
     }
     return !sessionFlag.get(INSTALL_DISMISSED_THIS_VISIT);
   });
+  const toast = useToast();
+  const deferredPrompt = useInstallPrompt();
+  const [inAppBrowser] = useState(isInAppBrowser);
+  // Where the browser offers its own install dialog (Android Chrome), the
+  // banner's button opens that directly; elsewhere it opens the how-to guide.
+  const canInstallDirectly = deferredPrompt !== null && !inAppBrowser;
+
+  async function install() {
+    if (await promptInstall()) {
+      toast("Installed — open Pedi Clinic from your home screen", "success");
+    }
+  }
 
   return (
     <>
@@ -121,9 +133,15 @@ function BrowserInstallPrompt() {
         <p className="flex-1 text-sm text-foreground">
           Install the app to get an alert when it&apos;s your turn.
         </p>
-        <Button variant="secondary" onClick={() => setOpen(true)}>
-          How
-        </Button>
+        {canInstallDirectly ? (
+          <Button variant="secondary" onClick={() => void install()}>
+            Install
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => setOpen(true)}>
+            How
+          </Button>
+        )}
       </Card>
 
       <InstallSheet
