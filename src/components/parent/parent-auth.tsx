@@ -11,6 +11,7 @@ import {
   Stethoscope,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { brand } from "@/brand";
 import { BrandLogo } from "@/components/brand-logo";
@@ -335,30 +336,81 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
   );
 }
 
+/**
+ * "Know your doctor" — the clinic's best selling point, so it leads: a small
+ * photo, the name, experience and specialty, qualifications, and what he's
+ * known for. The whole card opens the full profile.
+ */
 function DoctorCard({ profile, onOpen }: { profile: DoctorProfile; onOpen: () => void }) {
-  const details = [profile.experience, ...profile.qualifications.slice(0, 2)]
-    .filter(Boolean)
-    .join(" · ");
+  const standing = [profile.experience, profile.title].filter(Boolean).join(" · ");
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-14 w-full items-center gap-3 rounded-lg border border-primary-100 bg-primary-50 px-3 py-2.5 text-left dark:border-primary-900 dark:bg-primary-900/20"
+      className="flex w-full flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50 p-4 text-left dark:border-primary-900 dark:bg-primary-900/20"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-raised text-primary-700 shadow-sm dark:text-primary-300">
-        <Stethoscope aria-hidden className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-foreground">{profile.name}</span>
-        <span className="block truncate text-xs text-primary-800 dark:text-primary-200">
-          {details}
+      <span className="flex w-full items-center justify-between gap-2">
+        <span className="font-display text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+          Know your doctor
+        </span>
+        <span className="flex items-center gap-0.5 text-sm font-bold text-primary-700 dark:text-primary-300">
+          Full profile
+          <ChevronRight aria-hidden className="size-4" />
         </span>
       </span>
-      <span className="flex shrink-0 items-center text-sm font-bold text-primary-700 dark:text-primary-300">
-        {/* On the narrowest phones the name needs the room; the chevron still says "more". */}
-        <span className="hidden min-[360px]:inline">Know doctor</span>
-        <ChevronRight aria-hidden className="size-4" />
+
+      <span className="flex items-center gap-3">
+        {profile.photo ? (
+          <Image
+            src={profile.photo}
+            alt=""
+            width={56}
+            height={56}
+            className="size-14 shrink-0 rounded-full object-cover object-top ring-2 ring-surface-raised"
+          />
+        ) : (
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-raised text-primary-700 dark:text-primary-300">
+            <Stethoscope aria-hidden className="size-6" />
+          </span>
+        )}
+        <span className="min-w-0">
+          <span className="block font-display text-base font-bold text-foreground">
+            {profile.name}
+          </span>
+          {standing && (
+            <span className="block text-sm font-semibold text-primary-800 dark:text-primary-200">
+              {standing}
+            </span>
+          )}
+        </span>
       </span>
+
+      {profile.qualifications.length > 0 && (
+        <span className="flex flex-wrap gap-1.5">
+          {profile.qualifications.map((qualification) => (
+            <span
+              key={qualification}
+              className="rounded-full bg-surface-raised px-2.5 py-0.5 text-xs font-semibold text-foreground"
+            >
+              {qualification}
+            </span>
+          ))}
+        </span>
+      )}
+
+      {profile.highlights.length > 0 && (
+        <span className="flex flex-col gap-1">
+          {profile.highlights.slice(0, 3).map((highlight) => (
+            <span key={highlight} className="flex items-start gap-2 text-sm text-foreground">
+              <CircleCheck
+                aria-hidden
+                className="mt-0.5 size-4 shrink-0 text-primary-700 dark:text-primary-300"
+              />
+              {highlight}
+            </span>
+          ))}
+        </span>
+      )}
     </button>
   );
 }
