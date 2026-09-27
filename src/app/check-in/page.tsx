@@ -25,13 +25,13 @@ import {
 } from "@/lib/pwa/environment";
 
 /**
- * A scanned code, kept for the rest of this visit: scanning with the phone's
- * camera app while signed out lands on sign-in first, and the code should
- * still be there afterwards. The server decides whether it's still fresh.
+ * A scanned code, kept for a short while: scanning with the phone's camera
+ * app while signed out lands on sign-in first, and the code should still be
+ * there afterwards. The server decides whether it's still the clinic's code.
  */
 const SCANNED_CODE_KEY = "pedi.checkInCode";
-/** A little under the server's 5 minutes, so a stale code isn't even tried. */
-const SCANNED_CODE_TTL_MS = 4.5 * 60 * 1000;
+/** Long enough to sign in and pick a child; a later check-in means scanning again. */
+const SCANNED_CODE_TTL_MS = 15 * 60 * 1000;
 
 function rememberCode(code: string | null) {
   try {
@@ -169,7 +169,7 @@ export default function CheckInPage() {
     } catch (caught) {
       toast(errorMessage(caught), "error");
       setBusy(false);
-      // Too old (or not the clinic's): back to the scanner, choices kept.
+      // Not the clinic's current code (e.g. it was replaced): back to the scanner.
       if ((caught as { code?: string }).code === "CHECKIN_CODE_INVALID") {
         rememberCode(null);
         setCheckInCode(null);
@@ -197,8 +197,8 @@ export default function CheckInPage() {
               Scan the QR code at reception
             </h2>
             <p className="mt-1 text-sm text-foreground-muted">
-              You can only check in at the clinic. The code is on the screen at the
-              reception desk.
+              You can only check in at the clinic. The QR code is at the reception
+              desk.
             </p>
           </div>
           <QrScanner onCode={scanned} />

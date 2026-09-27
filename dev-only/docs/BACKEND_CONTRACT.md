@@ -72,8 +72,9 @@ search and the pharmacy feed — see `QueueApi`/`PharmacyApi` below.
 |---|---|---|---|---|
 | `getParentQueueView` | — | `ParentQueueEntry[]` | `PARENT_QUEUE_VIEW_FAILED` | Signed-in parent; own children's tokens only |
 | `getDoctorQueue` | `clinicId` | `DoctorQueueEntry[]` (includes `parentName`, null until the parent gives one) | `DOCTOR_QUEUE_FAILED` | Clinic doctor/pharmacist; empty for anyone else |
-| `checkIn` | `{ childId, visitReason, checkInCode, appointmentId? }` — `checkInCode` from the reception QR; with `appointmentId`, the booking's reason is used | `Visit` | `CHECKIN_CODE_INVALID` (missing, not the clinic's, or over ~5 minutes old), `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
-| `getCheckInQrCode` | — | `{ code, expiresAt }` — this minute's code for the reception screen | `FORBIDDEN` | Clinic doctor or pharmacist |
+| `checkIn` | `{ childId, visitReason, checkInCode, appointmentId? }` — `checkInCode` from the printed reception QR; with `appointmentId`, the booking's reason is used | `Visit` | `CHECKIN_CODE_INVALID` (missing, not the clinic's, or replaced since), `CHILD_NOT_FOUND`, `ACTIVE_TOKEN_EXISTS`, `APPOINTMENT_NOT_FOUND`, `INVALID_INPUT`, `NO_CLINIC_CONFIGURED` | Parent of that child (and of that booking's child) |
+| `getCheckInQrCode` | — | `{ code }` — the clinic's code, for the printable QR | `FORBIDDEN` | Clinic doctor or pharmacist |
+| `replaceCheckInCode` | — | `{ code }` — a new code; every old printout stops working | `FORBIDDEN` | Clinic doctor |
 | `call` / `recall` | `visitId` | `Visit` | `FORBIDDEN`, `VISIT_NOT_FOUND`, `INVALID_STATUS_TRANSITION`, `ACTIVE_CONSULTATION_EXISTS` | Clinic doctor |
 | `startConsultation` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
 | `skip` / `remove` | `visitId` | `Visit` | `FORBIDDEN`, `INVALID_STATUS_TRANSITION` | Clinic doctor |
@@ -93,12 +94,11 @@ checked under the same clinic-day lock, so two simultaneous check-ins yield
 exactly one). There is no daily limit per phone number.
 
 **Check-in only inside the clinic.** A parent's `checkIn` must carry the
-code from the QR on the reception screen (`/admin/check-in-qr`). The code is
-an HMAC of the current minute with a per-clinic secret in
-`checkin_secrets`, which no client can read; it changes every minute and
-the server accepts one for 5 minutes, so a photo of the QR forwarded to
-someone at home stops working within minutes. Staff walk-ins (`addWalkIn`)
-don't need a code.
+code from the QR printed for reception (`/admin/check-in-qr`, which also
+prints it). The code is an HMAC of a per-clinic secret in `checkin_secrets`,
+which no client can read. It stays the same until the doctor replaces it
+(`replaceCheckInCode`), which makes every old printout — and any photo of
+one — stop working at once. Staff walk-ins (`addWalkIn`) don't need a code.
 `scripts/test-concurrency.mjs` proves both against the live database.
 
 **Parent position counts.** Parents can't read each other's rows, so

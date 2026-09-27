@@ -16,8 +16,9 @@ export interface QueueApi {
 
   /**
    * Race-safe token assignment. Clinic is resolved server-side. Only works
-   * inside the clinic: `checkInCode` is the code from the reception screen's
-   * QR, and the server throws `CHECKIN_CODE_INVALID` once it's a few minutes old.
+   * with the clinic's check-in code (`checkInCode`, from the printed QR at
+   * reception); anything else throws `CHECKIN_CODE_INVALID`, including a code
+   * the doctor has since replaced.
    */
   checkIn(input: {
     childId: UUID;
@@ -26,8 +27,10 @@ export interface QueueApi {
     appointmentId?: UUID;
   }): Promise<Visit>;
 
-  /** Staff: the code the reception screen shows as a QR right now, and when it changes. */
-  getCheckInQrCode(): Promise<{ code: string; expiresAt: string }>;
+  /** Staff: the clinic's check-in code, for the printable QR. */
+  getCheckInQrCode(): Promise<{ code: string }>;
+  /** Doctor: a new check-in code. Every old printout of the QR stops working. */
+  replaceCheckInCode(): Promise<{ code: string }>;
 
   /** Calls a child in. Throws `ACTIVE_CONSULTATION_EXISTS` while another consultation is open. */
   call(visitId: UUID): Promise<Visit>;

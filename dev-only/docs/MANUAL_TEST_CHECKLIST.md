@@ -324,23 +324,21 @@ devices side by side:
 - [ ] Privacy notice / parental consent screen — not built; flagged in the brief.
 - [ ] Change the demo staff passwords set by `npm run provision`.
 
-## Check-in only inside the clinic (QR at reception)
+## Check-in only inside the clinic (printed QR at reception)
 
-- [ ] Doctor → Queue → QR icon opens **Check-in QR**: a full-screen QR with
-      the clinic's name, "New code in 0:59" counting down, and a new code
-      each minute. The tablet screen doesn't dim while it's open.
-- [ ] Parent taps **Check in** → the camera opens straight away with a
-      scanning frame; nothing else can be chosen until a QR is scanned.
-- [ ] Scanning the reception QR → "QR code scanned — you're at the clinic",
-      then child and reason → **Get token** works.
-- [ ] iPhone (Safari and the installed app) and Android (Chrome and the
-      installed app) both scan.
+- [ ] Doctor → Queue → QR icon opens **Check-in QR**: the clinic's QR with
+      its name and instructions. **Print** gives a clean A4 poster (no buttons).
+- [ ] Print it and scan the paper: iPhone (Safari and the installed app) and
+      Android (Chrome and the installed app) both check in.
+- [ ] Parent taps **Check in** → the camera opens straight away; nothing else
+      can be chosen until the QR is scanned.
 - [ ] Scanning any other QR → "That's not the clinic's check-in QR code."
-- [ ] Scanning the reception QR with the phone's **camera app** opens
-      check-in with the code already accepted (signed out: sign in first,
-      then Check in within a few minutes still works).
-- [ ] A photo of the QR tried after 5+ minutes → "That check-in code has
-      expired. Scan the QR code at reception again." and the camera reopens.
+- [ ] Scanning the poster with the phone's **camera app** opens check-in with
+      the code accepted (signed out: sign in first, then Check in still works).
+- [ ] **Replace with a new code** (two taps, doctor only) → the page shows a new
+      QR; scanning the old printout → "That check-in code isn't valid any
+      more…" and the camera reopens. Print the new one.
+- [ ] Pharmacist can open and print the QR but has no Replace button.
 - [ ] Camera permission denied → "Camera access is off" with steps to allow
       it, and **Try again** works after allowing.
 - [ ] "Same reason as your booking?" check-in also needs the scan first.

@@ -1000,10 +1000,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      checkin_code_for: {
-        Args: { p_clinic_id: string; p_window: number }
-        Returns: string
-      }
+      checkin_code: { Args: { p_clinic_id: string }; Returns: string }
       checkin_code_valid: {
         Args: { p_clinic_id: string; p_code: string }
         Returns: boolean
@@ -1362,6 +1359,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      replace_checkin_code: { Args: never; Returns: Json }
       request_push_dispatch: { Args: never; Returns: undefined }
       reset_clinic_data: { Args: never; Returns: Json }
       restock_medicine: {

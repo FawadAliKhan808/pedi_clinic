@@ -180,7 +180,7 @@ export function QrScanner({ onCode }: { onCode: (code: string) => void }) {
         )}
       </div>
       <p className="max-w-sm text-center text-sm text-foreground-muted">
-        Point your camera at the QR code on the screen at reception. It scans by itself.
+        Point your camera at the QR code at reception. It scans by itself.
       </p>
     </div>
   );

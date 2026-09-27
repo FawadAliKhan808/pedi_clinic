@@ -33,7 +33,24 @@ export class SupabaseQueueApi implements QueueApi {
     }));
   }
 
-  async getDoctorQueue(clinicId: UUID): Promise<DoctorQueueEntry[]> {
+  /**
+   * The Queue screen and the nav's "someone's waiting" dot both refetch on
+   * every queue change, at the same moment. Callers asking while a fetch is
+   * already on its way share it instead of sending a second one.
+   */
+  getDoctorQueue(clinicId: UUID): Promise<DoctorQueueEntry[]> {
+    const pending = this.doctorQueueInFlight.get(clinicId);
+    if (pending) return pending;
+    const request = this.fetchDoctorQueue(clinicId).finally(() => {
+      this.doctorQueueInFlight.delete(clinicId);
+    });
+    this.doctorQueueInFlight.set(clinicId, request);
+    return request;
+  }
+
+  private readonly doctorQueueInFlight = new Map<UUID, Promise<DoctorQueueEntry[]>>();
+
+  private async fetchDoctorQueue(clinicId: UUID): Promise<DoctorQueueEntry[]> {
     const { data, error } = await this.client.rpc("doctor_queue", {
       p_clinic_id: clinicId,
     });
@@ -72,11 +89,16 @@ export class SupabaseQueueApi implements QueueApi {
     return mapVisitRow(data);
   }
 
-  async getCheckInQrCode(): Promise<{ code: string; expiresAt: string }> {
+  async getCheckInQrCode(): Promise<{ code: string }> {
     const { data, error } = await this.client.rpc("checkin_qr_code");
     if (error) throw toApiError(error, "CHECKIN_QR_FAILED");
-    const row = data as { code: string; expires_at: string };
-    return { code: row.code, expiresAt: row.expires_at };
+    return { code: (data as { code: string }).code };
+  }
+
+  async replaceCheckInCode(): Promise<{ code: string }> {
+    const { data, error } = await this.client.rpc("replace_checkin_code");
+    if (error) throw toApiError(error, "CHECKIN_CODE_REPLACE_FAILED");
+    return { code: (data as { code: string }).code };
   }
 
   async call(visitId: UUID): Promise<Visit> {

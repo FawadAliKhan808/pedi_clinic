@@ -6,10 +6,9 @@ import { getStaffContext } from "@/lib/auth/staff";
 export const metadata: Metadata = { title: "Check-in QR" };
 
 /**
- * The reception screen: a tablet or laptop at the front desk keeps this open.
- * Full screen, outside the staff terminal's navigation. Doctor and
- * pharmacist logins can open it (the code itself is fetched server-side and
- * checked against their role again).
+ * The clinic's check-in QR, to print for reception. Outside the staff
+ * terminal's navigation so it prints cleanly. Doctor and pharmacist can print
+ * it; only the doctor can replace the code (checked again server-side).
  */
 export default async function CheckInQrPage() {
   const staff = await getStaffContext();
@@ -17,5 +16,5 @@ export default async function CheckInQrPage() {
   if (!staff) redirect("/admin/login");
   if (staff.role === "owner") redirect("/owner");
 
-  return <CheckInQrScreen />;
+  return <CheckInQrScreen canReplace={staff.role === "doctor"} />;
 }

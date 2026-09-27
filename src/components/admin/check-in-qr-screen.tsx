@@ -1,89 +1,65 @@
 "use client";
 
-import { ArrowLeft, Camera, Maximize, Smartphone } from "lucide-react";
+import { ArrowLeft, Camera, Printer, Smartphone } from "lucide-react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import { brand } from "@/brand";
 import { BrandLogo } from "@/components/brand-logo";
+import { Button } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ErrorState, Skeleton } from "@/components/ui/feedback";
+import { useToast } from "@/components/ui/toast";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage } from "@/lib/format";
 
-interface CurrentCode {
-  svg: string;
-  expiresAt: number;
-}
-
 /**
- * The QR parents scan to check in. It encodes a link to /check-in with this
- * minute's code, so the phone's own camera app works as well as the in-app
- * scanner. A new code is fetched the moment the current one is replaced.
+ * The clinic's check-in QR, to print and put up at reception. It encodes a
+ * link to /check-in with the clinic's code, so the phone's own camera app
+ * works as well as the in-app scanner. The code stays the same until the
+ * doctor replaces it — then every old printout stops working.
  */
-export function CheckInQrScreen() {
-  const [current, setCurrent] = useState<CurrentCode | null>(null);
+export function CheckInQrScreen({ canReplace }: { canReplace: boolean }) {
+  const toast = useToast();
+  const [svg, setSvg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
 
-  const refresh = useCallback(async () => {
-    try {
-      const { code, expiresAt } = await getBrowserApi().queue.getCheckInQrCode();
-      const link = `${window.location.origin}/check-in?code=${code}`;
-      const svg = await QRCode.toString(link, {
+  const show = useCallback(async (code: string) => {
+    const link = `${window.location.origin}/check-in?code=${code}`;
+    setSvg(
+      await QRCode.toString(link, {
         type: "svg",
         errorCorrectionLevel: "M",
         margin: 1,
         color: { dark: "#1a1917", light: "#ffffff" },
-      });
-      setCurrent({ svg, expiresAt: new Date(expiresAt).getTime() });
-      setLoadError(null);
+      })
+    );
+  }, []);
+
+  const load = useCallback(() => {
+    getBrowserApi()
+      .queue.getCheckInQrCode()
+      .then(({ code }) => show(code))
+      .catch((caught) => setLoadError(errorMessage(caught)));
+  }, [show]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function replace() {
+    try {
+      const { code } = await getBrowserApi().queue.replaceCheckInCode();
+      await show(code);
+      toast("New QR code — print it now. Old printouts no longer work.", "success");
     } catch (caught) {
-      setLoadError(errorMessage(caught));
+      toast(errorMessage(caught), "error");
     }
-  }, []);
-
-  // First code, then a new one as each expires (and a retry if a fetch failed).
-  useEffect(() => {
-    const delay = current ? Math.max(current.expiresAt - Date.now(), 0) + 300 : loadError ? 5000 : 0;
-    const timer = setTimeout(() => void refresh(), delay);
-    return () => clearTimeout(timer);
-  }, [current, loadError, refresh]);
-
-  // The countdown.
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // A reception tablet shouldn't dim and lock while showing the code.
-  useEffect(() => {
-    let lock: { release(): Promise<void> } | null = null;
-    const request = () => {
-      const wakeLock = (navigator as Navigator & {
-        wakeLock?: { request(type: "screen"): Promise<{ release(): Promise<void> }> };
-      }).wakeLock;
-      void wakeLock
-        ?.request("screen")
-        .then((granted) => {
-          lock = granted;
-        })
-        .catch(() => undefined);
-    };
-    request();
-    // The lock is dropped when the tab is hidden; take it again on return.
-    const onVisible = () => document.visibilityState === "visible" && request();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      void lock?.release().catch(() => undefined);
-    };
-  }, []);
-
-  const secondsLeft = current ? Math.max(0, Math.ceil((current.expiresAt - now) / 1000)) : 0;
+  }
 
   return (
-    <div className="flex min-h-dvh flex-1 flex-col bg-surface-sunken">
-      <header className="flex items-center justify-between gap-2 px-4 pt-[calc(1rem+env(safe-area-inset-top))]">
+    <div className="flex min-h-dvh flex-1 flex-col bg-surface-sunken print:bg-neutral-0">
+      <header className="flex items-center justify-between gap-2 px-4 pt-[calc(1rem+env(safe-area-inset-top))] print:hidden">
         <Link
           href="/admin"
           aria-label="Back to the staff terminal"
@@ -91,70 +67,79 @@ export function CheckInQrScreen() {
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <button
-          type="button"
-          onClick={() => void document.documentElement.requestFullscreen?.().catch(() => undefined)}
-          className="flex min-h-12 items-center gap-2 rounded-full px-4 text-sm font-semibold text-foreground-muted hover:bg-surface-raised"
-        >
-          <Maximize aria-hidden className="size-4" />
-          Full screen
-        </button>
+        <p className="font-semibold text-foreground">Check-in QR</p>
+        <span className="size-12" aria-hidden />
       </header>
 
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-6 px-6 pb-10 text-center">
+      {/* The poster: exactly what gets printed. */}
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center gap-6 px-6 pb-6 text-center print:max-w-none print:justify-start print:gap-8 print:pt-10">
         <div className="flex items-center gap-3">
-          <BrandLogo className="size-12" />
-          <p className="font-display text-xl font-bold text-foreground">{brand.name}</p>
+          <BrandLogo className="size-12 print:size-16 print:shadow-none" />
+          <p className="font-display text-xl font-bold text-foreground print:text-3xl print:text-neutral-900">
+            {brand.name}
+          </p>
         </div>
 
-        <h1 className="font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl print:text-6xl print:text-neutral-900">
           Scan to check in
         </h1>
 
-        <div className="w-full max-w-sm rounded-xl bg-neutral-0 p-5 shadow-lg ring-1 ring-border">
-          {loadError && !current ? (
-            <ErrorState message={loadError} onRetry={() => void refresh()} />
-          ) : current ? (
+        <div className="w-full max-w-sm rounded-xl bg-neutral-0 p-5 shadow-lg ring-1 ring-border print:max-w-[12cm] print:shadow-none print:ring-neutral-300">
+          {loadError && !svg ? (
+            <ErrorState
+              message={loadError}
+              onRetry={() => {
+                setLoadError(null);
+                load();
+              }}
+            />
+          ) : svg ? (
             <div
               role="img"
               aria-label="Check-in QR code"
               className="aspect-square w-full [&>svg]:size-full"
               // SVG markup generated by the qrcode library from our own link.
-              dangerouslySetInnerHTML={{ __html: current.svg }}
+              dangerouslySetInnerHTML={{ __html: svg }}
             />
           ) : (
             <Skeleton className="aspect-square w-full" />
           )}
         </div>
 
-        <div className="flex w-full max-w-sm flex-col gap-2">
-          <div
-            aria-hidden
-            className="h-1.5 w-full overflow-hidden rounded-full bg-border"
-          >
-            <div
-              className="h-full rounded-full bg-primary-600 transition-[width] duration-1000 ease-linear"
-              style={{ width: `${(secondsLeft / 60) * 100}%` }}
-            />
-          </div>
-          <p className="text-sm text-foreground-muted tabular-nums" aria-live="off">
-            {current ? `New code in 0:${String(secondsLeft).padStart(2, "0")}` : "Getting the code…"}
-          </p>
-        </div>
-
-        <ol className="flex w-full max-w-md flex-col gap-3 text-left">
-          <li className="flex items-center gap-3 rounded-lg bg-surface-raised px-4 py-3 text-foreground">
+        <ol className="flex w-full max-w-md flex-col gap-3 text-left print:max-w-lg print:text-lg">
+          <li className="flex items-center gap-3 rounded-lg bg-surface-raised px-4 py-3 text-foreground print:bg-neutral-0 print:text-neutral-900 print:ring-1 print:ring-neutral-300">
             <Smartphone aria-hidden className="size-5 shrink-0 text-primary-600" />
             <span>
               Open <strong>{brand.name}</strong> on your phone and tap <strong>Check in</strong>.
             </span>
           </li>
-          <li className="flex items-center gap-3 rounded-lg bg-surface-raised px-4 py-3 text-foreground">
+          <li className="flex items-center gap-3 rounded-lg bg-surface-raised px-4 py-3 text-foreground print:bg-neutral-0 print:text-neutral-900 print:ring-1 print:ring-neutral-300">
             <Camera aria-hidden className="size-5 shrink-0 text-primary-600" />
             <span>Point the camera at this code. The phone&apos;s camera app works too.</span>
           </li>
         </ol>
       </main>
+
+      <footer className="mx-auto flex w-full max-w-md flex-col gap-3 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] print:hidden">
+        <Button fullWidth variant="accent" disabled={!svg} onClick={() => window.print()}>
+          <Printer aria-hidden className="size-5" />
+          Print
+        </Button>
+        {canReplace && (
+          <div className="flex flex-col gap-1 text-center">
+            <ConfirmButton
+              label="Replace with a new code"
+              confirmLabel="Tap again — old printouts stop working"
+              onConfirm={replace}
+              variant="ghost"
+            />
+            <p className="text-xs text-foreground-muted">
+              If the QR is being shared outside the clinic, replace it and print the new
+              one. Every old printout and photo of it stops working.
+            </p>
+          </div>
+        )}
+      </footer>
     </div>
   );
 }
