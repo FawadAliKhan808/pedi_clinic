@@ -251,15 +251,18 @@
 
   <div class="screen">
     <h3>6.5 Check in <span class="route">/check-in</span></h3>
-    <p><strong>Purpose:</strong> get today's token in two choices: <em>who</em> and <em>why</em>.</p>
+    <p><strong>Purpose:</strong> get today's token, <strong>only inside the clinic</strong>: scan the QR at reception, then two choices, <em>who</em> and <em>why</em>.</p>
     <ol>
+      <li><strong>Scan the QR code at reception</strong>: the camera opens straight away, full width, with a scanning frame and "Point your camera at the QR code on the screen at reception. It scans by itself." Nothing else is shown until a scan succeeds. States: opening the camera; "That's not the clinic's check-in QR code"; camera access off (steps to allow it, <strong>Try again</strong>). After a scan: a green "QR code scanned — you're at the clinic" line above the choices.</li>
       <li><strong>"Who is visiting?"</strong>: selectable child cards. A child already in the queue is shown but disabled, labelled "Currently in queue". With one child available, it's pre-selected.</li>
       <li><strong>"Reason for the visit"</strong>: two large option cards, <strong>Vaccination</strong> and <strong>General checkup</strong>. There's no free-text field and no symptom list.</li>
       <li>Pinned coral button: <strong>Get token</strong> (disabled until both are chosen). On success, the app goes straight to <em>Your queue</em>.</li>
     </ol>
     <h4>Special case: the child has an upcoming booking</h4>
     <p>In place of the reason picker, a highlighted card asks: <strong>"Are you coming for the same reason you booked your upcoming appointment?"</strong> It gives the booking details (child, reason, day and time) and two buttons: <strong>Yes, same reason</strong> (gets the token immediately using that booking) and <strong>No, something else</strong> (shows the normal reason picker).</p>
-    <p>Rules: one active token per child per day, and a daily limit per phone number (set by the clinic). Errors show as a toast.</p>
+    <p>Rules: one active token per child at a time. The scanned code is valid for about 5 minutes; if it expires, "That check-in code has expired. Scan the QR code at reception again." and the camera reopens. Errors show as a toast.</p>
+    <h4>Reception screen (staff) <span class="route">/admin/check-in-qr</span></h4>
+    <p>A tablet or laptop at the front desk shows a full-screen page: clinic logo and name, "Scan to check in", a large QR code that changes every minute, a thin countdown bar with "New code in 0:42", and two lines of instructions for parents. Opened from a QR icon in the doctor's Queue header.</p>
   </div>
 
   <div class="screen">

@@ -14,12 +14,20 @@ export interface QueueApi {
   /** Today's queue for the doctor: skipped cards sort last, completed/removed drop off. */
   getDoctorQueue(clinicId: UUID): Promise<DoctorQueueEntry[]>;
 
-  /** Race-safe token assignment. Clinic is resolved server-side. */
+  /**
+   * Race-safe token assignment. Clinic is resolved server-side. Only works
+   * inside the clinic: `checkInCode` is the code from the reception screen's
+   * QR, and the server throws `CHECKIN_CODE_INVALID` once it's a few minutes old.
+   */
   checkIn(input: {
     childId: UUID;
     visitReason: VisitReason;
+    checkInCode: string;
     appointmentId?: UUID;
   }): Promise<Visit>;
+
+  /** Staff: the code the reception screen shows as a QR right now, and when it changes. */
+  getCheckInQrCode(): Promise<{ code: string; expiresAt: string }>;
 
   /** Calls a child in. Throws `ACTIVE_CONSULTATION_EXISTS` while another consultation is open. */
   call(visitId: UUID): Promise<Visit>;

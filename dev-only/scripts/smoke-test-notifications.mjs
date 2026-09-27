@@ -17,6 +17,7 @@
  */
 import { createECDH, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { checkInCode } from "./checkin-code.mjs";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -168,7 +169,7 @@ async function main() {
 
   const visit = unwrap(
     "check in",
-    await parent.rpc("check_in", { p_child_id: child.id, p_visit_reason: "vaccination" })
+    await parent.rpc("check_in", { p_checkin_code: await checkInCode(), p_child_id: child.id, p_visit_reason: "vaccination" })
   );
 
   if (thirdInLineTested) {

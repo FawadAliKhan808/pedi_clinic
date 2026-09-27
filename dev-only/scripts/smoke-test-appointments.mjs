@@ -11,6 +11,7 @@
  * Creates only its own data and removes it afterwards.
  */
 import { createClient } from "@supabase/supabase-js";
+import { checkInCode } from "./checkin-code.mjs";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -493,7 +494,7 @@ async function main() {
 
   const visit = unwrap(
     "check in with an appointment",
-    await parent.rpc("check_in", { p_child_id: children.D.id, p_visit_reason: "general_checkup" })
+    await parent.rpc("check_in", { p_checkin_code: await checkInCode(), p_child_id: children.D.id, p_visit_reason: "general_checkup" })
   );
   const attended = unwrap(
     "appointment after check-in",
@@ -518,7 +519,7 @@ async function main() {
   ).appointments.attended;
   const sameReason = unwrap(
     "check in with the upcoming booking",
-    await parent.rpc("check_in", {
+    await parent.rpc("check_in", { p_checkin_code: await checkInCode(),
       p_child_id: children.H.id,
       p_visit_reason: "general_checkup",
       p_appointment_id: upcoming.id,
@@ -580,7 +581,7 @@ async function main() {
   check(
     "a parent can't use another family's booking at check-in",
     refusedWith(
-      await parent.rpc("check_in", {
+      await parent.rpc("check_in", { p_checkin_code: await checkInCode(),
         p_child_id: children.I.id,
         p_visit_reason: "general_checkup",
         p_appointment_id: theirBooking.id,

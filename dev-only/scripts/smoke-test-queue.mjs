@@ -12,6 +12,7 @@
  * Uses a Supabase test phone number with a fixed OTP, and cleans up after.
  */
 import { createClient } from "@supabase/supabase-js";
+import { checkInCode } from "./checkin-code.mjs";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -75,9 +76,23 @@ const child = unwrap(
 check("parent added a child under RLS", child.parent_id === profile.id);
 
 try {
+// Check-in only works with a fresh code from the reception screen's QR.
+for (const [label, code] of [["no code", null], ["a made-up code", "0123456789abcdef0123"]]) {
+  const refused = await parent.rpc("check_in", {
+    p_child_id: child.id,
+    p_visit_reason: "general_checkup",
+    p_checkin_code: code,
+  });
+  check(
+    `check-in with ${label} is refused`,
+    Boolean(refused.error?.message?.includes("CHECKIN_CODE_INVALID")),
+    refused.error?.message ?? "a token was issued"
+  );
+}
+
 const visit = unwrap(
   "check in",
-  await parent.rpc("check_in", {
+  await parent.rpc("check_in", { p_checkin_code: await checkInCode(),
     p_child_id: child.id,
     p_visit_reason: "general_checkup",
   })
@@ -85,7 +100,7 @@ const visit = unwrap(
 check("check-in assigned a token", Number.isInteger(visit.seq), `token ${visit.seq}`);
 
 // While a child is in the queue they can't get a second token.
-const second = await parent.rpc("check_in", {
+const second = await parent.rpc("check_in", { p_checkin_code: await checkInCode(),
   p_child_id: child.id,
   p_visit_reason: "vaccination",
 });
@@ -110,7 +125,7 @@ const extraChildren = unwrap(
 const extra = [];
 for (const extraChild of extraChildren) {
   extra.push(
-    await parent.rpc("check_in", { p_child_id: extraChild.id, p_visit_reason: "general_checkup" })
+    await parent.rpc("check_in", { p_checkin_code: await checkInCode(), p_child_id: extraChild.id, p_visit_reason: "general_checkup" })
   );
 }
 check(

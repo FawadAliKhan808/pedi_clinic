@@ -131,6 +131,32 @@ export type Database = {
           },
         ]
       }
+      checkin_secrets: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          secret: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          secret?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_secrets_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       children: {
         Row: {
           created_at: string
@@ -946,6 +972,7 @@ export type Database = {
       check_in: {
         Args: {
           p_appointment_id?: string
+          p_checkin_code: string
           p_child_id: string
           p_visit_reason: Database["public"]["Enums"]["visit_reason"]
         }
@@ -973,6 +1000,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      checkin_code_for: {
+        Args: { p_clinic_id: string; p_window: number }
+        Returns: string
+      }
+      checkin_code_valid: {
+        Args: { p_clinic_id: string; p_code: string }
+        Returns: boolean
+      }
+      checkin_qr_code: { Args: never; Returns: Json }
       child_visit_history: {
         Args: { p_child_id: string }
         Returns: {

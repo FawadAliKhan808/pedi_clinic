@@ -243,6 +243,8 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
+    case "CHECKIN_CODE_INVALID":
+      return "That check-in code has expired. Scan the QR code at reception again.";
     case "ACTIVE_TOKEN_EXISTS":
       return "This child is already in the queue. They can check in again once this visit is over.";
     case "APPOINTMENT_EXISTS_FOR_DAY":

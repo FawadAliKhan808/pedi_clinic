@@ -59,15 +59,24 @@ export class SupabaseQueueApi implements QueueApi {
   async checkIn(input: {
     childId: UUID;
     visitReason: VisitReason;
+    checkInCode: string;
     appointmentId?: UUID;
   }): Promise<Visit> {
     const { data, error } = await this.client.rpc("check_in", {
       p_child_id: input.childId,
       p_visit_reason: input.visitReason,
+      p_checkin_code: input.checkInCode,
       p_appointment_id: input.appointmentId ?? undefined,
     });
     if (error) throw toApiError(error, "CHECK_IN_FAILED");
     return mapVisitRow(data);
+  }
+
+  async getCheckInQrCode(): Promise<{ code: string; expiresAt: string }> {
+    const { data, error } = await this.client.rpc("checkin_qr_code");
+    if (error) throw toApiError(error, "CHECKIN_QR_FAILED");
+    const row = data as { code: string; expires_at: string };
+    return { code: row.code, expiresAt: row.expires_at };
   }
 
   async call(visitId: UUID): Promise<Visit> {

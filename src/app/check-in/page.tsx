@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, CalendarCheck } from "lucide-react";
+import { ArrowLeft, CalendarCheck, CircleCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StickyActionBar } from "@/components/layout/nav-shell";
+import { extractCheckInCode, QrScanner } from "@/components/parent/qr-scanner";
 import { ChildPicker, ReasonPicker } from "@/components/parent/visit-pickers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,6 +23,45 @@ import {
   sessionFlag,
   SHOW_INSTALL_AFTER_TOKEN,
 } from "@/lib/pwa/environment";
+
+/**
+ * A scanned code, kept for the rest of this visit: scanning with the phone's
+ * camera app while signed out lands on sign-in first, and the code should
+ * still be there afterwards. The server decides whether it's still fresh.
+ */
+const SCANNED_CODE_KEY = "pedi.checkInCode";
+/** A little under the server's 5 minutes, so a stale code isn't even tried. */
+const SCANNED_CODE_TTL_MS = 4.5 * 60 * 1000;
+
+function rememberCode(code: string | null) {
+  try {
+    if (code) sessionStorage.setItem(SCANNED_CODE_KEY, JSON.stringify({ code, at: Date.now() }));
+    else sessionStorage.removeItem(SCANNED_CODE_KEY);
+  } catch {
+    // Not remembered; they'll scan again.
+  }
+}
+
+/** A code from the link the phone's camera app opened, or one scanned minutes ago. */
+function initialCode(): string | null {
+  const fromLink = new URLSearchParams(globalThis.location.search).get("code");
+  if (fromLink) {
+    const code = extractCheckInCode(`${globalThis.location.origin}/check-in?code=${fromLink}`);
+    // Keep it out of the address bar, so the link isn't reused from history.
+    globalThis.history.replaceState(null, "", "/check-in");
+    rememberCode(code);
+    return code;
+  }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SCANNED_CODE_KEY) ?? "null") as
+      | { code: string; at: number }
+      | null;
+    if (saved && Date.now() - saved.at < SCANNED_CODE_TTL_MS) return saved.code;
+  } catch {
+    // Nothing usable saved.
+  }
+  return null;
+}
 
 interface CheckInData {
   children: Child[];
@@ -42,6 +82,28 @@ export default function CheckInPage() {
   const [declined, setDeclined] = useState<Set<UUID>>(new Set());
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Check-in only happens inside the clinic: nothing below the scanner
+  // appears until the QR code at reception has been scanned.
+  const [checkInCode, setCheckInCode] = useState<string | null>(null);
+  const [codeChecked, setCodeChecked] = useState(false);
+
+  useEffect(() => {
+    // Browser-only (the address bar and sessionStorage), so read after mount.
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setCheckInCode(initialCode());
+      setCodeChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function scanned(code: string) {
+    rememberCode(code);
+    setCheckInCode(code);
+  }
 
   useEffect(() => {
     void (async () => {
@@ -91,10 +153,12 @@ export default function CheckInPage() {
     visitReason: VisitReason;
     appointmentId?: UUID;
   }) {
+    if (!checkInCode) return;
     setBusy(true);
     try {
       const api = getBrowserApi();
-      await api.queue.checkIn(input);
+      await api.queue.checkIn({ ...input, checkInCode });
+      rememberCode(null);
       // A new token can put this child 3rd in line straight away.
       void api.notifications.dispatchPending();
       // The brief asks for the install popup again right after a token.
@@ -105,6 +169,11 @@ export default function CheckInPage() {
     } catch (caught) {
       toast(errorMessage(caught), "error");
       setBusy(false);
+      // Too old (or not the clinic's): back to the scanner, choices kept.
+      if ((caught as { code?: string }).code === "CHECKIN_CODE_INVALID") {
+        rememberCode(null);
+        setCheckInCode(null);
+      }
     }
   }
 
@@ -121,7 +190,20 @@ export default function CheckInPage() {
         <h1 className="text-xl font-bold text-foreground">Check in</h1>
       </header>
 
-      {data === null && loadError ? (
+      {!codeChecked ? null : !checkInCode ? (
+        <section className="flex flex-col gap-4 px-5 py-3">
+          <div>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
+              Scan the QR code at reception
+            </h2>
+            <p className="mt-1 text-sm text-foreground-muted">
+              You can only check in at the clinic. The code is on the screen at the
+              reception desk.
+            </p>
+          </div>
+          <QrScanner onCode={scanned} />
+        </section>
+      ) : data === null && loadError ? (
         <ErrorState message={loadError} onRetry={() => window.location.reload()} />
       ) : data === null ? (
         <div className="flex flex-col gap-3 px-5 py-3">
@@ -130,6 +212,13 @@ export default function CheckInPage() {
         </div>
       ) : (
         <>
+          <p
+            role="status"
+            className="mx-5 mt-1 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-3 text-sm font-semibold text-foreground"
+          >
+            <CircleCheck aria-hidden className="size-5 shrink-0 text-success" />
+            QR code scanned — you&apos;re at the clinic.
+          </p>
           <ChildPicker
             title="Who is visiting?"
             options={data.children}
@@ -191,7 +280,7 @@ export default function CheckInPage() {
         </>
       )}
 
-      {!upcoming && (
+      {checkInCode && !upcoming && (
         <StickyActionBar>
           <Button
             fullWidth
