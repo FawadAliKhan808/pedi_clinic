@@ -68,6 +68,32 @@ export class SupabaseAuthApi implements AuthApi {
     return data.claims.sub ?? null;
   }
 
+  async getCurrentEmail(): Promise<string | null> {
+    const { data, error } = await this.client.auth.getClaims();
+    if (error || !data) return null;
+    return typeof data.claims.email === "string" && data.claims.email ? data.claims.email : null;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const email = await this.getCurrentEmail();
+    if (!email) throw new ApiError("Not signed in with an email", "NOT_AUTHENTICATED");
+
+    // Proves it's really them (not someone at an unlocked phone) before changing it.
+    const check = await this.client.auth.signInWithPassword({ email, password: currentPassword });
+    if (check.error) throw new ApiError(check.error.message, "WRONG_PASSWORD", check.error);
+
+    const { error } = await this.client.auth.updateUser({ password: newPassword });
+    if (error) {
+      const code =
+        error.code === "weak_password"
+          ? "WEAK_PASSWORD"
+          : error.code === "same_password"
+            ? "SAME_PASSWORD"
+            : "PASSWORD_CHANGE_FAILED";
+      throw new ApiError(error.message, code, error);
+    }
+  }
+
   async getStaffRole(): Promise<{ role: StaffRole; clinicId: UUID | null } | null> {
     const userId = await this.getCurrentUserId();
     if (!userId) return null;

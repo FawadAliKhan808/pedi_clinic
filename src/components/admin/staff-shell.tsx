@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  BarChart3,
-  Bell,
-  CalendarDays,
-  CalendarRange,
-  History,
-  ListOrdered,
-  Package,
-  Pill,
-} from "lucide-react";
+import { CalendarDays, History, ListOrdered, Menu, Package, Pill } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
 import { InstallPrompt } from "@/components/parent/install-and-notifications";
@@ -46,9 +37,22 @@ export function StaffShell({ role, children: page }: { role: StaffRole; children
 const pharmacistNav: NavItem[] = [
   { href: "/admin/feed", label: "Feed", icon: Pill },
   { href: "/admin/stock", label: "Stock", icon: Package },
+  { href: "/admin/more", label: "More", icon: Menu },
 ];
 
-/** Only the doctor receives notifications (booking requests), so only they get the inbox. */
+/** Screens reached from the doctor's More tab; More stays highlighted on them. */
+export const DOCTOR_MORE_SCREENS = [
+  "/admin/notifications",
+  "/admin/availability",
+  "/admin/analytics",
+];
+
+/**
+ * The doctor's tabs: only what's used all day. Everything else (notifications,
+ * availability, analytics, the check-in QR, password, sign out) is under More.
+ * Only the doctor receives notifications (booking requests), so only they
+ * get the inbox — its unread count shows on More.
+ */
 function DoctorShell({ signOut, children }: { signOut: ReactNode; children: ReactNode }) {
   const unread = useUnreadNotificationCount();
   const inQueue = useActiveQueueCount();
@@ -63,9 +67,13 @@ function DoctorShell({ signOut, children }: { signOut: ReactNode; children: Reac
     },
     { href: "/admin/appointments", label: "Appointments", icon: CalendarDays },
     { href: "/admin/history", label: "History", icon: History },
-    { href: "/admin/notifications", label: "Notification", icon: Bell, badge: unread },
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/admin/availability", label: "Availability", icon: CalendarRange },
+    {
+      href: "/admin/more",
+      label: "More",
+      icon: Menu,
+      badge: unread,
+      alsoActiveOn: DOCTOR_MORE_SCREENS,
+    },
   ];
 
   return (

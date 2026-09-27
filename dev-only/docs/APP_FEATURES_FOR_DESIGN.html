@@ -183,7 +183,7 @@
   </div>
   <div>
   <h3>Doctor (route <code>/admin</code>)</h3>
-  <p><strong>Tabs:</strong> Queue · Appointments · History · Notification · Analytics · Availability</p>
+  <p><strong>Tabs:</strong> Queue · Appointments · History · More (Notifications, Availability, Analytics, Check-in QR, Change password, Sign out)</p>
   <ul>
     <li>Staff sign in</li>
     <li><strong>Queue</strong>
@@ -202,7 +202,7 @@
   </div>
   </div>
   <div class="note"><strong>Tab badges:</strong> the doctor's <em>Queue</em> tab shows a small coral dot, live from any screen, whenever anyone is waiting. The <em>Notification</em> tab shows an unread count (9+ max). The parent's bell icon shows an unread count too.</div>
-  <div class="warn">Six doctor tabs is a lot for a phone tab bar, and it is a known pain point. A redesign may regroup them (for example with a "More" tab) but must keep all six destinations reachable, with Queue first.</div>
+  <div class="note">The doctor has four tabs; less-used screens live under <strong>More</strong>, which carries the notifications unread badge and stays highlighted on the screens it holds. The pharmacist has Feed · Stock · More (Check-in QR, Change password, Sign out).</div>
 </section>
 
 <!-- ============================ 6 PARENT ============================ -->
@@ -569,9 +569,9 @@
   <h3>Notifications (push to the installed app, and always in the in-app list)</h3>
   <table>
     <tr><th style="width:30%">Notification</th><th style="width:35%">When</th><th>Goes to</th></tr>
-    <tr><td>"You're 3rd in line"</td><td>Exactly two waiting children ahead</td><td>Parent → Your queue</td></tr>
-    <tr><td>"Token N: it's your turn now"</td><td>Doctor taps Call or Recall</td><td>Parent → Your queue</td></tr>
-    <tr><td>"Token N was skipped" / "…removed from the queue"</td><td>Doctor taps Skip / Remove</td><td>Parent</td></tr>
+    <tr><td>"Inaya is 3rd in line"</td><td>Exactly two waiting children ahead</td><td>Parent → Your queue</td></tr>
+    <tr><td>"Inaya, you're being called by the doctor"</td><td>Doctor taps Call or Recall</td><td>Parent → Your queue</td></tr>
+    <tr><td>"Inaya's turn was skipped" / "Inaya was taken off today's queue"</td><td>Doctor taps Skip / Remove</td><td>Parent</td></tr>
     <tr><td>"Follow-up due for Aarav"</td><td>2 days before the follow-up date, in the morning</td><td>Parent</td></tr>
     <tr><td>"Appointment tomorrow for Aarav"</td><td>The evening before (7 pm)</td><td>Parent</td></tr>
     <tr><td>"Appointment today for Aarav"</td><td>The morning of (8 am)</td><td>Parent</td></tr>

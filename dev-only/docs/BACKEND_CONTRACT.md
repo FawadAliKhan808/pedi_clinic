@@ -27,6 +27,8 @@ interface below).
 | `signOut` | — | `void` | `AUTH_SIGNOUT_FAILED` | Any signed-in user |
 | `getCurrentUserId` | — | `UUID \| null` | — | Any |
 | `getStaffRole` | — | `{ role, clinicId } \| null` | `STAFF_ROLE_LOOKUP_FAILED` | Any signed-in user; reads only the caller's own `staff` row |
+| `getCurrentEmail` | — | `string \| null` — the signed-in account's email (staff) | — | Any |
+| `changePassword` | `currentPassword, newPassword` — checks the current one by signing in with it | `void` | `WRONG_PASSWORD`, `WEAK_PASSWORD` (under 6 characters), `SAME_PASSWORD`, `NOT_AUTHENTICATED` | Staff (email sign-in) |
 
 Phone OTP uses Supabase phone auth. The demo project's test phone numbers
 and their fixed OTP codes are configured in the Supabase dashboard (and

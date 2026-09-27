@@ -9,15 +9,7 @@ import { cn } from "@/lib/format";
  * Signs out and reloads at `redirectTo`. A full reload (rather than client
  * navigation) guarantees no signed-in state survives on a shared device.
  */
-export function SignOutButton({
-  redirectTo,
-  variant,
-  className,
-}: {
-  redirectTo: string;
-  variant: "icon" | "sidebar";
-  className?: string;
-}) {
+export function useSignOut(redirectTo: string): { signOut: () => Promise<void>; busy: boolean } {
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
@@ -28,6 +20,20 @@ export function SignOutButton({
       window.location.assign(redirectTo);
     }
   }
+
+  return { signOut, busy };
+}
+
+export function SignOutButton({
+  redirectTo,
+  variant,
+  className,
+}: {
+  redirectTo: string;
+  variant: "icon" | "sidebar";
+  className?: string;
+}) {
+  const { signOut, busy } = useSignOut(redirectTo);
 
   if (variant === "icon") {
     return (

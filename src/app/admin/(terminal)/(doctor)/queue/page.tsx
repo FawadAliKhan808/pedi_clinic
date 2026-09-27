@@ -1,10 +1,8 @@
 "use client";
 
-import { CalendarCheck, Plus, QrCode, Search } from "lucide-react";
-import Link from "next/link";
+import { CalendarCheck, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
-import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
 import { SearchChildrenSheet } from "@/components/admin/search-children-sheet";
@@ -133,16 +131,6 @@ export default function DoctorQueuePage() {
           >
             <Plus className="size-5" />
           </button>
-          {/* The check-in QR to print for reception. */}
-          <Link
-            href="/admin/check-in-qr"
-            aria-label="Check-in QR to print for reception"
-            title="Check-in QR to print for reception"
-            className="flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
-          >
-            <QrCode className="size-5" />
-          </Link>
-          <SignOutButton redirectTo="/admin/login" variant="icon" className="md:hidden" />
         </div>
       </header>
 

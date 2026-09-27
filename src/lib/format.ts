@@ -243,6 +243,12 @@ export function errorMessage(error: unknown): string {
       return "That photo didn't upload. Check your connection and retake it.";
     case "SESSION_FULL":
       return "That session just filled up. Please pick another time.";
+    case "WRONG_PASSWORD":
+      return "Your current password isn't right.";
+    case "WEAK_PASSWORD":
+      return "Choose a longer password — at least 6 characters.";
+    case "SAME_PASSWORD":
+      return "The new password must be different from the current one.";
     case "CHECKIN_CODE_INVALID":
       return "That check-in code isn't valid any more. Scan the QR code at reception again.";
     case "ACTIVE_TOKEN_EXISTS":

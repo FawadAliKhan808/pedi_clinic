@@ -3,7 +3,6 @@
 import { ChevronRight, Pill } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DispenseSheet } from "@/components/admin/dispense-sheet";
-import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
@@ -57,7 +56,6 @@ export default function PharmacyFeedPage() {
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <h1 className="text-2xl font-bold text-foreground">Pharmacy</h1>
-        <SignOutButton redirectTo="/admin/login" variant="icon" className="md:hidden" />
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">

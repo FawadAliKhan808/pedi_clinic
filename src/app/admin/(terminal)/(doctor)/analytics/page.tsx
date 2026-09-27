@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import type { UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage } from "@/lib/format";
+import { BackToMore } from "@/components/admin/back-to-more";
 
 type View = "day" | "trends";
 
@@ -37,7 +38,10 @@ export default function AnalyticsPage() {
     <div className="flex flex-1 flex-col">
       <header className="flex flex-wrap items-end justify-between gap-3 px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <div className="flex items-center gap-1">
+            <BackToMore />
+            <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          </div>
           <p className="text-sm text-foreground-muted">Only you can see these numbers.</p>
         </div>
         <Segmented<View>

@@ -11,6 +11,7 @@ import { getBrowserApi } from "@/lib/api/browser";
 import { cn, errorMessage } from "@/lib/format";
 import { renderNotification } from "@/lib/notifications/templates";
 import { announceNotificationsChanged, onNotificationsChanged } from "@/lib/notifications/unread";
+import { BackToMore } from "@/components/admin/back-to-more";
 
 function formatWhen(iso: string): string {
   const date = new Date(iso);
@@ -69,7 +70,10 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Notification</h1>
+        <div className="flex items-center gap-1">
+          <BackToMore />
+          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        </div>
         <p className="text-sm text-foreground-muted">
           New and changed appointments from parents, newest first.
         </p>

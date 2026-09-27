@@ -2,6 +2,7 @@
 
 import { CalendarRange, Copy, Plus, Sun, Sunset } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { BackToMore } from "@/components/admin/back-to-more";
 import { BookingList } from "@/components/appointments/booking-list";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -109,7 +110,10 @@ export default function AvailabilityPage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Availability</h1>
+        <div className="flex items-center gap-1">
+          <BackToMore />
+          <h1 className="text-2xl font-bold text-foreground">Availability</h1>
+        </div>
         <p className="text-sm text-foreground-muted">
           Open the sessions parents can book. Any number of children can book a session;
           walk-ins still come any time.

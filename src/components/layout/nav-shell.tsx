@@ -15,6 +15,8 @@ export interface NavItem {
   badge?: number;
   /** A small orange dot (e.g. "patients waiting"); its text is read to screen readers. */
   dot?: string | false;
+  /** Other screens this tab stands for — it stays highlighted there (e.g. "More"). */
+  alsoActiveOn?: string[];
 }
 
 /**
@@ -56,8 +58,8 @@ export function NavShell({
           {brand.name}
         </p>
 
-        {items.map(({ href, label, icon: Icon, badge, dot }) => {
-          const active = pathname === href;
+        {items.map(({ href, label, icon: Icon, badge, dot, alsoActiveOn }) => {
+          const active = pathname === href || Boolean(alsoActiveOn?.includes(pathname));
           return (
             <Link
               key={href}
