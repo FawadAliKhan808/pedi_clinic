@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pedi Clinic: App features for redesign</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  :root { --ink: #1a1917; --muted: #5c5952; --line: #e7e5e2; --teal: #23716d; --teal-bg: #eff9f8; --coral: #d85a2a; --coral-bg: #fff4ed; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 10pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 24pt; margin: 0 0 4pt; color: var(--teal); }
+  h2 { font-size: 15pt; margin: 0 0 8pt; padding-bottom: 4pt; border-bottom: 2px solid var(--teal); color: var(--teal); break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14pt 0 4pt; break-after: avoid; }
+  h4 { font-size: 10pt; margin: 8pt 0 2pt; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 6pt; padding-left: 16pt; }
+  li { margin-bottom: 2pt; }
+  section.chapter { break-before: page; }
+  .cover { padding-top: 40mm; }
+  .cover .sub { font-size: 13pt; color: var(--muted); margin-bottom: 18pt; }
+  .meta { font-size: 9pt; color: var(--muted); }
+  .note { background: var(--teal-bg); border-left: 3px solid var(--teal); padding: 6pt 9pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .warn { background: var(--coral-bg); border-left: 3px solid var(--coral); padding: 6pt 9pt; margin: 6pt 0 10pt; break-inside: avoid; }
+  .screen { border: 1px solid var(--line); border-radius: 6pt; padding: 8pt 10pt; margin: 0 0 10pt; break-inside: avoid-page; }
+  .screen h3 { margin-top: 0; }
+  .route { font-family: Consolas, monospace; font-size: 8.5pt; color: var(--muted); font-weight: normal; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9pt; break-inside: auto; }
+  th, td { text-align: left; vertical-align: top; padding: 4pt 6pt; border-bottom: 1px solid var(--line); }
+  th { background: #f4f3f1; font-weight: 600; }
+  tr { break-inside: avoid; }
+  code { font-family: Consolas, monospace; font-size: 8.5pt; background: #f4f3f1; padding: 0 2pt; border-radius: 2pt; }
+  .sw { display: inline-block; width: 9pt; height: 9pt; border-radius: 2pt; vertical-align: -1pt; margin-right: 4pt; border: 1px solid rgba(0,0,0,.1); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }
+  .toc li { margin-bottom: 1pt; }
+  pre { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 8.5pt; background: #f4f3f1; padding: 7pt 9pt; border-radius: 4pt; break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<section class="cover">
+  <h1>Pedi Clinic</h1>
+  <p class="sub">App features and screens: a reference for redesigning the app with AI design tools (Google Stitch, Figma Make and similar)</p>
+  <p>This document describes <strong>what the app does today</strong>: every role, screen, piece of data, action, state and rule. It is meant to be given to a design tool together with a prompt, so that new designs keep the same product and flows and change only the look and feel.</p>
+  <p class="meta">Written from the codebase as of 27 Sep 2026 (commit 4144de1). Source file: <code>dev-only/docs/APP_FEATURES_FOR_DESIGN.html</code>.</p>
+
+  <h3>Contents</h3>
+  <ol class="toc">
+    <li>How to use this document with a design tool</li>
+    <li>The product in one page</li>
+    <li>Design constraints the redesign must keep</li>
+    <li>Current visual language (what exists today)</li>
+    <li>App map: roles, navigation and screens</li>
+    <li>Parent screens</li>
+    <li>Doctor screens</li>
+    <li>Pharmacist screens</li>
+    <li>Owner screens</li>
+    <li>Shared states, statuses and notifications</li>
+    <li>End-to-end flows</li>
+    <li>Do not add: things the app deliberately doesn't have</li>
+    <li>Ready-made prompts</li>
+  </ol>
+</section>
+
+<!-- ============================ 1 ============================ -->
+<section class="chapter">
+  <h2>1. How to use this document with a design tool</h2>
+  <p>AI design tools tend to invent features, screens and flows when a prompt is vague. To stop that:</p>
+  <ol>
+    <li><strong>Attach this PDF</strong>, or paste the section for the screens you're designing, and tell the tool that this is the source of truth for features and content.</li>
+    <li><strong>Design one role at a time</strong> (Parent, then Doctor, then Pharmacist, then Owner), and ideally one screen or flow at a time. Each screen below lists its purpose, content, actions and states.</li>
+    <li><strong>Say what may change</strong>: colours, type, spacing, illustration, iconography, card styles, motion and layout details inside a screen.</li>
+    <li><strong>Say what must not change</strong>: the list of screens and tabs, the steps in each flow, the data shown, the button labels for key actions, and the rules in section 3.</li>
+    <li><strong>Ask for every state</strong>: loading, empty, error and success, plus the special states listed per screen (for example the token screen's six statuses).</li>
+    <li><strong>Check the output</strong> against section 12 ("Do not add"). Common inventions to reject: estimated wait times, chat, online payment, doctor ratings, symptom pickers, and cancel or reschedule buttons for parents.</li>
+  </ol>
+  <div class="note"><strong>Words that matter.</strong> The product speaks to <strong>parents</strong> about their <strong>children</strong>. Prefer "child" over "patient" in new copy. (A few current strings still say "patients ahead of you" and "Patient history"; a redesign may keep or fix those.) Currency is Indian rupees (<code>₹</code>), locale <code>en-IN</code>, timezone Asia/Kolkata, English only.</div>
+  <p>Section 13 has ready-made prompts for each role.</p>
+
+  <!-- ============================ 2 ============================ -->
+  <h2 style="margin-top:18pt">2. The product in one page</h2>
+  <p><strong>Pedi Clinic</strong> is a phone-first, installable web app (PWA) for one pediatric clinic: one pediatrician, about 20 children a day, and an in-house pharmacy. It replaces the paper token and waiting-room shouting.</p>
+  <ul>
+    <li><strong>Parents</strong> sign in with their phone number, add their children, <strong>check in</strong> to get a numbered <strong>token</strong> for today, and watch a <strong>live queue</strong> from their phone. The app notifies them when they're 3rd in line and when it's their turn. Afterwards they see a <strong>visit summary</strong> with the photographed prescription, the fee paid and any follow-up date. They can also <strong>book appointments</strong> (a session on a day up to a week ahead).</li>
+    <li><strong>The doctor</strong> runs the day from a phone, tablet or front-desk laptop: calls children from the queue, photographs the handwritten prescription, records fees and how they were paid (cash, UPI, card or split), sets follow-ups, opens booking sessions and looks at analytics.</li>
+    <li><strong>The pharmacist</strong> sees each completed visit instantly, reads the prescription photo, picks medicines and dispenses them (stock is deducted automatically), and manages stock.</li>
+    <li><strong>The owner</strong> (the product team, not clinic staff) sees app rating, install and notification adoption, and app-versus-walk-in usage.</li>
+  </ul>
+  <h4>Who uses it, and where</h4>
+  <table>
+    <tr><th style="width:18%">Role</th><th style="width:22%">Sign-in</th><th>Context</th></tr>
+    <tr><td>Parent</td><td>Mobile number + 6-digit SMS code</td><td>On their own phone: at home, travelling to the clinic, or in the waiting room with a child on their lap. Often one-handed and distracted. Mixed tech comfort. May open the link from WhatsApp.</td></tr>
+    <tr><td>Doctor</td><td>Email + password</td><td>Between consultations, in a hurry. Phone most of the time; sometimes a tablet or a laptop at the front desk.</td></tr>
+    <tr><td>Pharmacist</td><td>Email + password</td><td>At the pharmacy counter, on a phone or tablet, with the parent standing in front of them.</td></tr>
+    <tr><td>Owner</td><td>Email + password (separate login)</td><td>The product team checking adoption, occasionally, usually on a laptop.</td></tr>
+  </table>
+  <div class="note"><strong>Tone:</strong> calm, warm and reassuring, never clinical or alarming. Parents are anxious about a sick child; the queue screen should make waiting feel under control.</div>
+</section>
+
+<!-- ============================ 3 ============================ -->
+<section class="chapter">
+  <h2>3. Design constraints the redesign must keep</h2>
+  <h3>Platform and layout</h3>
+  <ul>
+    <li><strong>Mobile-first, not mobile-only.</strong> Every role must work well at 320–430 px wide with no sideways scrolling, and also on tablets and laptops.</li>
+    <li><strong>Navigation adapts to width:</strong> a <strong>bottom tab bar</strong> on phones, a narrow <strong>icon rail</strong> on the left on tablets, and a full <strong>sidebar</strong> with the app name (and Sign out at the bottom) on laptops.</li>
+    <li><strong>Sheets, not small dialogs:</strong> secondary tasks (add child, add walk-in, search, complete visit, dispense, child history) open as a <strong>full-screen sheet on phones</strong> and a <strong>right-hand drawer</strong> from tablet width up. Clicking outside or pressing Escape closes the drawer.</li>
+    <li><strong>One primary action per screen, pinned to the bottom</strong> (for example "Check in", "Get token", "Book appointment") in a bottom dock that sits just above the tab bar on phones.</li>
+    <li><strong>Card grids</strong> use 1 column on phones, 2 on tablets and 3 on wide screens.</li>
+    <li>Respect notches and home indicators (safe areas).</li>
+  </ul>
+  <h3>Touch and accessibility</h3>
+  <ul>
+    <li>Touch targets at least <strong>48 px</strong>. Pinch-zoom is never disabled.</li>
+    <li>Status is never shown by colour alone; each status also has a text label.</li>
+    <li>Light theme by default; <strong>dark mode follows the phone's setting</strong>. Designs should include both.</li>
+    <li>Motion is subtle and fast, and turns off for people who choose reduced motion.</li>
+    <li>Toasts (short confirmations and errors) appear at the <strong>top centre</strong>.</li>
+  </ul>
+  <h3>Every screen needs these states</h3>
+  <ul>
+    <li><strong>Loading:</strong> skeleton placeholders in the shape of the content (never a blank screen or a lone spinner).</li>
+    <li><strong>Empty:</strong> an icon, a short title, one helpful sentence and usually one action (the copy for each screen is given below).</li>
+    <li><strong>Error:</strong> "Couldn't load this" with the reason and a <strong>Try again</strong> button.</li>
+    <li><strong>Offline:</strong> a slim "You're offline" banner; live screens keep showing the last data and catch up when the connection returns.</li>
+    <li><strong>Success:</strong> a toast, for example "Visit completed for Aarav" or "Dispensed — ₹340".</li>
+  </ul>
+  <h3>The centrepiece</h3>
+  <p>The <strong>parent's token screen</strong> ("Your queue") is the visual heart of the product: a very large token number, a clear status colour, "Now serving" and plain, reassuring copy. Design this screen first and give it the most care.</p>
+  <h3>Real content, no fake data</h3>
+  <p>All data comes from the clinic's database. Designs may use sample Indian names (for example Aarav, Diya, Kabir, Ananya), realistic ages (such as "2 years, 3 months, 5 days"), 10-digit Indian mobile numbers and ₹ amounts from ₹0 to about ₹2,000.</p>
+</section>
+
+<!-- ============================ 4 ============================ -->
+<section class="chapter">
+  <h2>4. Current visual language (what exists today)</h2>
+  <p>This is the design system the redesign replaces. Keep the <strong>meaning</strong> of these tokens (one calm primary, one warm accent for the most important action, fixed status colours); the exact values can change.</p>
+  <table>
+    <tr><th style="width:25%">Token</th><th style="width:25%">Today</th><th>Used for</th></tr>
+    <tr><td>Primary (teal)</td><td><span class="sw" style="background:#23716d"></span>#23716d (600)<br><span class="sw" style="background:#eff9f8"></span>#eff9f8 (50)</td><td>Buttons, links, active tabs, waiting token, selected chips</td></tr>
+    <tr><td>Accent (coral)</td><td><span class="sw" style="background:#f2703a"></span>#f2703a (500)</td><td>Used sparingly: the main action on a screen ("Check in", "Get token", "Complete visit", "Book appointment"), the "It's your turn" state, badges and the "someone's waiting" dot</td></tr>
+    <tr><td>Neutrals</td><td><span class="sw" style="background:#fafaf9"></span>warm grey #fafaf9 → <span class="sw" style="background:#1a1917"></span>#1a1917</td><td>Warm-tinted greys, chosen so the app doesn't feel cold or clinical</td></tr>
+    <tr><td>Status: waiting</td><td><span class="sw" style="background:#7c7972"></span>neutral grey</td><td rowspan="6">Queue and visit statuses; these must read at a glance</td></tr>
+    <tr><td>Status: called</td><td><span class="sw" style="background:#f2703a"></span>coral</td></tr>
+    <tr><td>Status: in consultation</td><td><span class="sw" style="background:#23716d"></span>teal</td></tr>
+    <tr><td>Status: completed</td><td><span class="sw" style="background:#2f9e6e"></span>green #2f9e6e</td></tr>
+    <tr><td>Status: skipped</td><td><span class="sw" style="background:#d69300"></span>amber #d69300</td></tr>
+    <tr><td>Status: removed</td><td><span class="sw" style="background:#c24444"></span>red #c24444</td></tr>
+    <tr><td>Chart series</td><td><span class="sw" style="background:#2a78d6"></span><span class="sw" style="background:#eb6834"></span><span class="sw" style="background:#1baf7a"></span>blue, orange, green</td><td>Analytics charts only; always with a legend and a "Table" toggle</td></tr>
+    <tr><td>Font</td><td>Nunito (self-hosted)</td><td>Rounded, friendly sans. Any replacement must be self-hostable, with no request to a remote font service at runtime.</td></tr>
+    <tr><td>Radii</td><td>8 / 12 / 16 / 24 / 32 px</td><td>Generously rounded cards and buttons</td></tr>
+    <tr><td>Shadows</td><td>soft, low contrast</td><td>Cards float gently; nothing heavy</td></tr>
+    <tr><td>Token number</td><td>96 px, bold, tabular figures</td><td>The giant number on the token screen</td></tr>
+    <tr><td>Icons</td><td>Lucide (outline)</td><td>One icon set across the app</td></tr>
+  </table>
+</section>
+
+<!-- ============================ 5 ============================ -->
+<section class="chapter">
+  <h2>5. App map: roles, navigation and screens</h2>
+  <div class="two">
+  <div>
+  <h3>Parent (route <code>/</code>)</h3>
+  <p><strong>Tabs:</strong> Home · Appointments · Last visits</p>
+  <ul>
+    <li>Sign in (mobile number → 6-digit code)</li>
+    <li>Your name (first sign-in only)</li>
+    <li><strong>Home</strong>
+      <ul><li>Add child / Edit child (sheet)</li><li>Notifications list (bell)</li><li>Know about your doctor</li></ul></li>
+    <li>Check in → <strong>Your queue</strong> (token screen)</li>
+    <li>Visit summary (+ prescription viewer, rating)</li>
+    <li><strong>Appointments</strong> → Book an appointment</li>
+    <li><strong>Last visits</strong></li>
+    <li>Overlays: install popup, notification prompt and banner, "App installed" cover, offline banner</li>
+  </ul>
+  <h3>Pharmacist (route <code>/admin</code>)</h3>
+  <p><strong>Tabs:</strong> Feed · Stock</p>
+  <ul>
+    <li>Staff sign in</li>
+    <li><strong>Pharmacy feed</strong> → Dispense (sheet)</li>
+    <li><strong>Stock</strong> → Add medicine, Restock (sheets)</li>
+  </ul>
+  </div>
+  <div>
+  <h3>Doctor (route <code>/admin</code>)</h3>
+  <p><strong>Tabs:</strong> Queue · Appointments · History · Notification · Analytics · Availability</p>
+  <ul>
+    <li>Staff sign in</li>
+    <li><strong>Queue</strong>
+      <ul><li>Search children (sheet)</li><li>Add walk-in (sheet)</li><li>Child history (sheet)</li><li>Complete visit wizard (sheet, 5 steps)</li></ul></li>
+    <li><strong>Appointments</strong> (sessions and who booked)</li>
+    <li><strong>History</strong> → patient timeline (sheet)</li>
+    <li><strong>Notification</strong> (inbox, unread badge)</li>
+    <li><strong>Analytics</strong>: End of day · Trends</li>
+    <li><strong>Availability</strong> (open and close sessions)</li>
+  </ul>
+  <h3>Owner (route <code>/owner</code>)</h3>
+  <ul>
+    <li>Team sign in (separate)</li>
+    <li><strong>Owner dashboard</strong> (single page)</li>
+  </ul>
+  </div>
+  </div>
+  <div class="note"><strong>Tab badges:</strong> the doctor's <em>Queue</em> tab shows a small coral dot, live from any screen, whenever anyone is waiting. The <em>Notification</em> tab shows an unread count (9+ max). The parent's bell icon shows an unread count too.</div>
+  <div class="warn">Six doctor tabs is a lot for a phone tab bar, and it is a known pain point. A redesign may regroup them (for example with a "More" tab) but must keep all six destinations reachable, with Queue first.</div>
+</section>
+
+<!-- ============================ 6 PARENT ============================ -->
+<section class="chapter">
+  <h2>6. Parent screens</h2>
+
+  <div class="screen">
+    <h3>6.1 Sign in <span class="route">/ (signed out)</span></h3>
+    <p><strong>Purpose:</strong> get a parent in with only their phone. There are no passwords.</p>
+    <ul>
+      <li>Step 1: title "Pedi Clinic", subtitle "Check in for your child's visit and follow the queue from your phone.", a <strong>Mobile number</strong> field (number pad, 10 digits exactly; shows an error for 9 or 11 digits or letters), and a <strong>Send code</strong> button (disabled until valid).</li>
+      <li>Step 2: "Enter the 6-digit code we sent to +91…", a <strong>Verification code</strong> field (auto-fills from SMS), <strong>Verify</strong>, and "Use a different number".</li>
+      <li>States: sending or verifying (button spinner), wrong code or network error (inline under the field).</li>
+      <li>In a browser tab, the <strong>install popup</strong> (6.12) opens on this screen too, and the small install banner sits below the form. The installed app doesn't show either.</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.2 Your name <span class="route">first sign-in only</span></h3>
+    <p>"What should we call you?", with the note "The doctor sees this alongside your child's details." It has one field (<strong>Your name</strong>) and a <strong>Continue</strong> button. If the doctor had already added this phone number as a walk-in, the parent's children and past visits are attached to their account automatically.</p>
+  </div>
+
+  <div class="screen">
+    <h3>6.3 Home <span class="route">/</span></h3>
+    <p><strong>Purpose:</strong> the parent's base: which child is in today's queue, their children, and the way to check in.</p>
+    <h4>Top to bottom</h4>
+    <ol>
+      <li><strong>Header:</strong> "Pedi Clinic", a notification <strong>bell</strong> with an unread count, and Sign out (icon on phones; in the sidebar wider up).</li>
+      <li><strong>Install / notifications card</strong>: see 6.12; only appears when relevant.</li>
+      <li><strong>Today's tokens</strong> (only if any child is in today's queue): one card per token with a square token-number tile, the child's name and a status pill. Tapping it opens <em>Your queue</em>. Updates live.</li>
+      <li><strong>Your children</strong> with an <strong>+ Add child</strong> link. Each child card shows the name, <strong>exact age</strong> ("2 years, 3 months, 5 days"), a pencil to edit, and, while in the queue, "Token 7 · Vaccination" plus a <strong>"Currently in queue"</strong> label. Child cards have no check-in button of their own.</li>
+      <li><strong>Bottom dock</strong> (always pinned to the bottom): a <strong>"Know about your doctor"</strong> link; the "Enable notifications for live queue alerts [Turn on]" banner (only while undecided); and a wide coral <strong>Check in</strong> button (only when at least one child exists).</li>
+    </ol>
+    <h4>States</h4>
+    <ul><li>No children: empty state "No children added yet", "Add your child's name and date of birth to check in.", button <strong>Add your first child</strong>.</li><li>Loading skeleton; error with Try again.</li></ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.4 Add child / Edit child <span class="route">sheet</span></h3>
+    <ul>
+      <li>Fields: <strong>Child's name</strong> and <strong>Date of birth</strong> (a date, not an age; can't be in the future). The hint shows the live result: "Age today: 3 years, 2 months, 4 days".</li>
+      <li>Button: <strong>Save child</strong> / <strong>Save changes</strong> (disabled until valid and changed).</li>
+      <li>Edit only: a delete area. "Added by mistake? Deleting removes Aarav and any upcoming bookings. A child who has already visited the clinic keeps their records and can't be deleted." It uses a <strong>two-tap</strong> confirm button: "Delete Aarav" → "Tap again to delete Aarav".</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.5 Check in <span class="route">/check-in</span></h3>
+    <p><strong>Purpose:</strong> get today's token in two choices: <em>who</em> and <em>why</em>.</p>
+    <ol>
+      <li><strong>"Who is visiting?"</strong>: selectable child cards. A child already in the queue is shown but disabled, labelled "Currently in queue". With one child available, it's pre-selected.</li>
+      <li><strong>"Reason for the visit"</strong>: two large option cards, <strong>Vaccination</strong> and <strong>General checkup</strong>. There's no free-text field and no symptom list.</li>
+      <li>Pinned coral button: <strong>Get token</strong> (disabled until both are chosen). On success, the app goes straight to <em>Your queue</em>.</li>
+    </ol>
+    <h4>Special case: the child has an upcoming booking</h4>
+    <p>In place of the reason picker, a highlighted card asks: <strong>"Are you coming for the same reason you booked your upcoming appointment?"</strong> It gives the booking details (child, reason, day and time) and two buttons: <strong>Yes, same reason</strong> (gets the token immediately using that booking) and <strong>No, something else</strong> (shows the normal reason picker).</p>
+    <p>Rules: one active token per child per day, and a daily limit per phone number (set by the clinic). Errors show as a toast.</p>
+  </div>
+
+  <div class="screen">
+    <h3>6.6 Your queue: the token screen <span class="route">/queue</span> (centrepiece)</h3>
+    <p><strong>Purpose:</strong> let the parent relax. The app tells them when to go in.</p>
+    <p>One big card per active token (a parent can have more than one child in the queue):</p>
+    <ul>
+      <li><strong>Coloured top half</strong> (its colour follows the status): "AARAV'S TOKEN", the <strong>giant token number</strong>, and the reason (Vaccination / General checkup).</li>
+      <li><strong>Bottom half:</strong> a status pill, <strong>"Now serving 12"</strong>, and one line of plain copy for the status:</li>
+    </ul>
+    <table>
+      <tr><th style="width:22%">Status</th><th style="width:18%">Colour</th><th>Copy shown</th></tr>
+      <tr><td>Waiting</td><td>teal</td><td>"3 patients ahead of you." / when 0: "You're next — please stay close by."</td></tr>
+      <tr><td>Called</td><td>coral</td><td>"It's your turn now — please go in."</td></tr>
+      <tr><td>In consultation</td><td>deep teal</td><td>"You're with the doctor now."</td></tr>
+      <tr><td>Skipped</td><td>amber</td><td>"You were skipped, please check with reception."</td></tr>
+      <tr><td>Completed</td><td>green</td><td>(the app jumps to the Visit summary automatically)</td></tr>
+      <tr><td>Removed</td><td>red</td><td>"This token was removed. Please check with reception." (then it leaves this screen)</td></tr>
+    </table>
+    <ul>
+      <li>"Patients ahead" counts only waiting children with a lower token number. <strong>There is no estimated wait time</strong>, on purpose.</li>
+      <li>Below: the install / notifications card, and a small note: "This screen updates on its own — no need to refresh."</li>
+      <li>Empty: "No active token", "Check in to get today's token and follow the queue live. Summaries of finished visits are in Last visits.", with <strong>Check in</strong> and "Go to Last visits".</li>
+      <li>Updates live; after the phone sleeps or goes offline, it catches up by itself.</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.7 Visit summary <span class="route">/visits/[id]</span></h3>
+    <p>Opens <strong>automatically</strong> on whatever screen the parent is on when the doctor completes the visit (not when they open the app later). It can also be opened from Last visits.</p>
+    <ul>
+      <li>Card: child name, date and reason.</li>
+      <li><strong>Total paid</strong>: ₹ amount, large.</li>
+      <li><strong>Follow-up visit</strong> (if set): the date plus "we'll remind you beforehand."</li>
+      <li><strong>Prescription</strong>: photo thumbnails (up to 3) with "Tap a photo to zoom, download, or share it." With no photo: "No prescription photo was added for this visit."</li>
+      <li><strong>Rating</strong> (only if this parent has never rated): "How is this app working for you?" with 1–5 stars. Nothing else is asked, and it's asked once per parent, ever. Afterwards: "Thanks for rating the app".</li>
+    </ul>
+    <h4>Prescription viewer (full screen)</h4>
+    <p>Black background, pinch-zoom and pan, Close, <strong>Download</strong>, and <strong>Share</strong> (the phone's share sheet, for example WhatsApp; only shown where the phone supports it). With several photos, the parent picks from thumbnails.</p>
+  </div>
+
+  <div class="screen">
+    <h3>6.8 Last visits <span class="route">/records</span> (tab)</h3>
+    <ul>
+      <li>Title "Last visits", subtitle "Every finished visit, with the doctor's notes and prescriptions."</li>
+      <li><strong>Filter chips</strong> (scroll sideways): Child (All children / each child; only shown with 2+ children) and Reason (All reasons / Vaccination / General checkup), with a count such as "4 visits match".</li>
+      <li><strong>Visit cards</strong>, newest first: the child's initial in a circle, name, date, <strong>₹ fee</strong>, a reason chip with an icon (syringe / stethoscope), a coral "Follow-up 12 Oct" chip if set, prescription thumbnails, and a <strong>View visit summary ›</strong> row.</li>
+      <li>Empty: "No visits yet". Filtered to nothing: "No visits match", with <strong>Clear filters</strong>.</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.9 Appointments <span class="route">/appointments</span> (tab)</h3>
+    <ul>
+      <li>Explainer under the title: "Booking a session doesn't skip the queue — check in when you arrive and you'll get a token as usual. <strong>Bookings can't be changed once made.</strong>"</li>
+      <li>Cards: child name, day and session (for example "Wed, 1 Oct · Morning (10 am – 1 pm)"), reason, and a status pill (Booked / Arrived / Missed / Cancelled).</li>
+      <li><strong>No cancel or reschedule buttons</strong>: only the clinic can cancel.</li>
+      <li>Pinned coral button: <strong>Book an appointment</strong>.</li>
+      <li>Empty: "No upcoming appointments", "Book a session that suits you, up to a week ahead."</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.10 Book an appointment <span class="route">/appointments/book</span></h3>
+    <p>Deliberately feels like check-in: <strong>who → why → when</strong>.</p>
+    <ol>
+      <li>"Who is the appointment for?": child cards.</li>
+      <li>"Reason for the visit": Vaccination / General checkup.</li>
+      <li><strong>When</strong>: pick a <strong>day</strong> (only days in the next 7 with an open session are shown), then a <strong>session</strong> (for example "Morning (10 am – 1 pm)", "Evening (6 pm – 9 pm)" or a custom time). A day where this child already has a booking shows "Already booked" and can't be picked. Sessions show <strong>no capacity or slot counts</strong>, and several children can book the same session.</li>
+      <li>Pinned coral button: <strong>Book appointment</strong>. The booking is confirmed straight away (there's no approval step), with a toast such as "Booked for Wed, 1 Oct, Morning".</li>
+    </ol>
+    <ul>
+      <li>If the doctor closes a session while the parent is looking at it: "That session was just closed. Please pick another."</li>
+      <li>No open sessions: "The doctor hasn't opened any sessions in the booking window yet. Please check again later, or come in and take a token."</li>
+      <li>No children: "Add your child first".</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>6.11 Know about your doctor <span class="route">/doctor</span></h3>
+    <p>A profile page in a fixed order: <strong>name → portrait photo → title and years of experience → clinic location → qualifications and languages spoken → areas of expertise → professional highlights</strong>. Sections without data are hidden. Empty: "Doctor's profile coming soon".</p>
+  </div>
+
+  <div class="screen">
+    <h3>6.12 Install, notifications and system overlays</h3>
+    <h4>Install popup (every visit in a browser tab)</h4>
+    <ul>
+      <li>"Install Pedi Clinic". On iPhone Safari it shows steps (Share → <strong>Add to Home Screen</strong>); on Android Chrome it shows an <strong>Install app</strong> button.</li>
+      <li>Opened inside WhatsApp or another in-app browser: "Open this in your browser first", with <strong>Copy link</strong>.</li>
+      <li>"Not now" hides it for this visit, leaving a small banner. It shows again after getting a token. It depends only on how the app was opened, not on the account: every browser tab shows it; the app opened from the home screen never does.</li>
+      <li>Right after installing from the browser, a full-screen cover says: "App installed successfully! Please close this browser tab and open Pedi Clinic directly from your phone's home screen to continue." It has no close button.</li>
+    </ul>
+    <h4>Notification permission (in the installed app only)</h4>
+    <ul>
+      <li>A <strong>soft modal</strong>, at most once per visit, at helpful moments:
+        <ul>
+          <li>On Home: "Get live alerts when your turn is approaching"</li>
+          <li>After getting a token: "Want an alert when it's almost your turn?"</li>
+          <li>After booking: "Get reminded about this appointment"</li>
+        </ul>
+        Each has a short body, <strong>Turn on</strong> and <strong>Not now</strong>.</li>
+      <li>After "Not now", a compact banner stays: <strong>"Enable notifications for live queue alerts [Turn on]"</strong> (in Home's bottom dock; at the top of other screens).</li>
+      <li>If blocked: "Notifications are blocked", with phone-specific steps to re-enable (iPhone Settings → Notifications → Pedi Clinic; Android Settings → Apps → Pedi Clinic → Notifications).</li>
+      <li>Once allowed or blocked, the modal and banner disappear for good.</li>
+    </ul>
+    <h4>Notifications list (bell)</h4>
+    <p>A sheet with the newest first: title, one-line body and time. Unread items are highlighted, each has a delete (bin) button, and tapping one goes to the relevant screen. Empty: "Nothing yet", "We'll let you know here when you're 3rd in line and when it's your turn." Everything that is pushed also lands here.</p>
+  </div>
+</section>
+
+<!-- ============================ 7 DOCTOR ============================ -->
+<section class="chapter">
+  <h2>7. Doctor screens</h2>
+
+  <div class="screen">
+    <h3>7.1 Staff sign in <span class="route">/admin/login</span></h3>
+    <p>"Staff sign in", with <strong>Email</strong>, <strong>Password</strong> and Sign in. The same screen serves the doctor and the pharmacist; the role decides where they land (Queue or Pharmacy feed).</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.2 Queue <span class="route">/admin/queue</span> (home tab)</h3>
+    <p><strong>Purpose:</strong> run the day. The list updates live as parents check in.</p>
+    <p><strong>Header:</strong> "Queue", with 🔍 <strong>Search children</strong> and ＋ <strong>Add walk-in</strong> icon buttons.</p>
+    <h4>Each queue card</h4>
+    <ul>
+      <li>A <strong>token number</strong> tile; the <strong>child's name</strong>; <strong>exact age · reason</strong>.</li>
+      <li>Pills: <strong>status</strong>, <strong>New</strong> or <strong>Returning</strong>, and an <strong>Appointment</strong> badge if they booked.</li>
+      <li>Tapping the top of the card opens the <em>Child history</em> sheet.</li>
+      <li>Actions depend on the status:</li>
+    </ul>
+    <table>
+      <tr><th style="width:22%">Status</th><th>Main button</th><th>Secondary buttons</th></tr>
+      <tr><td>Waiting</td><td><strong>Call</strong> (notifies the parent "It's your turn")</td><td>Skip · Remove</td></tr>
+      <tr><td>Called</td><td><strong>Start consultation</strong></td><td>Recall (re-notifies) · Skip · Remove</td></tr>
+      <tr><td>In consultation</td><td><strong>Complete visit</strong> (coral; opens the wizard)</td><td>Skip · Remove</td></tr>
+      <tr><td>Skipped</td><td><strong>Recall</strong> (card sits at the end of the list)</td><td>Remove</td></tr>
+    </table>
+    <p>Empty: "No one in the queue", "Tokens appear here the moment a parent checks in.", <strong>Add walk-in</strong>.</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.3 Add walk-in <span class="route">sheet</span></h3>
+    <p>For parents without the app. Fields: <strong>Child's name</strong>, <strong>Date of birth</strong>, <strong>Parent's mobile number</strong> (10 digits), and <strong>Reason for the visit</strong> (Vaccination / General checkup). The note says: "The visit links to this number and appears in their app when they sign in." On success: "Token 14 created for Diya".</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.4 Search children <span class="route">sheet</span></h3>
+    <p>A single field, <strong>Name or phone number</strong>, with live results (child, age, parent, phone). Tapping a result opens Child history. No match: "No matches", "Try a different spelling, or search by the parent's phone number."</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.5 Child history <span class="route">sheet</span></h3>
+    <p>The header shows the child's name, age, <strong>parent's name and a tap-to-call phone</strong>. Then the <strong>last visit summary first</strong>, then the full history: date, reason, fee and prescription photos. New child: "First visit" / "No visits yet".</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.6 Complete visit: 5-step wizard <span class="route">sheet, one step per screen</span></h3>
+    <ol>
+      <li><strong>Prescription:</strong> <strong>Take photo</strong> opens the rear camera. Up to <strong>3 photos</strong> ("Add another page"), each with a retake button; photos are compressed on the phone. Button: <em>Skip for now</em> (no photos) or <em>Next</em>.</li>
+      <li><strong>Fees:</strong> three ₹ fields, <strong>Consultation</strong>, <strong>Vaccination</strong> and <strong>Other</strong> (any may be 0), with a live <strong>Amount due</strong> total. There are no preset or default fees.</li>
+      <li><strong>Payment</strong> (skipped when the total is ₹0): choose <strong>Cash</strong>, <strong>UPI</strong>, <strong>Card</strong> or <strong>Hybrid</strong>. Hybrid asks for an amount per mode, which must add up <em>exactly</em> to the total ("Entered ₹… of ₹…").</li>
+      <li><strong>Follow-up</strong> (optional): a future date, with a Clear button. It only schedules a reminder for the parent; it doesn't create an appointment.</li>
+      <li><strong>Review:</strong> child, prescription count, each fee, each payment mode (or "No payment due") and the follow-up date, with a coral <strong>Complete visit</strong> button.</li>
+    </ol>
+    <p>Back buttons on every step. Closing with anything entered asks: "Are you sure? Unsaved data will be lost.", with <strong>Keep editing</strong> / <strong>Discard and close</strong>. On complete, the visit appears instantly in the pharmacy feed, the parent's phone jumps to the summary, and the toast says "Visit completed for Aarav".</p>
+    <div class="note">Only one child can be in consultation at a time. Calling another child while one is open asks the doctor to finish the current one first.</div>
+  </div>
+
+  <div class="screen">
+    <h3>7.7 Appointments <span class="route">/admin/appointments</span></h3>
+    <ul>
+      <li>Today and upcoming days, <strong>grouped by day, then by session</strong>.</li>
+      <li>Each session shows a summary line, "3 booked · 2 vaccination, 1 general checkup", then each booking: child name, reason, age, parent name and a <strong>tap-to-call</strong> phone number.</li>
+      <li>Actions: <strong>Cancel session</strong> and <strong>Cancel day</strong>, both two-tap ("Tap again — parents will be told"). Affected parents are notified immediately. There are no approve/reject buttons.</li>
+      <li>Empty: "No sessions scheduled", "Open a session from the Availability tab." A session with no bookings: "No bookings yet".</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>7.8 History <span class="route">/admin/history</span></h3>
+    <ul>
+      <li>"Patient history": only children whose consultation was <strong>completed</strong>.</li>
+      <li>Defaults to <strong>today</strong> (updates live). Use ‹ › to step a day, or a date box to jump to any past date.</li>
+      <li>A <strong>Reason</strong> filter, and a search box, "Search child, parent or phone", that searches across all days.</li>
+      <li>Rows: child, parent (or "Parent's name not given"), phone, and "General checkup · 3 visits" (last reason and visit count).</li>
+      <li>Tapping a row opens the <strong>patient timeline</strong> (sheet): every consultation, newest first, with date, token, reason, a booked-appointment tag, <strong>minutes with the doctor</strong>, fees and how they were paid, follow-up, <strong>medicines dispensed</strong> (or "Not collected yet" / "Bought elsewhere"), and <strong>View prescription</strong>.</li>
+      <li>Empty: "No consultations yet today" / "No one found" / "No one matches".</li>
+    </ul>
+  </div>
+
+  <div class="screen">
+    <h3>7.9 Notification <span class="route">/admin/notifications</span></h3>
+    <p>The doctor's inbox, newest first. Mainly <strong>"New appointment: Aarav"</strong> with the reason and session, plus a "See all bookings" link to Appointments. Unread items stay highlighted for this visit, and each can be deleted. Empty: "No notifications", "When a parent books or moves an appointment, it shows up here."</p>
+  </div>
+
+  <div class="screen">
+    <h3>7.10 Analytics <span class="route">/admin/analytics</span> (doctor only)</h3>
+    <p>Subtitle "Only you can see these numbers." A segmented switch toggles <strong>End of day</strong> and <strong>Trends</strong>. Every chart has a legend and a <strong>Table</strong> toggle to show the numbers, and tapping a column shows its value.</p>
+    <h4>End of day (pick a date, defaults to today)</h4>
+    <ul>
+      <li>Stat tiles: <strong>Children seen</strong>, <strong>Total collected</strong> (consultations + pharmacy), <strong>Visit fees</strong>, <strong>Pharmacy sales</strong> (with order count), <strong>Appointments arrived</strong>, <strong>Appointments missed</strong>.</li>
+      <li>Fee tiles: Consultation / Vaccination / Other fees.</li>
+      <li>Split bars: booked appointments attended vs missed; consultations by payment mode (Cash / UPI / Card); consultations by fee type.</li>
+    </ul>
+    <h4>Trends (range: today / 7 days / 30 days / custom; group by day, week or month)</h4>
+    <ul>
+      <li>Tiles: Children seen, Total collected, Visit fees, Pharmacy sales, <strong>Average consultation</strong> (minutes), <strong>Skipped or removed</strong> (x of y tokens), <strong>Appointments kept</strong>, <strong>Follow-ups returned</strong>.</li>
+      <li>Column charts: children seen per day, week or month; consultation revenue split by fee type <em>or</em> payment mode; pharmacy sales; booked appointments attended vs missed.</li>
+      <li>Split bars: reason for visit; new vs returning; how they joined the queue (same-day token vs booked appointment).</li>
+      <li><strong>Busiest check-in hours</strong>: tokens taken by hour of the day.</li>
+      <li>Empty: "Nothing in this range yet".</li>
+    </ul>
+    <div class="warn">Analytics must <strong>not</strong> show app ratings or install and notification adoption; those belong to the Owner only.</div>
+  </div>
+
+  <div class="screen">
+    <h3>7.11 Availability <span class="route">/admin/availability</span></h3>
+    <p><strong>Purpose:</strong> open the sessions parents can book. Everything else stays open for walk-ins.</p>
+    <ul>
+      <li>Pick a <strong>date</strong>.</li>
+      <li><strong>One-tap presets</strong>: "Morning (10 am – 1 pm)" and "Evening (6 pm – 9 pm)" ("One tap adds it straight away."). A preset already open that day shows as added.</li>
+      <li><strong>Or a custom time</strong>: <em>From</em> and <em>To</em> boxes (number pad; typing "5" or "5:30" works) with an <strong>AM/PM toggle</strong> beside each, and a confirmation such as "Reads as 5:30 PM". An end time before the start shows "Must be after the start". There are no dropdowns and no slot counts.</li>
+      <li>Helpers: <strong>Copy last week</strong> and <strong>Mark day closed</strong> (two-tap: "Tap again — booked parents will be told").</li>
+      <li>The <strong>session cards</strong> for that day list every booked child with their reason, parent name and a tap-to-call number, plus <strong>Cancel session</strong>.</li>
+      <li>Empty: "No sessions", "Nothing open on Wed, 1 Oct yet — use a button above."</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ 8 PHARMACIST ============================ -->
+<section class="chapter">
+  <h2>8. Pharmacist screens</h2>
+  <div class="screen">
+    <h3>8.1 Pharmacy feed <span class="route">/admin/feed</span> (home tab)</h3>
+    <ul>
+      <li>A live list of <strong>completed visits waiting for medicines</strong>. A new one appears the moment the doctor completes a visit.</li>
+      <li>Card: token number tile, child name, age · reason, and "2 prescription photos" (or "No prescription photo"). Tapping it opens Dispense.</li>
+      <li>Empty: "Nothing waiting", "Visits appear here the moment the doctor completes them."</li>
+    </ul>
+  </div>
+  <div class="screen">
+    <h3>8.2 Dispense <span class="route">sheet</span></h3>
+    <ul>
+      <li>Title: "Token 7 · Aarav".</li>
+      <li><strong>Prescription photo(s)</strong> at the top; they open full screen with pinch-zoom and pan.</li>
+      <li><strong>Find a medicine</strong>: search as you type. Each result shows name, unit, price and "12 left", with − / + quantity buttons (capped at the stock available).</li>
+      <li>Footer: item count and a running <strong>₹ total</strong>, a <strong>Dispense</strong> button (deducts stock in one safe step and is refused if stock ran out), and <strong>"Buying elsewhere — skip"</strong> (clears the visit from the feed).</li>
+      <li>Toasts: "Dispensed — ₹340" / "Token 7 cleared".</li>
+    </ul>
+  </div>
+  <div class="screen">
+    <h3>8.3 Stock <span class="route">/admin/stock</span></h3>
+    <ul>
+      <li><strong>Search medicines</strong> and filter chips with counts: <strong>All · In stock · Low stock · Out of stock</strong>. Out-of-stock and low items sort to the top.</li>
+      <li>A low-stock warning summary at the top when anything is low.</li>
+      <li>Rows: name, unit, price per unit, quantity, a low or out badge, and a <strong>Restock</strong> button.</li>
+      <li><strong>Add medicine</strong> (sheet): Name, Unit ("tablet, ml, strip"), Price per unit, Quantity in stock, and <strong>Warn below</strong> ("You'll see a low-stock warning at or below this quantity.").</li>
+      <li><strong>Restock</strong> (sheet): <strong>Quantity received</strong> → "Paracetamol syrup now at 40".</li>
+      <li>Empty: "No medicines yet", "Add what the pharmacy carries so visits can be dispensed."</li>
+    </ul>
+  </div>
+  <p class="meta">The pharmacist cannot see fees, payments or analytics.</p>
+
+  <!-- ============================ 9 OWNER ============================ -->
+  <h2 style="margin-top:18pt">9. Owner screens</h2>
+  <div class="screen">
+    <h3>9.1 Team sign in <span class="route">/owner/login</span></h3>
+    <p>"Team sign in", with Email and Password. Note: "This sign-in is for the Pedi Clinic team only. Clinic staff sign in at /admin." Doctor and pharmacist accounts are refused here.</p>
+  </div>
+  <div class="screen">
+    <h3>9.2 Owner dashboard <span class="route">/owner</span></h3>
+    <p>A single page that updates live:</p>
+    <ul>
+      <li><strong>App rating</strong>: the average (for example 4.6 ★), the number of ratings, and a 5→1 star <strong>distribution</strong> bar chart. "Given by parents after a visit".</li>
+      <li><strong>Adoption</strong>: tiles for <strong>Parents registered</strong>, <strong>Installed the app</strong> (with % of parents) and <strong>Notifications on</strong> (with % of parents).</li>
+      <li><strong>Usage</strong>: "How tokens were created", a split bar of <strong>From the app</strong> vs <strong>Walk-ins added by staff</strong>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ 10 ============================ -->
+<section class="chapter">
+  <h2>10. Shared states, statuses and notifications</h2>
+  <h3>Visit / token statuses</h3>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Seen by</th></tr>
+    <tr><td>Waiting</td><td>Has a token, in line</td><td>Parent, Doctor</td></tr>
+    <tr><td>Called</td><td>The doctor tapped Call or Recall; the parent should go in</td><td>Parent, Doctor</td></tr>
+    <tr><td>In consultation</td><td>With the doctor now</td><td>Parent, Doctor</td></tr>
+    <tr><td>Completed</td><td>Visit saved; appears in the pharmacy feed and Last visits</td><td>All</td></tr>
+    <tr><td>Skipped</td><td>Passed over; can be recalled; moves to the end of the list</td><td>Parent, Doctor</td></tr>
+    <tr><td>Removed</td><td>Taken out of today's queue</td><td>Parent, Doctor</td></tr>
+  </table>
+  <h3>Appointment statuses</h3>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td>Booked</td><td>Confirmed as soon as it's made</td></tr>
+    <tr><td>Arrived</td><td>The child checked in with this booking</td></tr>
+    <tr><td>Missed</td><td>The day passed with no check-in (marked the next morning)</td></tr>
+    <tr><td>Cancelled</td><td>The clinic cancelled the session or day</td></tr>
+  </table>
+  <p class="meta">"Awaiting approval" and "Not approved" exist in the code from an earlier approval flow that has since been removed. Don't design for them.</p>
+
+  <h3>Notifications (push to the installed app, and always in the in-app list)</h3>
+  <table>
+    <tr><th style="width:30%">Notification</th><th style="width:35%">When</th><th>Goes to</th></tr>
+    <tr><td>"You're 3rd in line"</td><td>Exactly two waiting children ahead</td><td>Parent → Your queue</td></tr>
+    <tr><td>"Token N: it's your turn now"</td><td>Doctor taps Call or Recall</td><td>Parent → Your queue</td></tr>
+    <tr><td>"Token N was skipped" / "…removed from the queue"</td><td>Doctor taps Skip / Remove</td><td>Parent</td></tr>
+    <tr><td>"Follow-up due for Aarav"</td><td>2 days before the follow-up date, in the morning</td><td>Parent</td></tr>
+    <tr><td>"Appointment tomorrow for Aarav"</td><td>The evening before (7 pm)</td><td>Parent</td></tr>
+    <tr><td>"Appointment today for Aarav"</td><td>The morning of (8 am)</td><td>Parent</td></tr>
+    <tr><td>"Your appointment has been cancelled."</td><td>Doctor cancels a session or day</td><td>Parent</td></tr>
+    <tr><td>"New appointment: Aarav"</td><td>A parent books</td><td>Doctor (in-app inbox only)</td></tr>
+  </table>
+
+  <h3>Shared UI pieces to design once</h3>
+  <ul>
+    <li><strong>Status pill</strong> (six visit statuses, four appointment statuses)</li>
+    <li><strong>Selectable option card</strong> (child picker, reason picker, day and session picker), shared by check-in and booking so they feel the same</li>
+    <li><strong>Sheet / drawer</strong> with a title, a scrolling body and a pinned footer</li>
+    <li><strong>Two-tap confirm button</strong> for destructive actions ("Cancel session" → "Tap again to cancel")</li>
+    <li><strong>Stat tile</strong>, <strong>chart card</strong> (with Chart/Table toggle), <strong>split bar</strong>, <strong>column chart</strong></li>
+    <li><strong>Filter chip row</strong> (scrolls sideways on phones)</li>
+    <li><strong>Empty state</strong>, <strong>error state</strong>, <strong>skeletons</strong>, <strong>toast</strong>, <strong>offline banner</strong></li>
+    <li><strong>Buttons</strong>: primary (teal), accent (coral, the main action), secondary (outlined), ghost (text)</li>
+    <li><strong>Prescription thumbnails</strong> and the <strong>full-screen photo viewer</strong></li>
+  </ul>
+</section>
+
+<!-- ============================ 11 ============================ -->
+<section class="chapter">
+  <h2>11. End-to-end flows</h2>
+  <h3>A. A typical visit (the demo path)</h3>
+  <ol>
+    <li><strong>Parent</strong> opens the link → signs in with a phone number and code → enters their name → adds a child (name + date of birth).</li>
+    <li>Taps <strong>Check in</strong> → picks the child → picks <em>General checkup</em> → <strong>Get token</strong> → lands on <strong>Your queue</strong>: "Token 7 · 3 patients ahead of you". The notification prompt appears.</li>
+    <li>The queue moves; the parent gets a <strong>"3rd in line"</strong> push.</li>
+    <li><strong>Doctor</strong> (Queue tab) taps <strong>Call</strong> on token 7 → the parent's card turns coral: "It's your turn now — please go in." → the doctor taps <strong>Start consultation</strong>.</li>
+    <li>The doctor taps <strong>Complete visit</strong> → photographs the prescription → fees ₹500 consultation → <strong>Hybrid</strong>: ₹300 UPI + ₹200 cash → follow-up in 2 weeks → <strong>Complete visit</strong>.</li>
+    <li>The <strong>parent's</strong> phone jumps to the <strong>Visit summary</strong>: prescription, ₹500 paid, follow-up date → they rate the app 5★.</li>
+    <li><strong>Pharmacist</strong>: token 7 appears in the feed → opens it → zooms into the prescription → adds medicines → <strong>Dispense</strong> ("Dispensed — ₹340").</li>
+    <li><strong>Owner</strong> dashboard: the rating and usage update live.</li>
+  </ol>
+  <h3>B. Booking ahead</h3>
+  <ol>
+    <li>Doctor → <strong>Availability</strong> → picks Thursday → taps "Morning (10 am – 1 pm)".</li>
+    <li>Parent → <strong>Appointments</strong> → <strong>Book an appointment</strong> → child → Vaccination → Thursday → Morning → <strong>Book appointment</strong> → "Booked".</li>
+    <li>Doctor gets "New appointment: Diya" in <strong>Notification</strong>; it appears under Thursday Morning in <strong>Appointments</strong>.</li>
+    <li>Wednesday 7 pm: "Appointment tomorrow". Thursday 8 am: "Appointment today".</li>
+    <li>Thursday: the parent taps <strong>Check in</strong> → gets a token as usual; the doctor's card shows the <strong>Appointment</strong> badge. Queue order is still first-come, first-served.</li>
+    <li>If they never arrive, the booking shows as <strong>Missed</strong> the next morning.</li>
+  </ol>
+  <h3>C. Walk-in without the app</h3>
+  <ol>
+    <li>Doctor → Queue → ＋ <strong>Add walk-in</strong> → name, date of birth, parent's mobile, reason → a token is created.</li>
+    <li>Later the parent installs the app and signs in with the same number: the child and the visit are already there.</li>
+  </ol>
+  <h3>D. Doctor cancels a day</h3>
+  <ol>
+    <li>Doctor → Availability (or Appointments) → <strong>Mark day closed</strong> / <strong>Cancel day</strong> → "Tap again — booked parents will be told".</li>
+    <li>Every booked parent gets "Your appointment has been cancelled."; their booking shows <strong>Cancelled</strong>.</li>
+  </ol>
+</section>
+
+<!-- ============================ 12 ============================ -->
+<section class="chapter">
+  <h2>12. Do not add: things the app deliberately doesn't have</h2>
+  <p>These were considered and left out on purpose. A design that includes them is off-brief.</p>
+  <div class="two">
+  <div>
+  <h4>Parent side</h4>
+  <ul>
+    <li>Estimated wait time or ETA (only "patients ahead")</li>
+    <li>Cancel, reschedule or edit a booking (only the clinic can cancel)</li>
+    <li>Leaving the queue by themselves</li>
+    <li>Symptom or complaint fields, free-text notes to the doctor</li>
+    <li>Choosing a time slot inside a session, or seeing slot counts</li>
+    <li>Online payment or payment in the app</li>
+    <li>Rating the doctor, written reviews, feedback forms, Google review links</li>
+    <li>Chat, calls or messaging with the clinic</li>
+    <li>Vaccination charts, growth charts, health records beyond visits</li>
+    <li>AI summaries, OCR of prescriptions</li>
+    <li>Multiple clinics, multiple doctors, clinic search or maps</li>
+    <li>Regional languages or a language switcher</li>
+    <li>Social login or passwords for parents</li>
+    <li>Profile photos for children</li>
+  </ul>
+  </div>
+  <div>
+  <h4>Staff side</h4>
+  <ul>
+    <li>Approving or rejecting bookings (bookings are auto-confirmed)</li>
+    <li>Session capacity or slot limits (sessions have no capacity)</li>
+    <li>Urgent or priority flags that jump the queue</li>
+    <li>Default or preset fee amounts</li>
+    <li>Typing medicines at the consultation (the prescription is a photo; the pharmacist picks medicines)</li>
+    <li>A clinic open or closed status banner</li>
+    <li>Ratings or app adoption in the doctor's analytics</li>
+    <li>Staff management, roles or settings screens</li>
+    <li>Supplier, purchase-order or expiry tracking in stock</li>
+    <li>Printing, invoices or GST bills</li>
+  </ul>
+  <h4>Not built yet (don't design unless asked)</h4>
+  <ul>
+    <li>Privacy notice / parental consent screen (needed before launch)</li>
+    <li>Push notifications for the doctor (in-app inbox only today)</li>
+  </ul>
+  </div>
+  </div>
+</section>
+
+<!-- ============================ 13 ============================ -->
+<section class="chapter">
+  <h2>13. Ready-made prompts</h2>
+  <p>Start with the main prompt, with this PDF attached. Then use the follow-up prompts one at a time, so the app is designed one part at a time.</p>
+
+  <h4>Main prompt (paste first)</h4>
+<pre>Redesign "Pedi Clinic", an existing, working mobile app for a single pediatric clinic in India.
+The attached PDF is the source of truth for every screen, field, button, state and rule.
+
+GOAL
+Make it look like a modern, premium 2026 consumer app, the kind of polish you'd expect
+from Apple Health, Airbnb, Revolut or Headspace, while keeping it calm, warm and
+trustworthy for anxious parents with a sick child. It should feel modern and friendly,
+not clinical, not childish, not like an admin template.
+
+KEEP EXACTLY (do not change)
+- The same screens, navigation tabs, steps in each flow, data shown, and key button labels
+  as described in the PDF.
+- Do NOT add features, screens, fields or buttons that aren't in the PDF. Check against
+  section 12 ("Do not add"). In particular: no estimated wait times, no chat, no online
+  payment, no doctor ratings, no symptom pickers, no cancel/reschedule for parents, no slot counts.
+- Words: "parent" and "child" (not "patient"), rupees (₹), English, Indian names and 10-digit numbers.
+
+VISUAL DIRECTION (what "modern" means here)
+- Typography-led: one contemporary geometric/rounded sans (e.g. Plus Jakarta Sans, Manrope,
+  or Nunito), confident large headings, clear hierarchy, tabular numbers for tokens and money.
+- Generous whitespace, fewer borders. Separate content with soft surfaces and spacing,
+  not lines.
+- Large rounded corners (20–28 px cards, pill-shaped buttons and chips), soft layered
+  shadows, subtle depth.
+- Palette: one calm primary (teal/blue family), ONE warm accent (coral) reserved only for
+  the main action on each screen and the "It's your turn" moment, warm off-white
+  background, near-black text. Subtle gradients allowed on hero elements only.
+- Status colours must stay distinct and always carry a text label:
+  Waiting, Called, In consultation, Completed, Skipped, Removed.
+- Bento-style card layouts on dashboards and home; big tappable option cards for choices
+  (child, reason, day, session). No dropdowns.
+- Floating, slightly translucent bottom tab bar on phones; icon rail on tablets;
+  sidebar on laptops.
+- Clean outline icon set (Lucide style), friendly illustrated or icon-led empty states.
+- Micro-interactions implied: smooth status colour transitions, gentle press states,
+  a satisfying token "arrival" moment.
+
+THE HERO SCREEN
+The parent's "Your queue" token screen is the centrepiece. Give it a huge token number,
+a strong status colour, "Now serving", and one reassuring line ("3 children ahead of you").
+It should feel like a boarding pass or a live-activity card: glanceable from arm's length.
+
+NON-NEGOTIABLES
+- Phone first (390 × 844), must also work on tablet and laptop.
+- Touch targets ≥ 48 px, main action pinned to the bottom, secondary tasks open as sheets.
+- Light AND dark versions.
+- Every screen includes loading (skeleton), empty, and error states.
+
+START WITH the parent app: Sign in, Home, Check in, Your queue (show Waiting, Called,
+In consultation and Skipped), and Visit summary. Then pause for my feedback before
+designing the rest.</pre>
+
+  <h4>Follow-up: rest of the parent app</h4>
+<pre>Continue in the same design system. Design the rest of the parent app from section 6:
+Add/Edit child sheet, Check in with the "same reason as your booking?" variant,
+Last visits with filter chips, Appointments, Book an appointment (who → why → day → session),
+Know about your doctor, the notifications list, the install popup (iPhone, Android,
+in-app browser), and the notification permission modal and banner.</pre>
+
+  <h4>Follow-up: doctor</h4>
+<pre>Same design system. Design the doctor's terminal from section 7, for phone AND laptop
+(sidebar). Queue cards in every status with their exact buttons, Add walk-in, Search,
+Child history, the 5-step Complete visit wizard (Photos → Fees → Payment incl. Hybrid
+split → Follow-up → Review), Appointments, History with patient timeline, Notification
+inbox, Analytics (End of day and Trends: clean modern charts with a Table toggle), and
+Availability. Six destinations. On phones you may group some under "More", but Queue
+stays first. This is a working tool: prioritise speed and scanability over decoration.</pre>
+
+  <h4>Follow-up: pharmacist and owner</h4>
+<pre>Same design system. Design the pharmacist console (Feed, Dispense sheet, Stock with
+filters, Add medicine, Restock) and the owner dashboard from sections 8–9.
+Phone and tablet.</pre>
+
+  <h4>If the tool starts inventing things</h4>
+<pre>Remove anything not described in the PDF. Keep only the screens, fields and buttons it lists.</pre>
+
+  <h3>Tips</h3>
+  <ul>
+    <li>If the tool won't take a PDF, paste the section of this document for the screens you're asking about below the prompt.</li>
+    <li>If a design looks too plain, add: <em>"push the visual quality further — more depth, bolder type, more polish."</em> If it looks too playful, add: <em>"more restrained and premium."</em></li>
+    <li>Pick the direction you like and then say <em>"use this as the design system for all remaining screens"</em>. That keeps the four roles consistent.</li>
+  </ul>
+</section>
+
+</body>
+</html>
