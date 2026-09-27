@@ -190,8 +190,10 @@ function BrowserInstallPrompt({
   const toast = useToast();
   const deferredPrompt = useInstallPrompt();
   const [inAppBrowser] = useState(isInAppBrowser);
+  const [platform] = useState<Platform>(detectPlatform);
   // Where the browser offers its own install dialog (Android Chrome), the
   // banner's button opens that directly; elsewhere it opens the how-to guide.
+  // The label follows the phone: "Install" on Android, "Add" on iPhone.
   const canInstallDirectly = deferredPrompt !== null && !inAppBrowser;
 
   async function install() {
@@ -216,7 +218,7 @@ function BrowserInstallPrompt({
       className={cn(variant === "bar" && "rounded-full px-4")}
       onClick={() => setOpen(true)}
     >
-      How
+      {platform === "ios" ? "Add" : "Install"}
     </Button>
   );
 
@@ -326,7 +328,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
             Takes a few seconds
           </p>
           <p className="mt-1 font-display text-2xl font-bold tracking-tight text-foreground">
-            Add to your home screen
+            {platform === "ios" ? "Add to your home screen" : "Install the app"}
           </p>
           <p className="mt-1 text-sm text-foreground-muted">
             {copy.intro}
@@ -372,8 +374,9 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
             <GuideStep number={1} of={3} title="Open the browser menu">
               Tap <strong>⋮</strong> in the top corner of Chrome.
             </GuideStep>
+            {/* Android says "Install"; "Add to Home Screen" is iPhone wording. */}
             <GuideStep number={2} of={3} title="Choose Install app">
-              Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.
+              Tap <strong>Install app</strong>.
             </GuideStep>
             <GuideStep number={3} of={3} title="Open it from your home screen">
               Look for the {copy.appName} icon.
