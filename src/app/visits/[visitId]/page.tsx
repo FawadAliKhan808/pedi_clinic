@@ -50,9 +50,10 @@ export default function VisitSummaryPage() {
   return (
     <ParentShell>
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
+        {/* A visit summary lives in Last visits — back goes there, however it was opened. */}
         <Link
-          href="/"
-          aria-label="Back"
+          href="/records"
+          aria-label="Back to Last visits"
           className="flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
         >
           <ArrowLeft className="size-5" />
