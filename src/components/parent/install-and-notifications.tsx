@@ -131,9 +131,13 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
   const toast = useToast();
   const deferredPrompt = useInstallPrompt();
   const [inAppBrowser] = useState(isInAppBrowser);
-  // Where the browser offers its own install dialog (Android Chrome), the
-  // banner's button opens that directly; elsewhere it opens the how-to guide.
-  const canInstallDirectly = deferredPrompt !== null && !inAppBrowser;
+  const [platform] = useState<Platform>(detectPlatform);
+  // Android Chrome can always install, so its button always says Install:
+  // it opens Chrome's own dialog when Chrome has offered one, and the
+  // menu steps when it hasn't (yet — Chrome waits for some engagement, and
+  // offers each prompt once). Elsewhere (iPhone) the button opens the guide.
+  const canInstallDirectly =
+    !inAppBrowser && (deferredPrompt !== null || platform === "android");
 
   async function install() {
     if (await promptInstall()) {
@@ -145,7 +149,7 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
     <Button
       variant={variant === "bar" ? "primary" : "secondary"}
       className={cn(variant === "bar" && "rounded-full px-4")}
-      onClick={() => void install()}
+      onClick={() => (deferredPrompt ? void install() : setOpen(true))}
     >
       {variant === "bar" && <Download aria-hidden className="size-4" />}
       Install
@@ -311,7 +315,8 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
               Tap <strong>⋮</strong> in the top corner of Chrome.
             </GuideStep>
             <GuideStep number={2} of={3} title="Choose Install app">
-              Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.
+              Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>. If it
+              says <strong>Open app</strong>, it&apos;s already installed.
             </GuideStep>
             <GuideStep number={3} of={3} title="Open it from your home screen">
               Look for the Pedi Clinic icon.
