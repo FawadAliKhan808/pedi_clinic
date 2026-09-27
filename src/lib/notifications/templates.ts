@@ -59,33 +59,35 @@ export function renderNotification(
   type: NotificationType,
   payload: Payload
 ): RenderedNotification {
+  // Queue notifications name the child, never the token number: "Inaya, you're
+  // being called" is clear at a glance; "Token 2" means nothing on a lock
+  // screen. The token number stays on the app's screens.
   const child = text(payload, "child_name", "your child");
-  const token = text(payload, "seq", "");
-  const tokenLabel = token ? `Token ${token}` : "Your token";
+  const Child = child.charAt(0).toUpperCase() + child.slice(1);
 
   switch (type) {
     case "third_in_line":
       return {
-        title: `${tokenLabel}: you're 3rd in line`,
+        title: `${Child} is 3rd in line`,
         body: `Two children are ahead of ${child}. Please make your way to the clinic.`,
         url: "/queue",
       };
     case "your_turn":
       return {
-        title: `${tokenLabel}: it's your turn now`,
-        body: `Please bring ${child} in to see the doctor.`,
+        title: `${Child}, you're being called by the doctor`,
+        body: "Please go in now.",
         url: "/queue",
       };
     case "token_skipped":
       return {
-        title: `${tokenLabel} was skipped`,
-        body: `The doctor skipped ${child}'s turn. Please check with reception — you may be called again.`,
+        title: `${Child}'s turn was skipped`,
+        body: "Please check with reception — you may be called again.",
         url: "/queue",
       };
     case "token_removed":
       return {
-        title: `${tokenLabel} was removed from the queue`,
-        body: `${child} has been taken off today's queue. Please check with reception if this is a mistake.`,
+        title: `${Child} was taken off today's queue`,
+        body: "Please check with reception if this is a mistake.",
         url: "/",
       };
     case "follow_up_reminder":
