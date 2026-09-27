@@ -14,6 +14,8 @@ export interface AuthApi {
   getCurrentUserId(): Promise<UUID | null>;
   /** The signed-in account's email (staff sign in with one); null for phone sign-ins. */
   getCurrentEmail(): Promise<string | null>;
+  /** The signed-in parent's mobile number, digits only; null for staff. */
+  getCurrentPhone(): Promise<string | null>;
   /**
    * Staff: checks `currentPassword` by signing in with it, then sets the new
    * one. Throws `WRONG_PASSWORD`, `WEAK_PASSWORD` (under 6 characters) or

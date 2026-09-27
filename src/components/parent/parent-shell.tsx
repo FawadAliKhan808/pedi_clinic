@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FolderClock, House } from "lucide-react";
+import { CalendarDays, FolderClock, House, Menu } from "lucide-react";
 import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
 import { SignOutButton } from "@/components/layout/sign-out-button";
@@ -11,9 +11,11 @@ import {
 import { useCompletedVisitRedirect } from "@/lib/realtime/use-completed-visit-redirect";
 
 const parentNav: NavItem[] = [
-  { href: "/", label: "Home", icon: House },
+  { href: "/", label: "Home", icon: House, alsoActiveOn: ["/children/"] },
   { href: "/appointments", label: "Appointments", icon: CalendarDays },
   { href: "/records", label: "Last visits", icon: FolderClock },
+  // Same idea as the staff app's More: the doctor's profile and the account.
+  { href: "/more", label: "More", icon: Menu, alsoActiveOn: ["/doctor"] },
 ];
 
 /**

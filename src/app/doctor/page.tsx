@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, Stethoscope } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DoctorProfileView } from "@/components/parent/doctor-profile-view";
@@ -44,13 +43,16 @@ export default function KnowYourDoctorPage() {
     <ParentShell>
       <div className="relative mx-auto flex w-full max-w-2xl flex-col px-5 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
         {/* Back sits beside the page, not above it, so the name stays first. */}
-        <Link
-          href="/"
-          aria-label="Back to Home"
+        {/* Opened from Home or from More: go back to whichever it was, or to
+            More if this page was opened directly (a shared link). */}
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={() => (window.history.length > 1 ? router.back() : router.push("/more"))}
           className="absolute left-2 top-[calc(0.75rem+env(safe-area-inset-top))] flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
         >
           <ArrowLeft className="size-5" />
-        </Link>
+        </button>
 
         {profile === undefined && loadError ? (
           <ErrorState message={loadError} onRetry={() => window.location.reload()} />

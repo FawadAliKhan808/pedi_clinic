@@ -74,6 +74,12 @@ export class SupabaseAuthApi implements AuthApi {
     return typeof data.claims.email === "string" && data.claims.email ? data.claims.email : null;
   }
 
+  async getCurrentPhone(): Promise<string | null> {
+    const { data, error } = await this.client.auth.getClaims();
+    if (error || !data) return null;
+    return typeof data.claims.phone === "string" && data.claims.phone ? data.claims.phone : null;
+  }
+
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     const email = await this.getCurrentEmail();
     if (!email) throw new ApiError("Not signed in with an email", "NOT_AUTHENTICATED");
