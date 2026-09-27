@@ -1,16 +1,18 @@
 import type { MetadataRoute } from "next";
+import { brand, brandPrimary } from "@/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Pedi Clinic",
-    short_name: "Pedi Clinic",
-    description:
-      "Check in, follow the live queue, and manage appointments for your child's pediatric clinic visits.",
+    // A stable id per brand, so two demos installed on one phone stay two apps.
+    id: `/?brand=${brand.id}`,
+    name: brand.name,
+    short_name: brand.shortName,
+    description: brand.description,
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
     background_color: "#ffffff",
-    theme_color: "#23716d",
+    theme_color: brandPrimary,
     icons: [
       {
         src: "/icons/192",

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PLATFORM_NAME } from "@/brand";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -24,7 +25,7 @@ export default function OwnerLoginPage() {
       if (staff?.role !== "owner") {
         // Clinic staff have their own terminal; don't leave them signed in here.
         await api.auth.signOut();
-        setError("This sign-in is for the Pedi Clinic team only. Clinic staff sign in at /admin.");
+        setError(`This sign-in is for the ${PLATFORM_NAME} team only. Clinic staff sign in at /admin.`);
         setBusy(false);
         return;
       }
@@ -47,7 +48,7 @@ export default function OwnerLoginPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold text-foreground">Team sign in</h1>
         <p className="text-foreground-muted">
-          For the Pedi Clinic product team: ratings, adoption, and usage.
+          For the {PLATFORM_NAME} product team: ratings, adoption, and usage.
         </p>
       </div>
 

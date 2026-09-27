@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { brand, brandColorVariables } from "@/brand";
 import { jakarta, nunito } from "@/fonts";
 import { AppInstalledOverlay } from "@/components/app-installed-overlay";
 import { OfflineBanner } from "@/components/offline-banner";
@@ -8,16 +9,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Pedi Clinic",
-    template: "%s · Pedi Clinic",
+    default: brand.name,
+    template: `%s · ${brand.name}`,
   },
-  description:
-    "Check in, follow the live queue, and manage appointments for your child's pediatric clinic visits.",
+  description: brand.description,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Pedi Clinic",
+    title: brand.shortName,
   },
 };
 
@@ -34,7 +34,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${nunito.variable} ${jakarta.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${nunito.variable} ${jakarta.variable} h-full antialiased`}
+      // The white-label brand's colour overrides, if it has any.
+      style={brandColorVariables()}
+    >
       <body className="min-h-full flex flex-col bg-surface text-foreground">
         {/* Each screen sets its own width: phone-first, widening on tablets and laptops. */}
         <ToastProvider>{children}</ToastProvider>

@@ -81,7 +81,8 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(message.title || "Pedi Clinic", {
+    // Every push carries its own title; this static file doesn't know the brand.
+    self.registration.showNotification(message.title || "New notification", {
       body: message.body || "",
       icon: "/icons/192",
       badge: "/icons/192",

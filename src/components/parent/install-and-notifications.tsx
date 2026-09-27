@@ -13,6 +13,8 @@ import {
   SquarePlus,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
@@ -101,9 +103,9 @@ function InstalledAppNotifications() {
 function unblockInstructions(platform: Platform): string {
   switch (platform) {
     case "ios":
-      return "Open your iPhone's Settings → Notifications → Pedi Clinic, and turn on Allow Notifications.";
+      return `Open your iPhone's Settings → Notifications → ${brand.shortName}, and turn on Allow Notifications.`;
     case "android":
-      return "Open your phone's Settings → Apps → Pedi Clinic → Notifications, and turn them on.";
+      return `Open your phone's Settings → Apps → ${brand.name} → Notifications, and turn them on.`;
     default:
       return "Allow notifications for this app in your browser or device settings, then reopen it.";
   }
@@ -137,7 +139,7 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
 
   async function install() {
     if (await promptInstall()) {
-      toast("Installed — open Pedi Clinic from your home screen", "success");
+      toast(`Installed — open ${brand.name} from your home screen`, "success");
     }
   }
 
@@ -147,7 +149,8 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
       className={cn(variant === "bar" && "rounded-full px-4")}
       onClick={() => void install()}
     >
-      {variant === "bar" && <Download aria-hidden className="size-4" />}
+      {/* On the narrowest phones the brand name needs the room more than the icon. */}
+      {variant === "bar" && <Download aria-hidden className="hidden size-4 min-[360px]:block" />}
       Install
     </Button>
   ) : (
@@ -164,12 +167,11 @@ function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant })
     <>
       {variant === "bar" ? (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-raised p-3 shadow-sm">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-700 text-neutral-0">
-            <Smartphone aria-hidden className="size-5" />
-          </span>
+          {/* The icon they'll look for on their home screen afterwards. */}
+          <BrandLogo className="size-10" />
           <span className="min-w-0 flex-1">
-            <span className="block font-display text-sm font-bold text-foreground">
-              Install Pedi Clinic
+            <span className="block truncate font-display text-sm font-bold text-foreground">
+              Install {brand.shortName}
             </span>
             <span className="block text-xs text-foreground-muted">
               Get an alert when it&apos;s your turn
@@ -207,7 +209,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
   async function install() {
     const accepted = await promptInstall();
     if (accepted) {
-      toast("Installed — open Pedi Clinic from your home screen", "success");
+      toast(`Installed — open ${brand.name} from your home screen`, "success");
       onClose();
     }
   }
@@ -225,7 +227,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
     <Sheet
       open={open}
       onClose={onClose}
-      title="Install Pedi Clinic"
+      title={`Install ${brand.name}`}
       footer={
         <div className="flex flex-col gap-2">
           {!inAppBrowser && platform !== "ios" && deferredPrompt && (
@@ -283,7 +285,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
                 </p>
                 <p className="mt-1 text-sm text-foreground-muted">
                   This page is open inside another app (like WhatsApp or Instagram),
-                  which can&apos;t install Pedi Clinic. Tap the menu (⋯) and choose{" "}
+                  which can&apos;t install {brand.name}. Tap the menu (⋯) and choose{" "}
                   <strong>Open in {platform === "ios" ? "Safari" : "Chrome"}</strong>, or
                   copy the link and paste it there.
                 </p>
@@ -314,7 +316,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
               Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.
             </GuideStep>
             <GuideStep number={3} of={3} title="Open it from your home screen">
-              Look for the Pedi Clinic icon.
+              Look for the {brand.name} icon.
             </GuideStep>
           </ol>
         )}
@@ -385,7 +387,7 @@ function IosInstallSteps() {
             Then look for this icon
           </p>
           <p className="mt-0.5 text-sm text-foreground-muted">
-            Open Pedi Clinic from your home screen — it opens full screen, without
+            Open {brand.name} from your home screen — it opens full screen, without
             the browser bars.
           </p>
         </div>

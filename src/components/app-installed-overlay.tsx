@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Smartphone } from "lucide-react";
 import { useEffect } from "react";
+import { brand } from "@/brand";
 import { getBrowserApi } from "@/lib/api/browser";
 import { useJustInstalled } from "@/lib/pwa/install-prompt";
 
@@ -39,12 +40,12 @@ export function AppInstalledOverlay() {
           App installed successfully!
         </h2>
         <p id="app-installed-body" className="text-foreground">
-          Please close this browser tab and open <strong>Pedi Clinic</strong> directly from
+          Please close this browser tab and open <strong>{brand.name}</strong> directly from
           your phone&apos;s home screen to continue.
         </p>
         <p className="flex items-center gap-2 rounded-xl bg-surface-sunken px-4 py-3 text-sm text-foreground-muted">
           <Smartphone aria-hidden className="size-5 shrink-0 text-primary-600" />
-          Look for the Pedi Clinic icon on your home screen or in your app list.
+          Look for the {brand.name} icon on your home screen or in your app list.
         </p>
       </div>
     </div>

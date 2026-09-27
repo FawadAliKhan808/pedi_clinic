@@ -3,6 +3,7 @@
 import { ChevronRight, Pencil, Plus, Stethoscope, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { brand } from "@/brand";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
 import { NotificationBell } from "@/components/parent/notification-bell";
@@ -126,7 +127,7 @@ export default function ParentHome() {
   return (
     <ParentShell>
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Pedi Clinic</h1>
+        <h1 className="truncate text-2xl font-bold text-foreground">{brand.name}</h1>
         <div className="flex items-center">
         {userId && <NotificationBell userId={userId} />}
         <SignOutButton redirectTo="/" variant="icon" className="md:hidden" />

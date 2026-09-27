@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand-logo";
 import { DoctorProfileView } from "@/components/parent/doctor-profile-view";
 import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { Button } from "@/components/ui/button";
@@ -144,10 +146,10 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
               <ArrowLeft className="size-5" />
             </button>
           )}
-          <BrandMark />
+          <BrandLogo className="size-12" />
           <div className="min-w-0">
-            <p className="font-display text-lg font-bold leading-tight text-foreground">
-              Pedi Clinic
+            <p className="truncate font-display text-lg font-bold leading-tight text-foreground">
+              {brand.name}
             </p>
             {/* The doctor has their own card below; up here, just where the clinic is. */}
             {profile?.location && (
@@ -330,19 +332,6 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
         </Sheet>
       )}
     </div>
-  );
-}
-
-/** The app mark: the white cross on teal, same as the home-screen icon. */
-function BrandMark() {
-  return (
-    <span
-      aria-hidden
-      className="relative flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-600 shadow-sm"
-    >
-      <span className="absolute h-2.5 w-7 rounded-full bg-neutral-0" />
-      <span className="absolute h-7 w-2.5 rounded-full bg-neutral-0" />
-    </span>
   );
 }
 

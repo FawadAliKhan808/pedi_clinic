@@ -1,8 +1,13 @@
-# Pedi Clinic
+# PediClinic
 
 A phone-first, installable web app for a pediatric clinic. Parents check in
 and follow a live queue; the doctor runs the day from their phone; the
 in-house pharmacy dispenses against every completed visit.
+
+**This repository is a demo platform.** Each pediatrician gets a
+white-label demo with their clinic's name, logo and content, chosen per
+deployment with `NEXT_PUBLIC_BRAND` (for example `crescent` for Crescent
+Healthcare). See `dev-only/docs/WHITE_LABEL.md`.
 
 This repository holds only what's needed to build, run and deploy the app.
 
@@ -37,6 +42,7 @@ Supabase project's dashboard (Project Settings → API):
 
 | Variable | Used by | Notes |
 |---|---|---|
+| `NEXT_PUBLIC_BRAND` | browser + server | white-label demo (`crescent`, …); empty = PediClinic. Fixed at build time |
 | `NEXT_PUBLIC_SUPABASE_URL` | browser + server | safe to expose |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | safe to expose, RLS enforces access |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | **never** expose to the client bundle; bypasses RLS |
@@ -81,6 +87,7 @@ src/
       (doctor)/           Queue, appointments, analytics, availability
       (pharmacist)/       Pharmacy feed and stock
     owner/                Owner (team) dashboard: /owner/login, /owner
+  brand/                  White-label brands (name, logo, colours); NEXT_PUBLIC_BRAND picks one
   components/
     admin/ parent/ ui/    Role-specific screens and the shared design system
     charts/ analytics/    Chart primitives (plain HTML/CSS) and the analytics views
@@ -88,7 +95,7 @@ src/
   lib/api/                Backend-agnostic interfaces (Auth, Parents, Queue, ...)
     adapters/supabase/    The one implementation, today
   proxy.ts                Refreshes the auth session on every navigation
-scripts/                  Provisioning and push-dispatch setup
+scripts/                  Provisioning (clinic content per demo in scripts/demos/) and push-dispatch setup
 supabase/
   migrations/             SQL migrations (source of truth for schema + RLS)
   config.toml             Mirrors the hosted project's auth/api/storage config

@@ -1,12 +1,15 @@
 /**
  * Provisions the minimum a demo needs: one clinic, its settings, and staff
- * logins. Idempotent — safe to re-run.
+ * logins. Idempotent — safe to re-run. The clinic's name and content come
+ * from scripts/demos/<NEXT_PUBLIC_BRAND>.json, so each white-label demo's
+ * database gets its own clinic.
  *
  *   node --env-file=.env.local scripts/provision-demo.mjs
  *
  * Phase 9 grows this into the full seed (medicines, past visits, ratings)
  * alongside a reset script.
  */
+import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,7 +27,20 @@ const db = createClient(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const clinicName = process.env.DEMO_CLINIC_NAME ?? "Pedi Clinic";
+// Which white-label demo this database belongs to — the same variable the
+// app is built with. Its clinic content lives in scripts/demos/<brand>.json.
+const brandId = process.env.NEXT_PUBLIC_BRAND || "pediclinic";
+let demo;
+try {
+  demo = JSON.parse(
+    readFileSync(new URL(`./demos/${brandId}.json`, import.meta.url), "utf8")
+  );
+} catch (error) {
+  console.error(`Can't read scripts/demos/${brandId}.json: ${error.message}`);
+  process.exit(1);
+}
+
+const clinicName = process.env.DEMO_CLINIC_NAME ?? demo.clinicName;
 const clinicTimezone = process.env.DEMO_CLINIC_TIMEZONE ?? "Asia/Kolkata";
 
 const staffAccounts = [
@@ -56,40 +72,10 @@ const settings = {
   // Analytics: a follow-up counts as "returned" if the child is seen again
   // within this many days after the follow-up date.
   follow_up_return_grace_days: Number(process.env.DEMO_FOLLOW_UP_GRACE_DAYS ?? 7),
-  // "Know about your doctor" — shown to parents. Edit here (or in the
-  // settings table) rather than in app code.
-  doctor_profile: {
-    name: "Dr. Syed Tajamul",
-    photo: "/dr-syed.png",
-    title: "Pediatrician & Neonatologist",
-    experience: "20+ Years Experience",
-    location: "Cloudnine Hospital, Bellandur, Bengaluru",
-    qualifications: [
-      "MD (Paediatrics)",
-      "DNB (Pediatrics)",
-      "DCH (Australia)",
-      "Fellowship in Neonatology",
-      "FRSPH (London)",
-    ],
-    languages: ["English", "Hindi", "Kannada", "Urdu", "Malayalam", "Tamil"],
-    expertise: [
-      "Pediatric Allergy & Asthma",
-      "Neonatal Care (NICU)",
-      "Respiratory Disorders in Children",
-      "Child Infections & Immunization",
-    ],
-    highlights: [
-      "Senior Consultant Pediatrician at Cloudnine",
-      "Extensive experience in newborn and child care",
-      "Known for a child-friendly and clear consultation approach",
-      "High patient satisfaction and trust",
-    ],
-  },
-  // The doctor's one-tap session buttons on the Availability screen.
-  session_presets: [
-    { label: "Morning", start: "10:00", end: "13:00" },
-    { label: "Evening", start: "18:00", end: "21:00" },
-  ],
+  // "Know about your doctor" and the doctor's one-tap session buttons on the
+  // Availability screen: this demo's own content, from scripts/demos/.
+  ...(demo.doctorProfile ? { doctor_profile: demo.doctorProfile } : {}),
+  session_presets: demo.sessionPresets,
 };
 
 function fail(step, error) {
@@ -107,6 +93,16 @@ async function ensureClinic() {
   if (error) fail("read clinics", error);
 
   if (existing) {
+    if (existing.name !== clinicName) {
+      // The database was provisioned for another demo (or an older name).
+      const { error: renameError } = await db
+        .from("clinics")
+        .update({ name: clinicName })
+        .eq("id", existing.id);
+      if (renameError) fail("rename clinic", renameError);
+      console.log(`✓ renamed clinic: ${existing.name} → ${clinicName} (${existing.id})`);
+      return { ...existing, name: clinicName };
+    }
     console.log(`• clinic already exists: ${existing.name} (${existing.id})`);
     return existing;
   }

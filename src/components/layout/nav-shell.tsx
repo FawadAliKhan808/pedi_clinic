@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { brand } from "@/brand";
 import { cn } from "@/lib/format";
 
 export interface NavItem {
@@ -52,7 +53,7 @@ export function NavShell({
         )}
       >
         <p className="hidden px-3 pb-4 text-lg font-bold text-foreground lg:block">
-          Pedi Clinic
+          {brand.name}
         </p>
 
         {items.map(({ href, label, icon: Icon, badge, dot }) => {
