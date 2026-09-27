@@ -337,9 +337,9 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
 }
 
 /**
- * "Know your doctor" — the clinic's best selling point, so it leads: a small
- * photo, the name, experience and specialty, qualifications, and what he's
- * known for. The whole card opens the full profile.
+ * The doctor — the clinic's best selling point, so it leads: a small photo,
+ * the name, experience and specialty, qualifications, and what he's known
+ * for. No heading needed; the whole card opens the full profile.
  */
 function DoctorCard({ profile, onOpen }: { profile: DoctorProfile; onOpen: () => void }) {
   const standing = [profile.experience, profile.title].filter(Boolean).join(" · ");
@@ -349,17 +349,7 @@ function DoctorCard({ profile, onOpen }: { profile: DoctorProfile; onOpen: () =>
       onClick={onOpen}
       className="flex w-full flex-col gap-3 rounded-xl border border-primary-100 bg-primary-50 p-4 text-left dark:border-primary-900 dark:bg-primary-900/20"
     >
-      <span className="flex w-full items-center justify-between gap-2">
-        <span className="font-display text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-          Know your doctor
-        </span>
-        <span className="flex items-center gap-0.5 text-sm font-bold text-primary-700 dark:text-primary-300">
-          Full profile
-          <ChevronRight aria-hidden className="size-4" />
-        </span>
-      </span>
-
-      <span className="flex items-center gap-3">
+      <span className="flex w-full items-center gap-3">
         {profile.photo ? (
           <Image
             src={profile.photo}
@@ -373,7 +363,7 @@ function DoctorCard({ profile, onOpen }: { profile: DoctorProfile; onOpen: () =>
             <Stethoscope aria-hidden className="size-6" />
           </span>
         )}
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="block font-display text-base font-bold text-foreground">
             {profile.name}
           </span>
@@ -383,6 +373,10 @@ function DoctorCard({ profile, onOpen }: { profile: DoctorProfile; onOpen: () =>
             </span>
           )}
         </span>
+        <ChevronRight
+          aria-label="Open the doctor's full profile"
+          className="size-5 shrink-0 text-primary-700 dark:text-primary-300"
+        />
       </span>
 
       {profile.qualifications.length > 0 && (
