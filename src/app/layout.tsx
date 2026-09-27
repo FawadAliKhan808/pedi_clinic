@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { nunito } from "@/fonts";
+import { jakarta, nunito } from "@/fonts";
 import { AppInstalledOverlay } from "@/components/app-installed-overlay";
 import { OfflineBanner } from "@/components/offline-banner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${nunito.variable} h-full antialiased`}>
+    <html lang="en" className={`${nunito.variable} ${jakarta.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-surface text-foreground">
         {/* Each screen sets its own width: phone-first, widening on tablets and laptops. */}
         <ToastProvider>{children}</ToastProvider>

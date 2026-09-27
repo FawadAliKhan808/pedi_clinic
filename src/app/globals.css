@@ -196,6 +196,7 @@
   --text-token-display--line-height: var(--text-token-display--line-height);
 
   --font-sans: var(--font-nunito);
+  --font-display: var(--font-jakarta);
 }
 
 @keyframes sheet-in {

@@ -1,6 +1,17 @@
 "use client";
 
-import { Download, Share, Smartphone, SquarePlus } from "lucide-react";
+import {
+  BellRing,
+  Bookmark,
+  CircleCheck,
+  Copy,
+  Download,
+  ExternalLink,
+  Share,
+  ShieldCheck,
+  Smartphone,
+  SquarePlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,10 +52,13 @@ export function InstallAndNotifications() {
  * installed app, the popup and banner in a browser tab. (The installed-app
  * half of InstallAndNotifications needs a signed-in parent.)
  */
-export function InstallPrompt() {
+export function InstallPrompt({ variant = "card" }: { variant?: BannerVariant }) {
   const [standalone] = useState(isStandalone);
-  return standalone ? null : <BrowserInstallPrompt />;
+  return standalone ? null : <BrowserInstallPrompt variant={variant} />;
 }
+
+/** `card`: inline on Home and the queue. `bar`: the sign-in screen's bottom bar. */
+type BannerVariant = "card" | "bar";
 
 // ---------------------------------------------------------------------------
 // In the installed app
@@ -105,7 +119,7 @@ function unblockInstructions(platform: Platform): string {
  * never gets here, a browser tab always does — even on a phone where the app
  * is already installed, since a tab can't tell.
  */
-function BrowserInstallPrompt() {
+function BrowserInstallPrompt({ variant = "card" }: { variant?: BannerVariant }) {
   const [open, setOpen] = useState(() => {
     // Right after getting a token, show it again even if dismissed earlier.
     if (sessionFlag.get(SHOW_INSTALL_AFTER_TOKEN)) {
@@ -127,23 +141,51 @@ function BrowserInstallPrompt() {
     }
   }
 
+  const action = canInstallDirectly ? (
+    <Button
+      variant={variant === "bar" ? "primary" : "secondary"}
+      className={cn(variant === "bar" && "rounded-full px-4")}
+      onClick={() => void install()}
+    >
+      {variant === "bar" && <Download aria-hidden className="size-4" />}
+      Install
+    </Button>
+  ) : (
+    <Button
+      variant="secondary"
+      className={cn(variant === "bar" && "rounded-full px-4")}
+      onClick={() => setOpen(true)}
+    >
+      How
+    </Button>
+  );
+
   return (
     <>
-      <Card className="flex items-center gap-3">
-        <Smartphone className="size-5 shrink-0 text-primary-600" />
-        <p className="flex-1 text-sm text-foreground">
-          Install the app to get an alert when it&apos;s your turn.
-        </p>
-        {canInstallDirectly ? (
-          <Button variant="secondary" onClick={() => void install()}>
-            Install
-          </Button>
-        ) : (
-          <Button variant="secondary" onClick={() => setOpen(true)}>
-            How
-          </Button>
-        )}
-      </Card>
+      {variant === "bar" ? (
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-raised p-3 shadow-sm">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary-700 text-neutral-0">
+            <Smartphone aria-hidden className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-sm font-bold text-foreground">
+              Install Pedi Clinic
+            </span>
+            <span className="block text-xs text-foreground-muted">
+              Get an alert when it&apos;s your turn
+            </span>
+          </span>
+          {action}
+        </div>
+      ) : (
+        <Card className="flex items-center gap-3">
+          <Smartphone className="size-5 shrink-0 text-primary-600" />
+          <p className="flex-1 text-sm text-foreground">
+            Install the app to get an alert when it&apos;s your turn.
+          </p>
+          {action}
+        </Card>
+      )}
 
       <InstallSheet
         open={open}
@@ -187,37 +229,75 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
       footer={
         <div className="flex flex-col gap-2">
           {!inAppBrowser && platform !== "ios" && deferredPrompt && (
-            <Button fullWidth variant="accent" onClick={() => void install()}>
+            <Button
+              fullWidth
+              variant="accent"
+              className="rounded-full font-display font-bold"
+              onClick={() => void install()}
+            >
               <Download className="size-5" />
               Install app
             </Button>
           )}
-          <Button fullWidth variant="ghost" onClick={onClose}>
-            Not now
-          </Button>
+          {platform === "ios" && !inAppBrowser ? (
+            <Button
+              fullWidth
+              variant="accent"
+              className="rounded-full font-display font-bold"
+              onClick={onClose}
+            >
+              <CircleCheck className="size-5" />
+              Got it
+            </Button>
+          ) : (
+            <Button fullWidth variant="ghost" onClick={onClose}>
+              Not now
+            </Button>
+          )}
         </div>
       }
     >
-      <div className="flex flex-col gap-5">
-        <p className="text-foreground">
-          Add Pedi Clinic to your home screen and we can send you a notification
-          when you&apos;re 3rd in line and when it&apos;s your turn — no need to
-          keep this page open.
-        </p>
+      <div className="flex flex-col gap-4">
+        <div>
+          <p className="font-display text-xs font-bold uppercase tracking-wider text-accent-600">
+            Takes a few seconds
+          </p>
+          <p className="mt-1 font-display text-2xl font-bold tracking-tight text-foreground">
+            Add to your home screen
+          </p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Then we can send you a notification when you&apos;re 3rd in line and when
+            it&apos;s your turn — no need to keep this page open.
+          </p>
+        </div>
 
         {inAppBrowser ? (
-          <Card className="flex flex-col gap-3">
-            <p className="font-semibold text-foreground">Open this in your browser first</p>
-            <p className="text-sm text-foreground-muted">
-              This page is open inside another app, which can&apos;t install Pedi
-              Clinic. Tap the menu (⋯) and choose{" "}
-              <strong>Open in {platform === "ios" ? "Safari" : "Chrome"}</strong>, or
-              copy the link and paste it there.
-            </p>
-            <Button variant="secondary" onClick={() => void copyLink()}>
+          <div className="flex flex-col gap-3 rounded-xl border border-accent-200 bg-accent-50 p-4 dark:border-accent-900 dark:bg-accent-900/20">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-500 text-foreground-on-accent">
+                <ExternalLink aria-hidden className="size-4" />
+              </span>
+              <div>
+                <p className="font-display font-bold text-foreground">
+                  Open this in your browser first
+                </p>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  This page is open inside another app (like WhatsApp or Instagram),
+                  which can&apos;t install Pedi Clinic. Tap the menu (⋯) and choose{" "}
+                  <strong>Open in {platform === "ios" ? "Safari" : "Chrome"}</strong>, or
+                  copy the link and paste it there.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              className="self-end rounded-full"
+              onClick={() => void copyLink()}
+            >
+              <Copy aria-hidden className="size-4" />
               Copy link
             </Button>
-          </Card>
+          </div>
         ) : platform === "ios" ? (
           <IosInstallSteps />
         ) : deferredPrompt ? (
@@ -227,15 +307,19 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
           </p>
         ) : (
           <ol className="flex flex-col gap-3">
-            <Step number={1}>
-              Open your browser menu (<strong>⋮</strong>).
-            </Step>
-            <Step number={2}>
+            <GuideStep number={1} of={3} title="Open the browser menu">
+              Tap <strong>⋮</strong> in the top corner of Chrome.
+            </GuideStep>
+            <GuideStep number={2} of={3} title="Choose Install app">
               Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.
-            </Step>
-            <Step number={3}>Open Pedi Clinic from your home screen.</Step>
+            </GuideStep>
+            <GuideStep number={3} of={3} title="Open it from your home screen">
+              Look for the Pedi Clinic icon.
+            </GuideStep>
           </ol>
         )}
+
+        <WhyInstall />
       </div>
     </Sheet>
   );
@@ -249,78 +333,130 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
  */
 function IosInstallSteps() {
   return (
-    <ol className="flex flex-col gap-5">
-      <Step number={1}>
-        <span className="flex flex-col gap-2">
-          <span>
-            Tap the <strong>Share</strong> button in Safari.
+    <>
+      <ol className="flex flex-col gap-3">
+        <GuideStep number={1} of={3} title="Tap Safari's Share button">
+          <span className="block">
+            It looks like this. Don&apos;t see it? Tap <strong>•••</strong> first, then{" "}
+            <strong>Share</strong>.
           </span>
           <IosMock>
-            <Share aria-hidden className="size-6 text-[#007aff]" />
+            <span className="flex size-10 items-center justify-center rounded-md bg-surface-raised shadow-sm">
+              <Share aria-hidden className="size-5 text-[#007aff]" />
+            </span>
+            <span className="font-semibold text-foreground">Share</span>
           </IosMock>
-          <span className="text-sm text-foreground-muted">
-            Don&apos;t see it? Tap <strong>•••</strong> first, then <strong>Share</strong>.
-          </span>
-        </span>
-      </Step>
-      <Step number={2}>
-        <span className="flex flex-col gap-2">
-          <span>
-            Scroll down and tap <strong>Add to Home Screen</strong>.
-          </span>
-          <IosMock wide>
-            <span className="flex-1 text-left text-foreground">Add to Home Screen</span>
-            <SquarePlus aria-hidden className="size-5 text-foreground" />
-          </IosMock>
-        </span>
-      </Step>
-      <Step number={3}>
-        <span className="flex flex-col gap-2">
-          <span>
-            Tap <strong>Add</strong> in the top corner.
-          </span>
+        </GuideStep>
+        <GuideStep number={2} of={3} title="Choose Add to Home Screen">
+          <span className="block">Scroll down the list until you find it.</span>
           <IosMock>
-            <span className="font-semibold text-[#007aff]">Add</span>
+            <span className="flex w-full flex-col gap-1.5">
+              <span className="flex min-h-10 items-center gap-3 rounded-lg px-3 text-foreground-muted">
+                <Bookmark aria-hidden className="size-4" />
+                Add Bookmark
+              </span>
+              <span className="flex min-h-11 items-center gap-3 rounded-lg bg-primary-50 px-3 font-semibold text-primary-800 ring-1 ring-primary-200 dark:bg-primary-900/30 dark:text-primary-200 dark:ring-primary-800">
+                <SquarePlus aria-hidden className="size-5" />
+                Add to Home Screen
+              </span>
+            </span>
           </IosMock>
-        </span>
-      </Step>
-      <Step number={4}>
-        <span className="flex flex-col gap-2">
-          <span>Open Pedi Clinic from your home screen.</span>
-          <span className="flex flex-col items-center gap-1 self-start">
-            {/* The app's real home-screen icon. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/192" alt="" className="size-14 rounded-[14px] shadow-md" />
-            <span className="text-xs text-foreground-muted">Pedi Clinic</span>
-          </span>
-        </span>
-      </Step>
-    </ol>
+        </GuideStep>
+        <GuideStep number={3} of={3} title="Tap Add">
+          <span className="block">It&apos;s in the top-right corner.</span>
+          <IosMock>
+            <span className="flex w-full items-center justify-between text-sm">
+              <span className="text-[#007aff]">Cancel</span>
+              <span className="font-semibold text-foreground">Add to Home Screen</span>
+              <span className="rounded-md bg-[#007aff]/10 px-2 py-0.5 font-semibold text-[#007aff]">
+                Add
+              </span>
+            </span>
+          </IosMock>
+        </GuideStep>
+      </ol>
+
+      <div className="flex items-center gap-4 rounded-xl border border-border bg-surface-raised p-4">
+        {/* The app's real home-screen icon. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/192" alt="" className="size-14 shrink-0 rounded-[14px] shadow-md" />
+        <div>
+          <p className="font-display text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+            Then look for this icon
+          </p>
+          <p className="mt-0.5 text-sm text-foreground-muted">
+            Open Pedi Clinic from your home screen — it opens full screen, without
+            the browser bars.
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 
-/** A small, Safari-like picture of a button or menu row. */
-function IosMock({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+/** A small, Safari-like picture of what to tap. */
+function IosMock({ children }: { children: React.ReactNode }) {
   return (
     <span
       aria-hidden
-      className={cn(
-        "flex min-h-12 items-center gap-3 self-start rounded-xl border border-border bg-surface-sunken px-4",
-        wide ? "w-full max-w-xs" : "justify-center"
-      )}
+      className="mt-3 flex min-h-12 items-center gap-3 rounded-lg bg-surface-sunken p-2"
     >
       {children}
     </span>
   );
 }
 
-function Step({ number, children }: { number: number; children: React.ReactNode }) {
+/** One install step as its own card: number, title, "Step 1 of 3", details. */
+function GuideStep({
+  number,
+  of,
+  title,
+  children,
+}: {
+  number: number;
+  of: number;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <li className="flex items-start gap-3">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
-        {number}
-      </span>
-      <span className="pt-0.5 text-foreground">{children}</span>
+    <li className="rounded-xl border border-border bg-surface-raised p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-700 font-display text-sm font-bold text-neutral-0">
+          {number}
+        </span>
+        <p className="flex-1 font-display font-bold text-foreground">{title}</p>
+        <span className="shrink-0 rounded-full bg-surface-sunken px-2.5 py-0.5 text-xs font-semibold text-foreground-muted">
+          Step {number} of {of}
+        </span>
+      </div>
+      <div className="mt-2 text-sm text-foreground-muted">{children}</div>
     </li>
+  );
+}
+
+/** Why bother — only things the app really does. */
+function WhyInstall() {
+  const reasons = [
+    { icon: BellRing, text: "An alert when you're 3rd in line and when the doctor calls you" },
+    { icon: Smartphone, text: "Opens straight from your home screen, full screen" },
+    { icon: ShieldCheck, text: "No app store and no password — just your mobile number" },
+  ];
+  return (
+    <div className="rounded-xl bg-surface-sunken p-4">
+      <p className="font-display text-xs font-bold uppercase tracking-wider text-foreground-muted">
+        Why install?
+      </p>
+      <ul className="mt-2 flex flex-col gap-2">
+        {reasons.map(({ icon: Icon, text }) => (
+          <li
+            key={text}
+            className="flex items-center gap-3 rounded-md bg-surface-raised px-3 py-2.5 text-sm text-foreground"
+          >
+            <Icon aria-hidden className="size-4 shrink-0 text-success" />
+            {text}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
