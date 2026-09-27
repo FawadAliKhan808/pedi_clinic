@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Pencil, Plus, Stethoscope, UserRound } from "lucide-react";
+import { ChevronRight, Plus, Stethoscope, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { brand } from "@/brand";
@@ -59,7 +59,6 @@ export default function ParentHome() {
   const [tokens, setTokens] = useState<ParentQueueEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [addChildOpen, setAddChildOpen] = useState(false);
-  const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const bootstrap = useCallback(
@@ -195,7 +194,6 @@ export default function ParentHome() {
               key={child.id}
               child={child}
               activeToken={tokens.find((token) => token.childId === child.id) ?? null}
-              onEdit={() => setEditingChild(child)}
             />
           ))}
           </div>
@@ -221,16 +219,6 @@ export default function ParentHome() {
         onClose={() => setAddChildOpen(false)}
         onAdded={(child) => setChildren((current) => [...current, child])}
       />
-
-      {editingChild && (
-        <AddChildSheet
-          key={editingChild.id}
-          open
-          child={editingChild}
-          onClose={() => setEditingChild(null)}
-          onChanged={() => void bootstrap()}
-        />
-      )}
 
     </ParentShell>
   );
@@ -280,24 +268,22 @@ function NameStep({ onSaved }: { onSaved: () => void }) {
 }
 
 /**
- * A child on Home: name and exact age, an edit button, and — while they're
- * waiting, called or with the doctor — a "Currently in queue" label. Checking
- * in is the main button in the bottom dock (which won't offer a child who's
- * already in the queue).
+ * A child on Home: name, exact age and — while they're waiting, called or
+ * with the doctor — a "Currently in queue" label. Tapping opens the child's
+ * own screen (visits, bookings, edit details). Checking in is the main
+ * button in the bottom dock.
  */
-function ChildCard({
-  child,
-  activeToken,
-  onEdit,
-}: {
-  child: Child;
-  activeToken: ParentQueueEntry | null;
-  onEdit: () => void;
-}) {
+function ChildCard({ child, activeToken }: { child: Child; activeToken: ParentQueueEntry | null }) {
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+    <Link href={`/children/${child.id}`} prefetch className="block">
+      <Card className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary-100 font-display text-lg font-bold text-primary-800 dark:bg-primary-900/40 dark:text-primary-200"
+        >
+          {child.name.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-foreground">{child.name}</p>
           <p className="text-sm text-foreground-muted">{formatAge(child.dob)}</p>
           {activeToken && (
@@ -305,22 +291,15 @@ function ChildCard({
               Token {activeToken.seq} · {visitReasonLabels[activeToken.reason]}
             </p>
           )}
+          {activeToken && (
+            <span className="mt-1.5 inline-block rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800 dark:bg-primary-900/30 dark:text-primary-200">
+              Currently in queue
+            </span>
+          )}
         </div>
-        <button
-          type="button"
-          aria-label={`Edit ${child.name}`}
-          onClick={onEdit}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
-        >
-          <Pencil className="size-4" />
-        </button>
-      </div>
-      {activeToken && (
-        <span className="self-start rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-800 dark:bg-primary-900/30 dark:text-primary-200">
-          Currently in queue
-        </span>
-      )}
-    </Card>
+        <ChevronRight aria-hidden className="size-5 shrink-0 text-foreground-muted" />
+      </Card>
+    </Link>
   );
 }
 
