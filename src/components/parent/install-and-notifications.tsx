@@ -21,8 +21,9 @@ import { syncPushSubscription, useNotificationPermission } from "@/lib/pwa/push"
 
 /**
  * Drives the two adoption steps the brief cares about:
- *  - in a browser tab: get the app installed (popup every visit until it is;
- *    "Not now" hides it for this visit only, leaving a small banner);
+ *  - in a browser tab: get the app installed (popup on every visit in a tab,
+ *    for any account; "Not now" hides it for this visit only, leaving a
+ *    small banner). Only opening from the home screen makes it go away;
  *  - in the installed app: get notifications turned on (asked on every open
  *    until granted; once blocked, explain how to unblock in phone Settings).
  *
@@ -32,6 +33,16 @@ import { syncPushSubscription, useNotificationPermission } from "@/lib/pwa/push"
 export function InstallAndNotifications() {
   const [standalone] = useState(isStandalone);
   return standalone ? <InstalledAppNotifications /> : <BrowserInstallPrompt />;
+}
+
+/**
+ * The install popup alone, for the signed-out sign-in screen: nothing in the
+ * installed app, the popup and banner in a browser tab. (The installed-app
+ * half of InstallAndNotifications needs a signed-in parent.)
+ */
+export function InstallPrompt() {
+  const [standalone] = useState(isStandalone);
+  return standalone ? null : <BrowserInstallPrompt />;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +98,13 @@ function unblockInstructions(platform: Platform): string {
 // In a browser tab
 // ---------------------------------------------------------------------------
 
+/**
+ * Shown on every visit in a browser tab, whoever is signed in. Whether to ask
+ * depends only on how this page was opened: the home-screen app (standalone)
+ * never gets here, a browser tab always does — even on a phone where the app
+ * is already installed, since a tab can't tell.
+ */
 function BrowserInstallPrompt() {
-  const [installed, setInstalled] = useState<boolean | null>(null);
   const [open, setOpen] = useState(() => {
     // Right after getting a token, show it again even if dismissed earlier.
     if (sessionFlag.get(SHOW_INSTALL_AFTER_TOKEN)) {
@@ -97,35 +113,6 @@ function BrowserInstallPrompt() {
     }
     return !sessionFlag.get(INSTALL_DISMISSED_THIS_VISIT);
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    getBrowserApi()
-      .notifications.getMyInstallStatus()
-      .then((status) => {
-        if (!cancelled) setInstalled(status !== null);
-      })
-      .catch(() => {
-        if (!cancelled) setInstalled(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (installed === null) return null;
-
-  if (installed) {
-    return (
-      <Card className="flex items-start gap-3 bg-surface-sunken">
-        <Smartphone className="mt-0.5 size-5 shrink-0 text-primary-600" />
-        <p className="text-sm text-foreground-muted">
-          You&apos;ve installed Pedi Clinic. Open it from your home screen to get
-          alerts when it&apos;s your turn.
-        </p>
-      </Card>
-    );
-  }
 
   return (
     <>

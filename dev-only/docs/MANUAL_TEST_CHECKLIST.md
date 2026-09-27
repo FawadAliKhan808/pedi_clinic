@@ -62,8 +62,12 @@ on real hardware:
 - [ ] "Not now" hides the popup for that visit only; the small banner stays;
       closing and reopening the browser shows the popup again.
 - [ ] After getting a token, the popup appears again.
-- [ ] Open the installed app: install is recorded, and back in the browser the
-      popup is replaced by "open it from your home screen".
+- [ ] Signed out, in a browser tab: the install popup opens on the sign-in
+      screen, with the small banner below the form. "Not now" there means
+      Home doesn't pop it up again after signing in (banner only).
+- [ ] Open the installed app: no install popup or banner there, and the install
+      is recorded (owner dashboard). Back in a Chrome/Safari tab the popup
+      still shows, for any account — only the home-screen app hides it.
 - [ ] Installed app shows **Turn on notifications**; tapping it shows the OS
       permission prompt; the card disappears once allowed.
 - [ ] Deny permission → card switches to phone-Settings instructions.

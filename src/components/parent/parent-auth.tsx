@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -114,6 +115,9 @@ export function ParentAuth({ onSignedIn }: { onSignedIn: () => void }) {
           </Button>
         </form>
       )}
+
+      {/* Asked from the very first screen in a browser tab; never in the installed app. */}
+      <InstallPrompt />
     </div>
   );
 }
