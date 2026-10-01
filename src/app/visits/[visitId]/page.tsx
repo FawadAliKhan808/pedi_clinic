@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft, CalendarClock } from "lucide-react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ParentShell } from "@/components/parent/parent-shell";
@@ -11,6 +10,7 @@ import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { PrescriptionThumbs } from "@/components/visits/prescription-photos";
 import type { VisitSummary } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { useAppBack } from "@/lib/navigation/back";
 import {
   errorMessage,
   formatCurrency,
@@ -19,6 +19,7 @@ import {
 } from "@/lib/format";
 
 export default function VisitSummaryPage() {
+  const goBack = useAppBack("/records");
   const params = useParams<{ visitId: string }>();
   const [summary, setSummary] = useState<VisitSummary | null | "missing">(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -50,14 +51,17 @@ export default function VisitSummaryPage() {
   return (
     <ParentShell>
       <header className="flex items-center gap-2 px-3 pb-2 pt-[calc(1rem+env(safe-area-inset-top))]">
-        {/* A visit summary lives in Last visits — back goes there, however it was opened. */}
-        <Link
-          href="/records"
-          aria-label="Back to Last visits"
+        {/* Back to the screen it was opened from (a child's screen, Last visits,
+            or wherever the finished visit popped it up). Opened directly — say
+            from a notification — there's nothing to go back to: Last visits. */}
+        <button
+          type="button"
+          aria-label="Back"
+          onClick={goBack}
           className="flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
         >
           <ArrowLeft className="size-5" />
-        </Link>
+        </button>
         <h1 className="text-xl font-bold text-foreground">Visit summary</h1>
       </header>
 

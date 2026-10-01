@@ -8,6 +8,7 @@ import { ParentShell } from "@/components/parent/parent-shell";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import type { DoctorProfile } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
+import { useAppBack } from "@/lib/navigation/back";
 import { errorMessage } from "@/lib/format";
 
 /**
@@ -18,6 +19,7 @@ import { errorMessage } from "@/lib/format";
  */
 export default function KnowYourDoctorPage() {
   const router = useRouter();
+  const goBack = useAppBack("/more");
   const [profile, setProfile] = useState<DoctorProfile | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -48,7 +50,7 @@ export default function KnowYourDoctorPage() {
         <button
           type="button"
           aria-label="Back"
-          onClick={() => (window.history.length > 1 ? router.back() : router.push("/more"))}
+          onClick={goBack}
           className="absolute left-2 top-[calc(0.75rem+env(safe-area-inset-top))] flex size-12 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
         >
           <ArrowLeft className="size-5" />

@@ -8,6 +8,7 @@ import {
   NotificationPermissionPrompt,
   TopNotificationBanner,
 } from "@/components/parent/notification-permission-prompt";
+import { useCountScreen } from "@/lib/navigation/back";
 import { useCompletedVisitRedirect } from "@/lib/realtime/use-completed-visit-redirect";
 
 const parentNav: NavItem[] = [
@@ -25,6 +26,8 @@ const parentNav: NavItem[] = [
  */
 export function ParentShell({ children }: { children: ReactNode }) {
   useCompletedVisitRedirect();
+  // Lets Back buttons tell an in-app visit from a link opened from outside.
+  useCountScreen();
   return (
     <NavShell
       items={parentNav}

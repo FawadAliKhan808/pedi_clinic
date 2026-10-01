@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Plus, Stethoscope, UserRound } from "lucide-react";
+import { ChevronRight, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { brand } from "@/brand";
@@ -200,10 +200,10 @@ export default function ParentHome() {
         )}
       </section>
 
-      {/* Bottom dock, top to bottom: doctor link, notifications banner (only
-          while undecided), Check in. Pinned to the bottom on every screen size. */}
+      {/* Bottom dock: the notifications banner (only while undecided), then
+          Check in. Pinned to the bottom on every screen size. The doctor's
+          profile is under More. */}
       <StickyActionBar aboveNav>
-        <KnowYourDoctorLink />
         <NotificationBanner placement="dock" />
         {children.length > 0 && (
           <Link href="/check-in">
@@ -300,20 +300,5 @@ function ChildCard({ child, activeToken }: { child: Child; activeToken: ParentQu
         <ChevronRight aria-hidden className="size-5 shrink-0 text-foreground-muted" />
       </Card>
     </Link>
-  );
-}
-
-/** Bottom-right of Home: the way into the doctor's profile. */
-function KnowYourDoctorLink() {
-  return (
-    <div className="flex justify-end">
-      <Link
-        href="/doctor"
-        className="flex min-h-10 items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
-      >
-        <Stethoscope aria-hidden className="size-4" />
-        Know about your doctor
-      </Link>
-    </div>
   );
 }
