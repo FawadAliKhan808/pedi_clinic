@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarCheck, Plus, Search } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
@@ -38,10 +38,22 @@ function opensCompletion(status: DoctorQueueEntry["status"]): boolean {
   return status === "in_consultation";
 }
 
+/**
+ * What this browser tab last showed. Coming back to Queue from another tab
+ * shows it straight away (no skeleton) while a fresh copy loads behind it.
+ * Client-only: it's filled in effects, which never run on the server.
+ */
+const lastShown: {
+  clinicId: UUID | null;
+  entries: DoctorQueueEntry[] | null;
+  today: string | null;
+  daySummary: EndOfDaySummary | null;
+} = { clinicId: null, entries: null, today: null, daySummary: null };
+
 export default function DoctorQueuePage() {
   const toast = useToast();
-  const [clinicId, setClinicId] = useState<UUID | null>(null);
-  const [entries, setEntries] = useState<DoctorQueueEntry[] | null>(null);
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown.clinicId);
+  const [entries, setEntries] = useState<DoctorQueueEntry[] | null>(() => lastShown.entries);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingVisitId, setPendingVisitId] = useState<UUID | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -54,8 +66,15 @@ export default function DoctorQueuePage() {
     parentPhone: string;
   } | null>(null);
   const [completingVisit, setCompletingVisit] = useState<DoctorQueueEntry | null>(null);
-  const [today, setToday] = useState<string | null>(null);
-  const [daySummary, setDaySummary] = useState<EndOfDaySummary | null>(null);
+  const [today, setToday] = useState<string | null>(() => lastShown.today);
+  const [daySummary, setDaySummary] = useState<EndOfDaySummary | null>(() => lastShown.daySummary);
+  // Read by refresh without making it a dependency: "today" arriving must not refetch the queue.
+  const todayRef = useRef(today);
+
+  useEffect(() => {
+    todayRef.current = today;
+    Object.assign(lastShown, { clinicId, entries, today, daySummary });
+  }, [clinicId, entries, today, daySummary]);
 
   useEffect(() => {
     const api = getBrowserApi();
@@ -74,15 +93,24 @@ export default function DoctorQueuePage() {
       .catch(() => undefined);
   }, [toast]);
 
+  const refreshSummary = useCallback(() => {
+    const day = todayRef.current;
+    if (!clinicId || !day) return;
+    void getBrowserApi()
+      .analytics.getEndOfDaySummary(clinicId, day)
+      .then(setDaySummary)
+      .catch(() => undefined);
+  }, [clinicId]);
+
+  // The summary's first load waits for "today"; later ones ride along with each refresh.
+  useEffect(() => {
+    if (today) refreshSummary();
+  }, [today, refreshSummary]);
+
   const refresh = useCallback(() => {
     if (!clinicId) return Promise.resolve();
     const api = getBrowserApi();
-    if (today) {
-      void api.analytics
-        .getEndOfDaySummary(clinicId, today)
-        .then(setDaySummary)
-        .catch(() => undefined);
-    }
+    refreshSummary();
     return api.queue
       .getDoctorQueue(clinicId)
       .then(setEntries)
@@ -91,7 +119,7 @@ export default function DoctorQueuePage() {
         setLoadError(message);
         toast(message, "error");
       });
-  }, [clinicId, today, toast]);
+  }, [clinicId, refreshSummary, toast]);
 
   useEffect(() => {
     void refresh();

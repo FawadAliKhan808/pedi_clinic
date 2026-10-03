@@ -53,10 +53,31 @@ function mapPresets(value: Json): SessionPreset[] {
   });
 }
 
+const BOOKING_WINDOW_TTL_MS = 60_000;
+
 export class SupabaseAppointmentsApi implements AppointmentsApi {
   constructor(private readonly client: TypedSupabaseClient) {}
 
-  async getBookingWindow(): Promise<BookingWindow> {
+  /**
+   * Nearly every screen asks for this first, before its own data. It only
+   * changes at midnight or when the clinic edits its presets, so one answer
+   * is shared for a minute (and callers asking together share one request).
+   * A failed request isn't kept, so a signed-out first try doesn't stick.
+   */
+  getBookingWindow(): Promise<BookingWindow> {
+    const cached = this.bookingWindow;
+    if (cached && Date.now() - cached.at < BOOKING_WINDOW_TTL_MS) return cached.request;
+    const request = this.fetchBookingWindow();
+    this.bookingWindow = { at: Date.now(), request };
+    request.catch(() => {
+      if (this.bookingWindow?.request === request) this.bookingWindow = null;
+    });
+    return request;
+  }
+
+  private bookingWindow: { at: number; request: Promise<BookingWindow> } | null = null;
+
+  private async fetchBookingWindow(): Promise<BookingWindow> {
     const { data, error } = await this.client.rpc("booking_window");
     if (error) throw toApiError(error, "BOOKING_WINDOW_FAILED");
 

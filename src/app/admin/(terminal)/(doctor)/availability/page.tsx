@@ -43,16 +43,31 @@ interface Slot {
   session: ClinicSessionSchedule | null;
 }
 
+/**
+ * What this browser tab last showed, so coming back here is instant while a
+ * fresh copy loads. Client-only: it's filled in an effect, never on the server.
+ */
+const lastShown: {
+  clinicId: UUID | null;
+  today: string | null;
+  presets: SessionPreset[];
+  schedule: ClinicSessionSchedule[] | null;
+} = { clinicId: null, today: null, presets: [], schedule: null };
+
 export default function AvailabilityPage() {
   const toast = useToast();
-  const [clinicId, setClinicId] = useState<UUID | null>(null);
-  const [today, setToday] = useState<string | null>(null);
-  const [date, setDate] = useState<string | null>(null);
-  const [presets, setPresets] = useState<SessionPreset[]>([]);
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown.clinicId);
+  const [today, setToday] = useState<string | null>(() => lastShown.today);
+  const [date, setDate] = useState<string | null>(() => lastShown.today);
+  const [presets, setPresets] = useState<SessionPreset[]>(() => lastShown.presets);
   // Every session in the 14 days shown, so the day strip can show which days are open.
-  const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(null);
+  const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(() => lastShown.schedule);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+
+  useEffect(() => {
+    Object.assign(lastShown, { clinicId, today, presets, schedule });
+  }, [clinicId, today, presets, schedule]);
 
   useEffect(() => {
     const api = getBrowserApi();
@@ -60,7 +75,8 @@ export default function AvailabilityPage() {
       .then(([staff, window]) => {
         setClinicId(staff?.clinicId ?? null);
         setToday(window.today);
-        setDate(window.today);
+        // Keep the day the doctor is on; only start at today the first time.
+        setDate((current) => current ?? window.today);
         setPresets(window.sessionPresets);
       })
       .catch((caught) => {
