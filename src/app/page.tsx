@@ -14,13 +14,13 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 import { ParentShell } from "@/components/parent/parent-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
+import { ErrorState, Skeleton } from "@/components/ui/feedback";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TextField } from "@/components/ui/text-field";
 import { useToast } from "@/components/ui/toast";
 import type { Child, ParentQueueEntry } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
+import { cn, errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
 import { forgetShown, lastShown, useRememberShown } from "@/lib/last-shown";
 import { useDefaultClinicId, useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
@@ -30,7 +30,7 @@ const activeStatuses = new Set(["waiting", "called", "in_consultation"]);
 
 type ParentState =
   | { stage: "signed-out" | "needs-name" }
-  | { stage: "ready"; userId: string; children: Child[]; tokens: ParentQueueEntry[] };
+  | { stage: "ready"; userId: string; name: string; children: Child[]; tokens: ParentQueueEntry[] };
 
 async function loadParentState(): Promise<ParentState> {
   const api = getBrowserApi();
@@ -49,6 +49,7 @@ async function loadParentState(): Promise<ParentState> {
   return {
     stage: "ready",
     userId,
+    name: profile.name,
     children,
     tokens: queue.filter((entry) => activeStatuses.has(entry.status)),
   };
@@ -56,6 +57,7 @@ async function loadParentState(): Promise<ParentState> {
 
 interface HomeShown {
   userId: string;
+  name: string;
   children: Child[];
   tokens: ParentQueueEntry[];
 }
@@ -67,9 +69,10 @@ export default function ParentHome() {
   const [children, setChildren] = useState<Child[]>(shownBefore?.children ?? []);
   const [tokens, setTokens] = useState<ParentQueueEntry[]>(shownBefore?.tokens ?? []);
   const [userId, setUserId] = useState<string | null>(shownBefore?.userId ?? null);
+  const [parentName, setParentName] = useState(shownBefore?.name ?? "");
   const homeShown = useMemo(
-    () => (stage === "ready" && userId ? { userId, children, tokens } : null),
-    [stage, userId, children, tokens]
+    () => (stage === "ready" && userId ? { userId, name: parentName, children, tokens } : null),
+    [stage, userId, parentName, children, tokens]
   );
   useRememberShown("parent-home", homeShown);
   const [addChildOpen, setAddChildOpen] = useState(false);
@@ -83,6 +86,7 @@ export default function ParentHome() {
           setStage(state.stage);
           if (state.stage === "ready") {
             setUserId(state.userId);
+            setParentName(state.name);
             setChildren(state.children);
             setTokens(state.tokens);
           }
@@ -154,9 +158,12 @@ export default function ParentHome() {
         </div>
       </header>
 
-      <div className="px-5 py-2 empty:hidden">
-        <InstallAndNotifications />
-      </div>
+      {/* First things first: until a child is added, nothing competes with that step. */}
+      {children.length > 0 && (
+        <div className="px-5 py-2 empty:hidden">
+          <InstallAndNotifications />
+        </div>
+      )}
 
       {tokens.length > 0 && (
         <section className="flex flex-col gap-3 px-5 py-3">
@@ -190,24 +197,19 @@ export default function ParentHome() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
             Your children
           </h2>
-          <button
-            onClick={() => setAddChildOpen(true)}
-            className="flex min-h-12 items-center gap-1.5 rounded-lg px-2 font-semibold text-primary-600"
-          >
-            <Plus className="size-4" />
-            Add child
-          </button>
+          {children.length > 0 && (
+            <button
+              onClick={() => setAddChildOpen(true)}
+              className="flex min-h-12 items-center gap-1.5 rounded-lg px-2 font-semibold text-primary-600"
+            >
+              <Plus className="size-4" />
+              Add child
+            </button>
+          )}
         </div>
 
         {children.length === 0 ? (
-          <EmptyState
-            icon={<UserRound className="size-8" />}
-            title="No children added yet"
-            description="Add your child's name and date of birth to check in."
-            action={
-              <Button onClick={() => setAddChildOpen(true)}>Add your first child</Button>
-            }
-          />
+          <FirstChildWelcome name={parentName} />
         ) : (
           <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
           {children.map((child) => (
@@ -225,13 +227,25 @@ export default function ParentHome() {
           Check in. Pinned to the bottom on every screen size. The doctor's
           profile is under More. */}
       <StickyActionBar aboveNav>
-        <NotificationBanner placement="dock" />
-        {children.length > 0 && (
-          <Link href="/check-in">
-            <Button fullWidth variant="accent" className="min-h-14 text-lg">
-              Check in
-            </Button>
-          </Link>
+        {children.length > 0 ? (
+          <>
+            <NotificationBanner placement="dock" />
+            <Link href="/check-in">
+              <Button fullWidth variant="accent" className="min-h-14 text-lg">
+                Check in
+              </Button>
+            </Link>
+          </>
+        ) : (
+          <Button
+            fullWidth
+            variant="accent"
+            className="min-h-14 text-lg"
+            onClick={() => setAddChildOpen(true)}
+          >
+            <Plus className="size-5" />
+            Add your child
+          </Button>
         )}
       </StickyActionBar>
 
@@ -242,6 +256,52 @@ export default function ParentHome() {
       />
 
     </ParentShell>
+  );
+}
+
+/**
+ * Home before any child is added: a welcome by name and the one next step,
+ * with what it unlocks. The step's button is the bottom dock's main action.
+ */
+function FirstChildWelcome({ name }: { name: string }) {
+  const steps = [
+    "Add your child's name and date of birth",
+    "Check in at the clinic and get a token",
+    "Follow the queue live and get an alert when it's your turn",
+  ];
+  return (
+    <Card className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-200">
+          <UserRound className="size-6" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-lg font-bold text-foreground">
+            {name ? `Welcome, ${name.split(" ")[0]}` : "Welcome"}
+          </p>
+          <p className="text-sm text-foreground-muted">Let&apos;s get your child set up.</p>
+        </div>
+      </div>
+      <ol className="flex flex-col gap-2.5">
+        {steps.map((step, index) => (
+          <li key={step} className="flex items-start gap-3 text-sm">
+            <span
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                index === 0
+                  ? "bg-accent-500 text-foreground-on-accent"
+                  : "bg-surface-sunken text-foreground-muted"
+              )}
+            >
+              {index + 1}
+            </span>
+            <span className={index === 0 ? "font-semibold text-foreground" : "text-foreground-muted"}>
+              {step}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }
 

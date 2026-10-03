@@ -1,13 +1,17 @@
 "use client";
 
-import { LogOut, Stethoscope } from "lucide-react";
+import { LogOut, Stethoscope, UserRound } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSignOut } from "@/components/layout/sign-out-button";
 import { ParentShell } from "@/components/parent/parent-shell";
+import { Button } from "@/components/ui/button";
 import { ErrorState, Skeleton } from "@/components/ui/feedback";
 import { MenuRow, MenuSection } from "@/components/ui/menu-list";
+import { Sheet } from "@/components/ui/sheet";
+import { TextField } from "@/components/ui/text-field";
+import { useToast } from "@/components/ui/toast";
 import type { DoctorProfile } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatPhone } from "@/lib/format";
@@ -19,9 +23,12 @@ import { errorMessage, formatPhone } from "@/lib/format";
 export default function ParentMorePage() {
   const router = useRouter();
   const { signOut, busy: signingOut } = useSignOut("/");
-  const [data, setData] = useState<{ profile: DoctorProfile | null; phone: string | null } | null>(
-    null
-  );
+  const [data, setData] = useState<{
+    profile: DoctorProfile | null;
+    phone: string | null;
+    name: string | null;
+  } | null>(null);
+  const [editingName, setEditingName] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,11 +39,12 @@ export default function ParentMorePage() {
         router.replace("/");
         return;
       }
-      const [profile, phone] = await Promise.all([
+      const [profile, phone, me] = await Promise.all([
         api.clinic.getDoctorProfile(),
         api.auth.getCurrentPhone(),
+        api.parents.getMyProfile(),
       ]);
-      if (!cancelled) setData({ profile, phone });
+      if (!cancelled) setData({ profile, phone, name: me?.name ?? null });
     })().catch((caught) => {
       if (!cancelled) setLoadError(errorMessage(caught));
     });
@@ -95,6 +103,12 @@ export default function ParentMorePage() {
 
             <MenuSection title="Account">
               <MenuRow
+                onClick={() => setEditingName(true)}
+                icon={UserRound}
+                title={data.name ?? "Add your name"}
+                subtitle="Your name, as the doctor sees it. Tap to change it."
+              />
+              <MenuRow
                 onClick={() => void signOut()}
                 icon={LogOut}
                 title={signingOut ? "Signing out…" : "Sign out"}
@@ -104,6 +118,76 @@ export default function ParentMorePage() {
           </>
         )}
       </div>
+
+      {editingName && data && (
+        <EditNameSheet
+          current={data.name ?? ""}
+          onClose={() => setEditingName(false)}
+          onSaved={(name) => setData((current) => (current ? { ...current, name } : current))}
+        />
+      )}
     </ParentShell>
+  );
+}
+
+/** Change the parent's name — the one the doctor and front desk see. */
+function EditNameSheet({
+  current,
+  onClose,
+  onSaved,
+}: {
+  current: string;
+  onClose: () => void;
+  onSaved: (name: string) => void;
+}) {
+  const toast = useToast();
+  const [name, setName] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const trimmed = name.trim();
+
+  async function save() {
+    setBusy(true);
+    try {
+      const saved = await getBrowserApi().parents.completeProfile({ name: trimmed });
+      onSaved(saved.name ?? trimmed);
+      toast("Name updated", "success");
+      onClose();
+    } catch (caught) {
+      toast(errorMessage(caught), "error");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title="Your name"
+      footer={
+        <Button
+          fullWidth
+          loading={busy}
+          disabled={!trimmed || trimmed === current}
+          onClick={() => void save()}
+        >
+          Save name
+        </Button>
+      }
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed && trimmed !== current) void save();
+        }}
+      >
+        <TextField
+          label="Your name"
+          autoComplete="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          hint="The doctor and the front desk see this next to your child's details."
+        />
+      </form>
+    </Sheet>
   );
 }

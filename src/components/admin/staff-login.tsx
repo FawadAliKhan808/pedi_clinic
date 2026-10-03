@@ -6,7 +6,7 @@ import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
-import { homeFor, staffAreas, type ClinicStaffRole } from "@/lib/auth/staff-areas";
+import { staffAreas, type ClinicStaffRole } from "@/lib/auth/staff-areas";
 import { errorMessage } from "@/lib/format";
 import { forgetShown } from "@/lib/last-shown";
 
@@ -18,8 +18,8 @@ const blurbs: Record<ClinicStaffRole, string> = {
 
 /**
  * Email and password sign-in for one clinic role. Whoever signs in lands in
- * their own area, even from another role's page, so a wrong link never
- * strands anyone.
+ * their own area, even from another role's page (the server redirects them),
+ * so a wrong link never strands anyone.
  */
 export function StaffLogin({ area }: { area: ClinicStaffRole }) {
   const router = useRouter();
@@ -35,15 +35,18 @@ export function StaffLogin({ area }: { area: ClinicStaffRole }) {
     try {
       await api.auth.signInWithPassword(email.trim(), password);
       forgetShown();
-      const staff = await api.auth.getStaffRole();
-      if (!staff) {
+      // Go straight to this area's home; its layout checks the role on the
+      // server and sends anyone else to their own home. Waiting for the role
+      // here first only added a round trip before the next screen started.
+      router.replace(staffAreas[area].home);
+      // Only to explain an account that isn't clinic staff at all.
+      const staff = await api.auth.getStaffRole().catch(() => undefined);
+      if (staff === null) {
         await api.auth.signOut();
+        router.replace(staffAreas[area].login);
         setError("This account isn't set up for the clinic. Ask the clinic to add you.");
         setBusy(false);
-        return;
       }
-      router.replace(homeFor(staff.role));
-      router.refresh();
     } catch (caught) {
       setError(errorMessage(caught));
       setBusy(false);
@@ -83,8 +86,9 @@ export function StaffLogin({ area }: { area: ClinicStaffRole }) {
         Sign in
       </Button>
 
-      {/* In a browser tab, ask to install this area's app. */}
-      <InstallPrompt variant="bar" audience={area} />
+      {/* In a browser tab, offer this area's app — as a bar only, so nothing
+          covers the form; the full how-to opens once they're signed in. */}
+      <InstallPrompt variant="bar" audience={area} autoOpen={false} />
     </form>
   );
 }

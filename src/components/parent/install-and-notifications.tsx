@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Smartphone,
   SquarePlus,
+  X,
 } from "lucide-react";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { brand, staffApps, type StaffAppId } from "@/brand";
@@ -60,13 +61,16 @@ export function InstallAndNotifications() {
 export function InstallPrompt({
   variant = "card",
   audience = "parent",
+  autoOpen = true,
 }: {
   variant?: BannerVariant;
   audience?: Audience;
+  /** False: only the banner; the how-to opens when tapped (e.g. over a sign-in form). */
+  autoOpen?: boolean;
 }) {
   const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false);
   if (!inBrowser || isStandalone()) return null;
-  return <BrowserInstallPrompt variant={variant} audience={audience} />;
+  return <BrowserInstallPrompt variant={variant} audience={audience} autoOpen={autoOpen} />;
 }
 
 const noSubscription = () => () => undefined;
@@ -200,17 +204,24 @@ function unblockInstructions(platform: Platform): string {
 function BrowserInstallPrompt({
   variant = "card",
   audience = "parent",
+  autoOpen = true,
 }: {
   variant?: BannerVariant;
   audience?: Audience;
+  autoOpen?: boolean;
 }) {
   const copy = installCopy[audience];
   const [open, setOpen] = useState(() => {
-    // Right after getting a token, show it again even if dismissed earlier.
+    if (!autoOpen) return false;
+    // Right after getting a token, show it again even if dismissed earlier:
+    // they're waiting, and the alert is exactly what the app is for.
     if (sessionFlag.get(SHOW_INSTALL_AFTER_TOKEN)) {
       sessionFlag.set(SHOW_INSTALL_AFTER_TOKEN, false);
       return true;
     }
+    // Parents meeting the app for the first time see the small card only —
+    // a guide covering the screen before they've seen anything confused them.
+    if (audience === "parent") return false;
     return !sessionFlag.get(INSTALL_DISMISSED_THIS_VISIT);
   });
   const toast = useToast();
@@ -291,6 +302,16 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const deferredPrompt = useInstallPrompt();
   const [platform] = useState<Platform>(detectPlatform);
   const [inAppBrowser] = useState(isInAppBrowser);
+  // iPhone: a small hint at the bottom first; the full step-by-step on request.
+  const [showSteps, setShowSteps] = useState(false);
+  const close = () => {
+    setShowSteps(false);
+    onClose();
+  };
+
+  if (open && platform === "ios" && !inAppBrowser && !showSteps) {
+    return <IosQuickHint onClose={close} onShowSteps={() => setShowSteps(true)} />;
+  }
 
   async function install() {
     const accepted = await promptInstall();
@@ -313,7 +334,7 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={close}
       title={`Install ${copy.appName}`}
       footer={
         <div className="flex flex-col gap-2">
@@ -411,6 +432,85 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
         <WhyInstall />
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * The first thing an iPhone shows: a card at the bottom of the screen, above
+ * Safari's toolbar where Share lives, with the two taps in one line each. The
+ * page stays visible and usable behind it; "Show me how" opens the full
+ * picture-by-picture guide.
+ */
+function IosQuickHint({ onClose, onShowSteps }: { onClose: () => void; onShowSteps: () => void }) {
+  const copy = useContext(CopyContext);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      <div
+        role="dialog"
+        aria-labelledby="ios-hint-title"
+        className="w-full max-w-md rounded-2xl border border-border bg-surface-raised p-4 shadow-2xl motion-safe:animate-[sheet-in_180ms_ease-out]"
+      >
+        <div className="flex items-start gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/192" alt="" className="size-11 shrink-0 rounded-[11px] shadow-sm" />
+          <div className="min-w-0 flex-1">
+            <p id="ios-hint-title" className="font-display font-bold text-foreground">
+              Add {copy.shortName} to your home screen
+            </p>
+            <p className="text-sm text-foreground-muted">{copy.barLine}.</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="-mr-2 -mt-2 flex size-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        <ol className="mt-3 flex flex-col gap-2 text-sm text-foreground">
+          <li className="flex items-center gap-2">
+            <StepDot>1</StepDot>
+            <span>
+              Tap <Share aria-hidden className="mx-0.5 inline size-4 align-[-2px] text-[#007aff]" />{" "}
+              <strong>Share</strong> in Safari
+            </span>
+          </li>
+          <li className="flex items-center gap-2">
+            <StepDot>2</StepDot>
+            <span>
+              Choose <SquarePlus aria-hidden className="mx-0.5 inline size-4 align-[-2px]" />{" "}
+              <strong>Add to Home Screen</strong>, then <strong>Add</strong>
+            </span>
+          </li>
+        </ol>
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" className="flex-1 px-3" onClick={onShowSteps}>
+            Show me how
+          </Button>
+          <Button className="flex-1 px-3" onClick={onClose}>
+            Got it
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepDot({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-700 font-display text-xs font-bold text-neutral-0">
+      {children}
+    </span>
   );
 }
 
