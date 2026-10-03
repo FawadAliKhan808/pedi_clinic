@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Plus, Search } from "lucide-react";
+import { Minus, Plus, Scale, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/toast";
 import { PrescriptionThumbs } from "@/components/visits/prescription-photos";
 import { isLowStock, type Medicine, type PharmacyFeedEntry, type UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatCurrency } from "@/lib/format";
+import { errorMessage, formatCurrency, formatWeight } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 
 export function DispenseSheet({
   clinicId,
@@ -26,7 +27,11 @@ export function DispenseSheet({
 }) {
   const toast = useToast();
   const [query, setQuery] = useState("");
-  const [medicines, setMedicines] = useState<Medicine[] | null>(null);
+  // Opens with the list the Stock screen (or the last dispense) already has, then refreshes.
+  const [medicines, setMedicines] = useState<Medicine[] | null>(
+    () => lastShown<Medicine[]>("pharmacy-medicines") ?? null
+  );
+  useRememberShown("pharmacy-medicines", medicines);
   const [quantities, setQuantities] = useState<Record<UUID, number>>({});
   const [busy, setBusy] = useState(false);
 
@@ -127,6 +132,18 @@ export function DispenseSheet({
       }
     >
       <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2 rounded-xl bg-surface-sunken px-4 py-3 text-sm">
+          <Scale aria-hidden className="size-4 shrink-0 text-primary-600" />
+          {entry.weightKg !== null ? (
+            <span className="text-foreground">
+              Weight at this visit{" "}
+              <strong className="tabular-nums">{formatWeight(entry.weightKg)}</strong>
+            </span>
+          ) : (
+            <span className="text-foreground-muted">No weight recorded at this visit</span>
+          )}
+        </div>
+
         {entry.storageKeys.length > 0 && (
           <section className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">

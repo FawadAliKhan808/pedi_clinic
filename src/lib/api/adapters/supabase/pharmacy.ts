@@ -22,6 +22,7 @@ export class SupabasePharmacyApi implements PharmacyApi {
       reason: row.reason,
       completedAt: row.completed_at,
       storageKeys: row.storage_keys ?? [],
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
     }));
   }
 

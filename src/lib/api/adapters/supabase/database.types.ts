@@ -1310,6 +1310,7 @@ export type Database = {
           seq: number
           storage_keys: string[]
           visit_id: string
+          weight_kg: number
         }[]
       }
       record_install: {

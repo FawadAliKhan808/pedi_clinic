@@ -11,6 +11,8 @@ import { useToast } from "@/components/ui/toast";
 import { isLowStock, type Medicine, type UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { cn, errorMessage, formatCurrency, parseAmount } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 type StockFilter = "all" | "in_stock" | "low" | "out";
 
@@ -24,13 +26,18 @@ const statusOrder: Record<Exclude<StockFilter, "all">, number> = { out: 0, low: 
 
 export default function StockPage() {
   const toast = useToast();
-  const [clinicId, setClinicId] = useState<UUID | null>(null);
-  const [medicines, setMedicines] = useState<Medicine[] | null>(null);
+  // Coming back to Stock shows the last list at once while a fresh copy loads.
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown<UUID>("staff-clinic") ?? null);
+  const [medicines, setMedicines] = useState<Medicine[] | null>(
+    () => lastShown<Medicine[]>("pharmacy-medicines") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [restocking, setRestocking] = useState<Medicine | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StockFilter>("all");
+  useRememberShown("staff-clinic", clinicId);
+  useRememberShown("pharmacy-medicines", medicines);
 
   useEffect(() => {
     getBrowserApi()
@@ -58,6 +65,9 @@ export default function StockPage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Dispensing on another device changes the counts; follow it.
+  useLiveRefresh("pharmacy", clinicId, refresh);
 
   const lowStock = (medicines ?? []).filter(isLowStock);
 

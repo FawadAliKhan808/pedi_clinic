@@ -8,14 +8,21 @@ import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { PharmacyFeedEntry, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
+import { errorMessage, formatAge, formatWeight, visitReasonLabels } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
+import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 export default function PharmacyFeedPage() {
   const toast = useToast();
-  const [clinicId, setClinicId] = useState<UUID | null>(null);
-  const [entries, setEntries] = useState<PharmacyFeedEntry[] | null>(null);
+  // Coming back to the feed shows it at once while a fresh copy loads.
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown<UUID>("staff-clinic") ?? null);
+  const [entries, setEntries] = useState<PharmacyFeedEntry[] | null>(
+    () => lastShown<PharmacyFeedEntry[]>("pharmacy-feed") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dispensing, setDispensing] = useState<PharmacyFeedEntry | null>(null);
+  useRememberShown("staff-clinic", clinicId);
+  useRememberShown("pharmacy-feed", entries);
 
   useEffect(() => {
     getBrowserApi()
@@ -44,18 +51,20 @@ export default function PharmacyFeedPage() {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    if (!clinicId) return;
-    // Visits land here the moment the doctor completes them.
-    return getBrowserApi().realtime.subscribeToPharmacyFeed(clinicId, () => {
-      void refresh();
-    });
-  }, [clinicId, refresh]);
+  // Visits land here the moment the doctor completes them.
+  useLiveRefresh("pharmacy", clinicId, refresh);
 
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Pharmacy</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Pharmacy</h1>
+          {entries && entries.length > 0 && (
+            <p className="text-sm text-foreground-muted">
+              {entries.length} {entries.length === 1 ? "visit" : "visits"} waiting, oldest first
+            </p>
+          )}
+        </div>
       </header>
 
       <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
@@ -92,6 +101,14 @@ export default function PharmacyFeedPage() {
                   </p>
                   <p className="text-sm text-foreground-muted">
                     {formatAge(entry.childDob)} · {visitReasonLabels[entry.reason]}
+                    {entry.weightKg !== null && (
+                      <>
+                        {" · "}
+                        <span className="font-semibold text-foreground">
+                          {formatWeight(entry.weightKg)}
+                        </span>
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-foreground-muted">
                     {entry.storageKeys.length > 0

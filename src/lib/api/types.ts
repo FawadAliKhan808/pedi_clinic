@@ -250,6 +250,8 @@ export interface PharmacyFeedEntry {
   reason: VisitReason;
   completedAt: ISODateTimeString | null;
   storageKeys: string[];
+  /** Weight recorded at this visit, for weight-based dosing. Null if none was. */
+  weightKg: number | null;
 }
 
 export interface OrderItem {
