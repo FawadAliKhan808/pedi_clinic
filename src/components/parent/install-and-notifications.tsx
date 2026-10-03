@@ -219,9 +219,9 @@ function BrowserInstallPrompt({
       sessionFlag.set(SHOW_INSTALL_AFTER_TOKEN, false);
       return true;
     }
-    // Parents meeting the app for the first time see the small card only —
-    // a guide covering the screen before they've seen anything confused them.
-    if (audience === "parent") return false;
+    // Otherwise once per visit in a browser tab, sign-in screen included (on
+    // purpose: installing first is what makes the alerts work). iPhone gets
+    // the compact two-step card, Android the one-tap install.
     return !sessionFlag.get(INSTALL_DISMISSED_THIS_VISIT);
   });
   const toast = useToast();
@@ -302,15 +302,25 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
   const deferredPrompt = useInstallPrompt();
   const [platform] = useState<Platform>(detectPlatform);
   const [inAppBrowser] = useState(isInAppBrowser);
-  // iPhone: a small hint at the bottom first; the full step-by-step on request.
+  // A small card at the bottom first (two steps, or one tap where Chrome can
+  // install); the full step-by-step on request. Inside WhatsApp and similar
+  // the full sheet comes straight away: it has to explain leaving that app.
   const [showSteps, setShowSteps] = useState(false);
   const close = () => {
     setShowSteps(false);
     onClose();
   };
 
-  if (open && platform === "ios" && !inAppBrowser && !showSteps) {
-    return <IosQuickHint onClose={close} onShowSteps={() => setShowSteps(true)} />;
+  if (open && !inAppBrowser && !showSteps) {
+    return (
+      <QuickInstallHint
+        platform={platform}
+        canInstall={platform !== "ios" && deferredPrompt !== null}
+        onInstall={() => void install()}
+        onClose={close}
+        onShowSteps={() => setShowSteps(true)}
+      />
+    );
   }
 
   async function install() {
@@ -436,13 +446,27 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 /**
- * The first thing an iPhone shows: a card at the bottom of the screen, above
- * Safari's toolbar where Share lives, with the two taps in one line each. The
- * page stays visible and usable behind it; "Show me how" opens the full
- * picture-by-picture guide.
+ * The install popup: a card at the bottom of the screen (on iPhone, just above
+ * Safari's toolbar where Share lives). iPhone: the two taps, one line each.
+ * Android where Chrome can install: one Install button. Otherwise Chrome's
+ * two menu taps. The page stays visible behind it; "Show me how" opens the
+ * full picture-by-picture guide.
  */
-function IosQuickHint({ onClose, onShowSteps }: { onClose: () => void; onShowSteps: () => void }) {
+function QuickInstallHint({
+  platform,
+  canInstall,
+  onInstall,
+  onClose,
+  onShowSteps,
+}: {
+  platform: Platform;
+  canInstall: boolean;
+  onInstall: () => void;
+  onClose: () => void;
+  onShowSteps: () => void;
+}) {
   const copy = useContext(CopyContext);
+  const ios = platform === "ios";
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -464,7 +488,7 @@ function IosQuickHint({ onClose, onShowSteps }: { onClose: () => void; onShowSte
           <img src="/icons/192" alt="" className="size-11 shrink-0 rounded-[11px] shadow-sm" />
           <div className="min-w-0 flex-1">
             <p id="ios-hint-title" className="font-display font-bold text-foreground">
-              Add {copy.shortName} to your home screen
+              {ios ? `Add ${copy.shortName} to your home screen` : `Install ${copy.shortName}`}
             </p>
             <p className="text-sm text-foreground-muted">{copy.barLine}.</p>
           </div>
@@ -477,29 +501,61 @@ function IosQuickHint({ onClose, onShowSteps }: { onClose: () => void; onShowSte
             <X className="size-5" />
           </button>
         </div>
-        <ol className="mt-3 flex flex-col gap-2 text-sm text-foreground">
-          <li className="flex items-center gap-2">
-            <StepDot>1</StepDot>
-            <span>
-              Tap <Share aria-hidden className="mx-0.5 inline size-4 align-[-2px] text-[#007aff]" />{" "}
-              <strong>Share</strong> in Safari
-            </span>
-          </li>
-          <li className="flex items-center gap-2">
-            <StepDot>2</StepDot>
-            <span>
-              Choose <SquarePlus aria-hidden className="mx-0.5 inline size-4 align-[-2px]" />{" "}
-              <strong>Add to Home Screen</strong>, then <strong>Add</strong>
-            </span>
-          </li>
-        </ol>
+        {canInstall ? (
+          <p className="mt-3 text-sm text-foreground-muted">
+            One tap. It opens full screen from your home screen and uses almost no space.
+          </p>
+        ) : (
+          <ol className="mt-3 flex flex-col gap-2 text-sm text-foreground">
+            <li className="flex items-center gap-2">
+              <StepDot>1</StepDot>
+              {ios ? (
+                <span>
+                  Tap <Share aria-hidden className="mx-0.5 inline size-4 align-[-2px] text-[#007aff]" />{" "}
+                  <strong>Share</strong> in Safari
+                </span>
+              ) : (
+                <span>
+                  Tap <strong>⋮</strong> in Chrome&apos;s top corner
+                </span>
+              )}
+            </li>
+            <li className="flex items-center gap-2">
+              <StepDot>2</StepDot>
+              {ios ? (
+                <span>
+                  Choose <SquarePlus aria-hidden className="mx-0.5 inline size-4 align-[-2px]" />{" "}
+                  <strong>Add to Home Screen</strong>, then <strong>Add</strong>
+                </span>
+              ) : (
+                <span>
+                  Choose <strong>Install app</strong>, then <strong>Install</strong>
+                </span>
+              )}
+            </li>
+          </ol>
+        )}
         <div className="mt-4 flex gap-2">
-          <Button variant="secondary" className="flex-1 px-3" onClick={onShowSteps}>
-            Show me how
-          </Button>
-          <Button className="flex-1 px-3" onClick={onClose}>
-            Got it
-          </Button>
+          {canInstall ? (
+            <>
+              <Button variant="secondary" className="flex-1 px-3" onClick={onClose}>
+                Not now
+              </Button>
+              <Button className="flex-1 px-3" onClick={onInstall}>
+                <Download className="size-4" />
+                Install
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" className="flex-1 px-3" onClick={onShowSteps}>
+                Show me how
+              </Button>
+              <Button className="flex-1 px-3" onClick={onClose}>
+                Got it
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
