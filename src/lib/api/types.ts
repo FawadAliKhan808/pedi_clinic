@@ -79,6 +79,8 @@ export interface ParentQueueEntry {
   reason: VisitReason;
   nowServingSeq: number | null;
   patientsAhead: number;
+  /** Child's weight in kg at this visit, measured at the clinic. Null until recorded. */
+  weightKg: number | null;
 }
 
 export interface DoctorQueueEntry {
@@ -96,6 +98,8 @@ export interface DoctorQueueEntry {
   hasAppointment: boolean;
   calledAt: ISODateTimeString | null;
   createdAt: ISODateTimeString;
+  /** Child's weight in kg at this visit, measured at the clinic. Null until recorded. */
+  weightKg: number | null;
 }
 
 export interface ChildSearchResult {
@@ -145,6 +149,8 @@ export interface VisitSummary {
   storageKeys: string[];
   /** The parent's own rating, so they aren't asked twice. */
   ratingStars: number | null;
+  /** Child's weight in kg at this visit, measured at the clinic. Null until recorded. */
+  weightKg: number | null;
 }
 
 export interface ChildVisitHistoryEntry {
@@ -205,6 +211,8 @@ export interface VisitTimelineEntry {
     total: number;
     medicines: { name: string; unit: string; quantity: number; unitPrice: number }[];
   } | null;
+  /** Child's weight in kg at this visit, measured at the clinic. Null until recorded. */
+  weightKg: number | null;
 }
 
 export interface Medicine {

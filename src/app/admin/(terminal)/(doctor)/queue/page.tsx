@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, Plus, Search } from "lucide-react";
+import { CalendarCheck, Plus, Scale, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
@@ -13,7 +13,14 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { useToast } from "@/components/ui/toast";
 import type { DoctorQueueEntry, EndOfDaySummary, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { cn, errorMessage, formatAge, formatDayShort, visitReasonLabels } from "@/lib/format";
+import {
+  cn,
+  errorMessage,
+  formatAge,
+  formatDayShort,
+  formatWeight,
+  visitReasonLabels,
+} from "@/lib/format";
 import { lastShown, useRememberShown } from "@/lib/last-shown";
 
 type QueueAction = "call" | "recall" | "startConsultation" | "skip" | "remove";
@@ -263,6 +270,7 @@ export default function DoctorQueuePage() {
           open
           visitId={completingVisit.visitId}
           childName={completingVisit.childName}
+          initialWeightKg={completingVisit.weightKg}
           onClose={() => setCompletingVisit(null)}
           onCompleted={() => void refresh()}
         />
@@ -374,6 +382,17 @@ function QueueCard({
             <StatusPill status={entry.status} />
             <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground-muted">
               {entry.isReturning ? "Returning" : "New"}
+            </span>
+            <span
+              className={cn(
+                "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                entry.weightKg === null
+                  ? "border border-dashed border-border text-foreground-muted"
+                  : "bg-surface-sunken text-foreground"
+              )}
+            >
+              <Scale className="size-3" />
+              {entry.weightKg === null ? "No weight yet" : formatWeight(entry.weightKg)}
             </span>
             {entry.hasAppointment && (
               <span className="flex items-center gap-1 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">

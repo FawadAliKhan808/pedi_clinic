@@ -6,6 +6,7 @@ import {
   Clock,
   Phone,
   Pill,
+  Scale,
   Stethoscope,
   Syringe,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
   formatCurrency,
   formatDate,
   formatPhone,
+  formatWeight,
   paymentModeLabels,
   visitReasonLabels,
 } from "@/lib/format";
@@ -160,6 +162,12 @@ function TimelineCard({ entry }: { entry: VisitTimelineEntry }) {
           <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 text-sm font-medium text-foreground">
             <CalendarCheck aria-hidden className="size-4 text-primary-600" />
             Booked appointment
+          </span>
+        )}
+        {entry.weightKg !== null && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1 text-sm font-medium tabular-nums text-foreground">
+            <Scale aria-hidden className="size-4 text-primary-600" />
+            {formatWeight(entry.weightKg)}
           </span>
         )}
         {minutes !== null && (

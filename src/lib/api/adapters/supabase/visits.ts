@@ -35,6 +35,16 @@ export class SupabaseVisitsApi implements VisitsApi {
     return mapVisitRow(data);
   }
 
+  async recordWeight(visitId: UUID, weightKg: number | null): Promise<number | null> {
+    const { data, error } = await this.client.rpc("record_visit_weight", {
+      p_visit_id: visitId,
+      // The generated type says number, but the function takes null to clear.
+      p_weight_kg: weightKg as number,
+    });
+    if (error) throw toApiError(error, "RECORD_WEIGHT_FAILED");
+    return data === null ? null : Number(data);
+  }
+
   async getVisitSummary(visitId: UUID): Promise<VisitSummary | null> {
     const { data, error } = await this.client.rpc("visit_summary", {
       p_visit_id: visitId,
@@ -57,6 +67,7 @@ export class SupabaseVisitsApi implements VisitsApi {
       completedAt: row.completed_at,
       storageKeys: row.storage_keys ?? [],
       ratingStars: row.rating_stars,
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
     };
   }
 
@@ -188,6 +199,7 @@ export class SupabaseVisitsApi implements VisitsApi {
                 unitPrice: Number(item.unit_price),
               })),
             },
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
     }));
   }
 }

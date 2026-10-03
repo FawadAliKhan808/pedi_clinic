@@ -227,6 +227,21 @@ export function formatPhone(phone: string): string {
   return phone.length === 10 ? `${phone.slice(0, 5)} ${phone.slice(5)}` : phone;
 }
 
+/** 12.4 → "12.4 kg"; 12 → "12 kg"; 3.25 → "3.25 kg". */
+export function formatWeight(kg: number): string {
+  return `${Number(kg.toFixed(2)).toLocaleString("en-IN", { maximumFractionDigits: 2 })} kg`;
+}
+
+/**
+ * What someone typed in a weight box ("12.4", "12,4", " 9 ") as kg, or null
+ * if it isn't a plausible child's weight (above 0, under 200 kg).
+ */
+export function parseWeightInput(text: string): number | null {
+  const value = Number(text.trim().replace(",", "."));
+  if (!text.trim() || !Number.isFinite(value) || value <= 0 || value >= 200) return null;
+  return Math.round(value * 100) / 100;
+}
+
 /** Turns an ApiError code into copy a parent or doctor can act on. */
 export function errorMessage(error: unknown): string {
   const code =
@@ -291,6 +306,12 @@ export function errorMessage(error: unknown): string {
       return "Wrong email or password.";
     case "NO_CLINIC_CONFIGURED":
       return "The clinic isn't set up yet.";
+    case "INVALID_WEIGHT":
+      return "Enter the weight in kg, for example 12.4.";
+    case "VISIT_NOT_ACTIVE":
+      return "This visit is over, so its weight can't be changed here any more.";
+    case "NOT_AUTHORIZED":
+      return "You don't have access to do that.";
     default:
       return "Something went wrong. Please try again.";
   }

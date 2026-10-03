@@ -729,6 +729,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         Insert: {
           appointment_id?: string | null
@@ -746,6 +747,7 @@ export type Database = {
           updated_at?: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg?: number | null
         }
         Update: {
           appointment_id?: string | null
@@ -763,6 +765,7 @@ export type Database = {
           updated_at?: string
           visit_date?: string
           visit_reason?: Database["public"]["Enums"]["visit_reason"]
+          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -844,6 +847,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -894,6 +898,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -958,6 +963,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -992,6 +998,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1039,6 +1046,7 @@ export type Database = {
           vaccination: number
           visit_date: string
           visit_id: string
+          weight_kg: number
         }[]
       }
       claim_pending_pushes: {
@@ -1128,6 +1136,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1221,6 +1230,7 @@ export type Database = {
           seq: number
           status: Database["public"]["Enums"]["visit_status"]
           visit_id: string
+          weight_kg: number
         }[]
       }
       end_of_day_summary: {
@@ -1286,6 +1296,7 @@ export type Database = {
           status: Database["public"]["Enums"]["visit_status"]
           visit_date: string
           visit_id: string
+          weight_kg: number
         }[]
       }
       pharmacy_feed: {
@@ -1329,6 +1340,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      record_visit_weight: {
+        Args: { p_visit_id: string; p_weight_kg: number }
+        Returns: number
+      }
       register_push_subscription: {
         Args: { p_auth: string; p_endpoint: string; p_p256dh: string }
         Returns: undefined
@@ -1351,6 +1366,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1464,6 +1480,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1490,6 +1507,7 @@ export type Database = {
           updated_at: string
           visit_date: string
           visit_reason: Database["public"]["Enums"]["visit_reason"]
+          weight_kg: number | null
         }
         SetofOptions: {
           from: "*"
@@ -1563,6 +1581,7 @@ export type Database = {
           storage_keys: string[]
           visit_date: string
           visit_id: string
+          weight_kg: number
         }[]
       }
     }

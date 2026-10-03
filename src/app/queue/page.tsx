@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
 import { ParentShell } from "@/components/parent/parent-shell";
+import { VisitWeightCard } from "@/components/parent/visit-weight-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
@@ -173,6 +174,20 @@ export default function QueuePage() {
                 <p className="text-lg font-semibold text-foreground">
                   {statusCopy(entry)}
                 </p>
+                {entry.status !== "skipped" && (
+                  <VisitWeightCard
+                    visitId={entry.visitId}
+                    childName={entry.childName}
+                    weightKg={entry.weightKg}
+                    onSaved={(weightKg) =>
+                      setEntries((current) =>
+                        current?.map((item) =>
+                          item.visitId === entry.visitId ? { ...item, weightKg } : item
+                        ) ?? null
+                      )
+                    }
+                  />
+                )}
 
               </div>
             </section>

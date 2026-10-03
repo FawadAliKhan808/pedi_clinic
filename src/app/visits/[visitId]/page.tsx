@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CalendarClock } from "lucide-react";
+import { ArrowLeft, CalendarClock, Scale } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ParentShell } from "@/components/parent/parent-shell";
@@ -15,6 +15,7 @@ import {
   errorMessage,
   formatCurrency,
   formatDate,
+  formatWeight,
   visitReasonLabels,
 } from "@/lib/format";
 
@@ -84,6 +85,12 @@ export default function VisitSummaryPage() {
             <p className="text-sm text-foreground-muted">
               {formatDate(summary.visitDate)} · {visitReasonLabels[summary.reason]}
             </p>
+            {summary.weightKg !== null && (
+              <p className="flex items-center gap-1.5 pt-1 text-sm text-foreground">
+                <Scale aria-hidden className="size-4 text-primary-600" />
+                Weight <strong className="tabular-nums">{formatWeight(summary.weightKg)}</strong>
+              </p>
+            )}
           </Card>
 
           {summary.feeTotal !== null && (

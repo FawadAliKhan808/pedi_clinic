@@ -15,6 +15,8 @@ import {
   parseAmount,
   paymentModeLabels,
   todayISO,
+  formatWeight,
+  parseWeightInput,
 } from "@/lib/format";
 import { compressImage } from "@/lib/image";
 
@@ -32,12 +34,15 @@ interface UploadedPhoto {
 export function CompleteVisitFlow({
   visitId,
   childName,
+  initialWeightKg = null,
   open,
   onClose,
   onCompleted,
 }: {
   visitId: UUID;
   childName: string;
+  /** What the parent (or an earlier edit) already recorded for this visit. */
+  initialWeightKg?: number | null;
   open: boolean;
   onClose: () => void;
   onCompleted: () => void;
@@ -62,6 +67,9 @@ export function CompleteVisitFlow({
 
   // Starts empty for every consultation (the flow is keyed by visit).
   const [followUpDate, setFollowUpDate] = useState("");
+  const [weightText, setWeightText] = useState(initialWeightKg === null ? "" : String(initialWeightKg));
+  const weightKg = parseWeightInput(weightText);
+  const weightUnreadable = weightText.trim() !== "" && weightKg === null;
   const [completing, setCompleting] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
 
@@ -72,7 +80,8 @@ export function CompleteVisitFlow({
     vaccination.trim() !== "" ||
     other.trim() !== "" ||
     paymentChoice !== null ||
-    followUpDate !== "";
+    followUpDate !== "" ||
+    weightKg !== initialWeightKg;
 
   /** Close, unless that would lose what's been entered — then ask first. */
   function requestClose() {
@@ -133,6 +142,10 @@ export function CompleteVisitFlow({
   async function complete() {
     setCompleting(true);
     try {
+      // Saved first: once completed, the visit leaves the queue.
+      if (weightKg !== initialWeightKg) {
+        await getBrowserApi().visits.recordWeight(visitId, weightKg);
+      }
       await getBrowserApi().visits.completeVisit({
         visitId,
         fees,
@@ -321,9 +334,23 @@ export function CompleteVisitFlow({
     },
 
     followup: {
-      title: "Follow-up",
+      title: "Weight and follow-up",
       body: (
         <div className="flex flex-col gap-4">
+          <TextField
+            label="Weight (kg)"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="e.g. 12.4"
+            value={weightText}
+            onChange={(event) => setWeightText(event.target.value)}
+            error={weightUnreadable ? "Enter the weight in kg, for example 12.4" : undefined}
+            hint={
+              initialWeightKg !== null && weightKg === initialWeightKg
+                ? "Entered by the parent from the clinic scale. Change it if it's wrong."
+                : "Optional, but it builds the child's growth record."
+            }
+          />
           <p className="text-sm text-foreground-muted">
             Optional. The parent gets a reminder before this date — it does not book
             an appointment.
@@ -350,7 +377,7 @@ export function CompleteVisitFlow({
           >
             Back
           </Button>
-          <Button className="flex-1" onClick={() => setStep("review")}>
+          <Button className="flex-1" disabled={weightUnreadable} onClick={() => setStep("review")}>
             Review
           </Button>
         </div>
@@ -390,6 +417,7 @@ export function CompleteVisitFlow({
           ))}
           {total === 0 && <SummaryRow label="Payment" value="No payment due" />}
 
+          <SummaryRow label="Weight" value={weightKg === null ? "Not recorded" : formatWeight(weightKg)} />
           <SummaryRow
             label="Follow-up"
             value={followUpDate ? followUpDate : "None"}

@@ -37,6 +37,14 @@ export interface VisitsApi {
   completeVisit(input: CompleteVisitInput): Promise<Visit>;
 
   /**
+   * Records the child's weight for a visit (null clears it) and returns what
+   * was stored. The parent can do this for their own child's visit while it's
+   * in today's queue; the doctor for any visit in the clinic. Throws
+   * INVALID_WEIGHT, VISIT_NOT_ACTIVE or NOT_AUTHORIZED.
+   */
+  recordWeight(visitId: UUID, weightKg: number | null): Promise<number | null>;
+
+  /**
    * Rates the app, not the doctor — once per parent, ever (a second try
    * throws ALREADY_RATED). Clinic staff can never read ratings back.
    */

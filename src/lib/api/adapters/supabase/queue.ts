@@ -30,6 +30,7 @@ export class SupabaseQueueApi implements QueueApi {
       reason: row.reason,
       nowServingSeq: row.now_serving_seq,
       patientsAhead: row.patients_ahead,
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
     }));
   }
 
@@ -70,6 +71,7 @@ export class SupabaseQueueApi implements QueueApi {
       hasAppointment: row.has_appointment,
       calledAt: row.called_at,
       createdAt: row.created_at,
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
     }));
   }
 
