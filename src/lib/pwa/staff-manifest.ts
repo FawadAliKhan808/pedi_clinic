@@ -23,7 +23,8 @@ export function staffManifestResponse(id: StaffAppId): Response {
     scope: app.base,
     display: "standalone",
     orientation: "portrait",
-    background_color: "#ffffff",
+    // Android draws its launch screen from this colour, the icon and the name.
+    background_color: brandPrimary,
     theme_color: brandPrimary,
     icons: [
       { src: "/icons/192", sizes: "192x192", type: "image/png", purpose: "any" },

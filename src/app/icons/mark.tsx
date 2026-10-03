@@ -30,6 +30,11 @@ export function iconMark(size: number, markScale = 0.62): ReactElement {
   );
 }
 
+/** The brand's glyph alone (white on the primary colour), for splash screens. */
+export function brandGlyph(size: number): ReactElement {
+  return brand.mark === "crescent" ? crescentGlyph(size) : crossGlyph(size);
+}
+
 function crossGlyph(barLength: number): ReactElement {
   const barThickness = barLength * 0.34;
   return (

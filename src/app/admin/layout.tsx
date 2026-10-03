@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { staffApps } from "@/brand";
+import { appleStartupImages } from "@/lib/pwa/splash";
 
 /**
  * Everything under /admin installs as the doctor's app ("<Clinic> Doctor"):
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: staffApps.doctor.shortName,
+    startupImage: appleStartupImages("doctor"),
   },
 };
 

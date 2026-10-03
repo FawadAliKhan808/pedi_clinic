@@ -5,6 +5,7 @@ import { AppInstalledOverlay } from "@/components/app-installed-overlay";
 import { OfflineBanner } from "@/components/offline-banner";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ToastProvider } from "@/components/ui/toast";
+import { appleStartupImages } from "@/lib/pwa/splash";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,8 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: brand.shortName,
+    // iPhone/iPad launch screen (Android builds its own from the manifest).
+    startupImage: appleStartupImages("parent"),
   },
 };
 
