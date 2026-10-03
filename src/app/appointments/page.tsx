@@ -19,6 +19,7 @@ import {
   formatSession,
   visitReasonLabels,
 } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 interface AppointmentsData {
@@ -40,8 +41,11 @@ async function loadAppointments(): Promise<AppointmentsData | null> {
 export default function MyAppointmentsPage() {
   const router = useRouter();
   const toast = useToast();
-  const [data, setData] = useState<AppointmentsData | null>(null);
+  const [data, setData] = useState<AppointmentsData | null>(
+    () => lastShown<AppointmentsData>("parent-appointments") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
+  useRememberShown("parent-appointments", data);
 
   const refresh = useCallback(
     () =>

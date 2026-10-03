@@ -2,7 +2,7 @@
 
 import { ChevronRight, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { brand } from "@/brand";
 import { AddChildSheet } from "@/components/parent/add-child-sheet";
 import { InstallAndNotifications } from "@/components/parent/install-and-notifications";
@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/toast";
 import type { Child, ParentQueueEntry } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
+import { forgetShown, lastShown, useRememberShown } from "@/lib/last-shown";
 import { useDefaultClinicId, useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 type Stage = "loading" | "signed-out" | "needs-name" | "ready";
@@ -53,11 +54,24 @@ async function loadParentState(): Promise<ParentState> {
   };
 }
 
+interface HomeShown {
+  userId: string;
+  children: Child[];
+  tokens: ParentQueueEntry[];
+}
+
 export default function ParentHome() {
-  const [stage, setStage] = useState<Stage>("loading");
-  const [children, setChildren] = useState<Child[]>([]);
-  const [tokens, setTokens] = useState<ParentQueueEntry[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
+  // Coming back to Home shows the last children and tokens at once; bootstrap refreshes them.
+  const [shownBefore] = useState(() => lastShown<HomeShown>("parent-home"));
+  const [stage, setStage] = useState<Stage>(shownBefore ? "ready" : "loading");
+  const [children, setChildren] = useState<Child[]>(shownBefore?.children ?? []);
+  const [tokens, setTokens] = useState<ParentQueueEntry[]>(shownBefore?.tokens ?? []);
+  const [userId, setUserId] = useState<string | null>(shownBefore?.userId ?? null);
+  const homeShown = useMemo(
+    () => (stage === "ready" && userId ? { userId, children, tokens } : null),
+    [stage, userId, children, tokens]
+  );
+  useRememberShown("parent-home", homeShown);
   const [addChildOpen, setAddChildOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -116,7 +130,14 @@ export default function ParentHome() {
   }
 
   if (stage === "signed-out") {
-    return <ParentAuth onSignedIn={() => void bootstrap()} />;
+    return (
+      <ParentAuth
+        onSignedIn={() => {
+          forgetShown();
+          void bootstrap();
+        }}
+      />
+    );
   }
 
   if (stage === "needs-name") {

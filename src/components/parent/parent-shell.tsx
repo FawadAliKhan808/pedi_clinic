@@ -40,3 +40,15 @@ export function ParentShell({ children }: { children: ReactNode }) {
     </NavShell>
   );
 }
+
+/**
+ * The same tabs and sidebar with none of ParentShell's watchers, for loading
+ * skeletons: mounting ParentShell there would count a screen the parent never saw.
+ */
+export function ParentFrame({ children }: { children: ReactNode }) {
+  return (
+    <NavShell items={parentNav} sidebarFooter={<SignOutButton redirectTo="/" variant="sidebar" />}>
+      {children}
+    </NavShell>
+  );
+}

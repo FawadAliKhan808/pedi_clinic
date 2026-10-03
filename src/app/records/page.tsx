@@ -16,6 +16,7 @@ import {
   formatDate,
   visitReasonLabels,
 } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 
 interface PastVisit extends ChildVisitHistoryEntry {
   child: Child;
@@ -51,8 +52,11 @@ const reasonIcons: Record<VisitReason, typeof Syringe> = {
 
 export default function LastVisitsPage() {
   const router = useRouter();
-  const [data, setData] = useState<{ children: Child[]; visits: PastVisit[] } | null>(null);
+  const [data, setData] = useState<{ children: Child[]; visits: PastVisit[] } | null>(
+    () => lastShown<{ children: Child[]; visits: PastVisit[] }>("parent-records") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
+  useRememberShown("parent-records", data);
   const [childFilter, setChildFilter] = useState<string | "all">("all");
   const [reasonFilter, setReasonFilter] = useState<VisitReason | "all">("all");
 

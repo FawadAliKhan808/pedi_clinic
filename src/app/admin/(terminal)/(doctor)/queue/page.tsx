@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import type { DoctorQueueEntry, EndOfDaySummary, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { cn, errorMessage, formatAge, formatDayShort, visitReasonLabels } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 
 type QueueAction = "call" | "recall" | "startConsultation" | "skip" | "remove";
 
@@ -38,22 +39,12 @@ function opensCompletion(status: DoctorQueueEntry["status"]): boolean {
   return status === "in_consultation";
 }
 
-/**
- * What this browser tab last showed. Coming back to Queue from another tab
- * shows it straight away (no skeleton) while a fresh copy loads behind it.
- * Client-only: it's filled in effects, which never run on the server.
- */
-const lastShown: {
-  clinicId: UUID | null;
-  entries: DoctorQueueEntry[] | null;
-  today: string | null;
-  daySummary: EndOfDaySummary | null;
-} = { clinicId: null, entries: null, today: null, daySummary: null };
-
 export default function DoctorQueuePage() {
   const toast = useToast();
-  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown.clinicId);
-  const [entries, setEntries] = useState<DoctorQueueEntry[] | null>(() => lastShown.entries);
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown<UUID>("staff-clinic") ?? null);
+  const [entries, setEntries] = useState<DoctorQueueEntry[] | null>(
+    () => lastShown<DoctorQueueEntry[]>("doctor-queue") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingVisitId, setPendingVisitId] = useState<UUID | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -66,15 +57,21 @@ export default function DoctorQueuePage() {
     parentPhone: string;
   } | null>(null);
   const [completingVisit, setCompletingVisit] = useState<DoctorQueueEntry | null>(null);
-  const [today, setToday] = useState<string | null>(() => lastShown.today);
-  const [daySummary, setDaySummary] = useState<EndOfDaySummary | null>(() => lastShown.daySummary);
+  const [today, setToday] = useState<string | null>(() => lastShown<string>("clinic-today") ?? null);
+  const [daySummary, setDaySummary] = useState<EndOfDaySummary | null>(
+    () => lastShown<EndOfDaySummary>("doctor-day-summary") ?? null
+  );
   // Read by refresh without making it a dependency: "today" arriving must not refetch the queue.
   const todayRef = useRef(today);
 
   useEffect(() => {
     todayRef.current = today;
-    Object.assign(lastShown, { clinicId, entries, today, daySummary });
-  }, [clinicId, entries, today, daySummary]);
+  }, [today]);
+  // Coming back to Queue shows the last queue at once while a fresh one loads.
+  useRememberShown("staff-clinic", clinicId);
+  useRememberShown("doctor-queue", entries);
+  useRememberShown("clinic-today", today);
+  useRememberShown("doctor-day-summary", daySummary);
 
   useEffect(() => {
     const api = getBrowserApi();

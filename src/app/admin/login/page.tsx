@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { getBrowserApi } from "@/lib/api/browser";
 import { errorMessage } from "@/lib/format";
+import { forgetShown } from "@/lib/last-shown";
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function StaffLoginPage() {
     setError(null);
     try {
       await getBrowserApi().auth.signInWithPassword(email.trim(), password);
+      forgetShown();
       // /admin routes each role to its own home (the owner to /owner).
       router.replace("/admin");
       router.refresh();

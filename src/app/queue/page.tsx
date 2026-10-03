@@ -13,6 +13,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import type { ParentQueueEntry, VisitStatus } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { cn, errorMessage, visitReasonLabels } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 
 /** Reassuring, plain-language copy for every state a parent can land in. */
 function statusCopy(entry: ParentQueueEntry): string {
@@ -62,8 +63,11 @@ async function loadQueue(): Promise<ParentQueueEntry[] | null> {
 
 export default function QueuePage() {
   const router = useRouter();
-  const [entries, setEntries] = useState<ParentQueueEntry[] | null>(null);
+  const [entries, setEntries] = useState<ParentQueueEntry[] | null>(
+    () => lastShown<ParentQueueEntry[]>("parent-queue") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
+  useRememberShown("parent-queue", entries);
 
   const refresh = useCallback(
     () =>
