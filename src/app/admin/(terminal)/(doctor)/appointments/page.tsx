@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, SessionPreset, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
 import { addDays, errorMessage, formatDayShort, formatSession } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 const DAYS_SHOWN = 14;
@@ -40,21 +41,30 @@ function sessionSummary(session: ClinicSessionSchedule): string {
  */
 export default function DoctorAppointmentsPage() {
   const toast = useToast();
-  const [range, setRange] = useState<Range | null>(null);
-  const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(null);
+  // Coming back to this tab shows the last schedule at once while a fresh one loads.
+  const [range, setRange] = useState<Range | null>(() => lastShown<Range>("doctor-appointments-range") ?? null);
+  const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(
+    () => lastShown<ClinicSessionSchedule[]>("doctor-appointments") ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
+  useRememberShown("doctor-appointments-range", range);
+  useRememberShown("doctor-appointments", schedule);
 
   useEffect(() => {
     const api = getBrowserApi();
     Promise.all([api.auth.getStaffRole(), api.appointments.getBookingWindow()])
       .then(([staff, window]) => {
         if (!staff?.clinicId) return;
-        setRange({
+        const next = {
           clinicId: staff.clinicId,
           today: window.today,
           to: addDays(window.today, DAYS_SHOWN - 1),
           presets: window.sessionPresets,
-        });
+        };
+        // Same as the remembered range: keep it, so the schedule isn't fetched twice.
+        setRange((current) =>
+          current && JSON.stringify(current) === JSON.stringify(next) ? current : next
+        );
       })
       .catch((caught) => {
         const message = errorMessage(caught);

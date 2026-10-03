@@ -238,6 +238,12 @@
  * any utility class on an element still wins.
  */
 @layer base {
+  /* Keeps room for the scrollbar on every screen, so switching between a short
+     screen and a long one doesn't shift the whole page sideways. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background: var(--color-surface-sunken);
     color: var(--color-foreground);

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, History, Search, X } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   PatientTimelineSheet,
   type TimelinePatient,
@@ -19,6 +19,7 @@ import {
   formatPhone,
   visitReasonLabels,
 } from "@/lib/format";
+import { lastShown, useRememberShown } from "@/lib/last-shown";
 import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 /**
@@ -28,9 +29,11 @@ import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
  * parent name or phone.
  */
 export default function PatientHistoryPage() {
-  const [clinicId, setClinicId] = useState<UUID | null>(null);
-  const [today, setToday] = useState<string | null>(null);
-  const [date, setDate] = useState<string | null>(null);
+  // Coming back to this tab shows the last day's list at once while a fresh one loads.
+  const [clinicId, setClinicId] = useState<UUID | null>(() => lastShown<UUID>("staff-clinic") ?? null);
+  const [today, setToday] = useState<string | null>(() => lastShown<string>("clinic-today") ?? null);
+  const [date, setDate] = useState<string | null>(() => lastShown<string>("history-date") ?? null);
+  const rememberedToday = useRef(today);
   const [setupError, setSetupError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
@@ -43,7 +46,10 @@ export default function PatientHistoryPage() {
       .then(([staff, window]) => {
         setClinicId(staff?.clinicId ?? null);
         setToday(window.today);
-        setDate(window.today);
+        // Stay on a past day the doctor picked; otherwise follow today (even past midnight).
+        setDate((current) =>
+          !current || current === rememberedToday.current ? window.today : current
+        );
       })
       .catch((caught) => setSetupError(errorMessage(caught)));
   }, []);
@@ -51,7 +57,12 @@ export default function PatientHistoryPage() {
   // --- the day's patients ---------------------------------------------------
   const [day, setDay] = useState<
     { date: string; patients: DayPatient[] } | { date: string; error: string } | null
-  >(null);
+  >(() => lastShown<{ date: string; patients: DayPatient[] }>("history-day") ?? null);
+  useRememberShown("staff-clinic", clinicId);
+  useRememberShown("clinic-today", today);
+  useRememberShown("history-date", date);
+  // Only a successful list is worth showing again.
+  useRememberShown("history-day", day && "patients" in day ? day : null);
 
   const loadDay = useCallback(() => {
     if (!clinicId || !date) return;
