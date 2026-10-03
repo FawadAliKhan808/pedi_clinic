@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarCheck, Plus, Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AddWalkInSheet } from "@/components/admin/add-walk-in-sheet";
 import { ChildHistorySheet } from "@/components/visits/child-history-sheet";
 import { CompleteVisitFlow } from "@/components/admin/complete-visit-flow";
@@ -11,9 +11,9 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useToast } from "@/components/ui/toast";
-import type { DoctorQueueEntry, UUID } from "@/lib/api";
+import type { DoctorQueueEntry, EndOfDaySummary, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
-import { errorMessage, formatAge, visitReasonLabels } from "@/lib/format";
+import { cn, errorMessage, formatAge, formatDayShort, visitReasonLabels } from "@/lib/format";
 
 type QueueAction = "call" | "recall" | "startConsultation" | "skip" | "remove";
 
@@ -54,29 +54,44 @@ export default function DoctorQueuePage() {
     parentPhone: string;
   } | null>(null);
   const [completingVisit, setCompletingVisit] = useState<DoctorQueueEntry | null>(null);
+  const [today, setToday] = useState<string | null>(null);
+  const [daySummary, setDaySummary] = useState<EndOfDaySummary | null>(null);
 
   useEffect(() => {
-    void getBrowserApi()
-      .auth.getStaffRole()
+    const api = getBrowserApi();
+    void api.auth
+      .getStaffRole()
       .then((staff) => setClinicId(staff?.clinicId ?? null))
       .catch((caught) => {
         const message = errorMessage(caught);
         setLoadError(message);
         toast(message, "error");
       });
+    // Only for the summary line; the queue works without it.
+    void api.appointments
+      .getBookingWindow()
+      .then((window) => setToday(window.today))
+      .catch(() => undefined);
   }, [toast]);
 
   const refresh = useCallback(() => {
     if (!clinicId) return Promise.resolve();
-    return getBrowserApi()
-      .queue.getDoctorQueue(clinicId)
+    const api = getBrowserApi();
+    if (today) {
+      void api.analytics
+        .getEndOfDaySummary(clinicId, today)
+        .then(setDaySummary)
+        .catch(() => undefined);
+    }
+    return api.queue
+      .getDoctorQueue(clinicId)
       .then(setEntries)
       .catch((caught) => {
         const message = errorMessage(caught);
         setLoadError(message);
         toast(message, "error");
       });
-  }, [clinicId, toast]);
+  }, [clinicId, today, toast]);
 
   useEffect(() => {
     void refresh();
@@ -112,10 +127,41 @@ export default function DoctorQueuePage() {
     }
   }
 
+  const openChild = (entry: DoctorQueueEntry) =>
+    setChildSheetFor({
+      childId: entry.childId,
+      childName: entry.childName,
+      childDob: entry.childDob,
+      parentName: entry.parentName,
+      parentPhone: entry.parentPhone,
+    });
+
+  const withDoctor = (entries ?? []).filter(
+    (entry) => entry.status === "in_consultation" || entry.status === "called"
+  );
+  const waiting = (entries ?? []).filter((entry) => entry.status === "waiting");
+  const skipped = (entries ?? []).filter((entry) => entry.status === "skipped");
+  const [nextUp, ...laterWaiting] = waiting;
+
+  const card = (entry: DoctorQueueEntry, emphasis: CardEmphasis) => (
+    <QueueCard
+      key={entry.visitId}
+      entry={entry}
+      emphasis={emphasis}
+      pending={pendingVisitId === entry.visitId}
+      onOpenChild={() => openChild(entry)}
+      onAct={(action) => void act(entry.visitId, action)}
+      onComplete={() => setCompletingVisit(entry)}
+    />
+  );
+
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
-        <h1 className="text-2xl font-bold text-foreground">Queue</h1>
+      <header className="flex items-start justify-between px-5 pb-2 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Queue</h1>
+          {today && <p className="text-sm text-foreground-muted">Today, {formatDayShort(today)}</p>}
+        </div>
         <div className="flex items-center gap-1">
           <button
             aria-label="Search children"
@@ -134,13 +180,20 @@ export default function DoctorQueuePage() {
         </div>
       </header>
 
-      <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
+      {entries !== null && (
+        <dl className="grid grid-cols-3 gap-2 px-5 py-2">
+          <DayStat label="Waiting" value={waiting.length} />
+          <DayStat label="Seen today" value={daySummary?.patientsSeen} />
+          <DayStat label="Bookings to arrive" value={daySummary?.appointments.notArrived} />
+        </dl>
+      )}
+
+      <div className="flex flex-col gap-5 px-5 py-3">
         {entries === null && loadError ? (
-          <div className="col-span-full">
-            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
-          </div>
+          <ErrorState message={loadError} onRetry={() => window.location.reload()} />
         ) : entries === null ? (
           <>
+            <Skeleton className="h-16 w-full" />
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />
           </>
@@ -151,99 +204,22 @@ export default function DoctorQueuePage() {
             action={<Button onClick={() => setWalkInOpen(true)}>Add walk-in</Button>}
           />
         ) : (
-          entries.map((entry) => (
-            <Card key={entry.visitId} className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setChildSheetFor({
-                    childId: entry.childId,
-                    childName: entry.childName,
-                    childDob: entry.childDob,
-                    parentName: entry.parentName,
-                    parentPhone: entry.parentPhone,
-                  })
-                }
-                className="flex items-start gap-3 text-left"
-              >
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-lg font-bold tabular-nums text-foreground">
-                  {entry.seq}
-                </div>
-
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="truncate font-semibold text-foreground">
-                    {entry.childName}
-                  </p>
-                  <p className="text-sm text-foreground-muted">
-                    {formatAge(entry.childDob)} · {visitReasonLabels[entry.reason]}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    <StatusPill status={entry.status} />
-                    <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground-muted">
-                      {entry.isReturning ? "Returning" : "New"}
-                    </span>
-                    {entry.hasAppointment && (
-                      <span className="flex items-center gap-1 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
-                        <CalendarCheck className="size-3" />
-                        Appointment
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-
-              <div className="flex flex-col gap-2">
-                {opensCompletion(entry.status) && (
-                  <Button
-                    fullWidth
-                    variant="accent"
-                    onClick={() => setCompletingVisit(entry)}
-                  >
-                    Complete visit
-                  </Button>
-                )}
-                {primaryAction(entry.status) && (
-                  <Button
-                    fullWidth
-                    loading={pendingVisitId === entry.visitId}
-                    onClick={() =>
-                      void act(entry.visitId, primaryAction(entry.status)!.action)
-                    }
-                  >
-                    {primaryAction(entry.status)!.label}
-                  </Button>
-                )}
-
-                <div className="flex gap-2">
-                  {entry.status === "called" && (
-                    <Button
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => void act(entry.visitId, "recall")}
-                    >
-                      Recall
-                    </Button>
-                  )}
-                  {entry.status !== "skipped" && (
-                    <Button
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => void act(entry.visitId, "skip")}
-                    >
-                      Skip
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    className="flex-1"
-                    onClick={() => void act(entry.visitId, "remove")}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))
+          <>
+            {withDoctor.length > 0 && (
+              <QueueSection title="With you now">{withDoctor.map((entry) => card(entry, "now"))}</QueueSection>
+            )}
+            {nextUp && <QueueSection title="Next up">{card(nextUp, "next")}</QueueSection>}
+            {laterWaiting.length > 0 && (
+              <QueueSection title={`Waiting · ${laterWaiting.length}`}>
+                {laterWaiting.map((entry) => card(entry, "compact"))}
+              </QueueSection>
+            )}
+            {skipped.length > 0 && (
+              <QueueSection title={`Skipped · ${skipped.length}`}>
+                {skipped.map((entry) => card(entry, "compact"))}
+              </QueueSection>
+            )}
+          </>
         )}
       </div>
 
@@ -293,5 +269,142 @@ export default function DoctorQueuePage() {
         </>
       )}
     </div>
+  );
+}
+
+type CardEmphasis = "now" | "next" | "compact";
+
+function QueueSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">{title}</h2>
+      <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
+/** A number for the day; "–" until the summary loads (or if it can't). */
+function DayStat({ label, value }: { label: string; value: number | undefined }) {
+  return (
+    <div className="flex flex-col rounded-xl border border-border bg-surface-raised px-3 py-2">
+      <dt className="order-2 text-xs text-foreground-muted">{label}</dt>
+      <dd className="order-1 text-2xl font-bold tabular-nums text-foreground">{value ?? "–"}</dd>
+    </div>
+  );
+}
+
+/**
+ * "now": the child with the doctor, set apart in the accent colour.
+ * "next": the next child to call, with one large Call button.
+ * "compact": everyone after that — the same actions in a single row.
+ */
+function QueueCard({
+  entry,
+  emphasis,
+  pending,
+  onOpenChild,
+  onAct,
+  onComplete,
+}: {
+  entry: DoctorQueueEntry;
+  emphasis: CardEmphasis;
+  pending: boolean;
+  onOpenChild: () => void;
+  onAct: (action: QueueAction) => void;
+  onComplete: () => void;
+}) {
+  const primary = primaryAction(entry.status);
+  const compact = emphasis === "compact";
+
+  return (
+    <Card
+      className={cn(
+        "flex flex-col gap-3",
+        compact && "p-4 shadow-sm",
+        emphasis === "now" && "border-2 border-accent-500",
+        emphasis === "next" && "border-2 border-primary-500"
+      )}
+    >
+      <button type="button" onClick={onOpenChild} className="flex items-start gap-3 text-left">
+        <div
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-lg font-bold tabular-nums",
+            compact ? "size-12 text-lg" : "size-16 text-2xl",
+            emphasis === "now" && "bg-accent-500 text-foreground-on-accent",
+            emphasis === "next" && "bg-primary-600 text-foreground-on-primary",
+            compact && "bg-surface-sunken text-foreground"
+          )}
+        >
+          {entry.seq}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className={cn("truncate font-semibold text-foreground", !compact && "text-lg")}>
+            {entry.childName}
+          </p>
+          <p className="text-sm text-foreground-muted">
+            {formatAge(entry.childDob)} · {visitReasonLabels[entry.reason]}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <StatusPill status={entry.status} />
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground-muted">
+              {entry.isReturning ? "Returning" : "New"}
+            </span>
+            {entry.hasAppointment && (
+              <span className="flex items-center gap-1 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
+                <CalendarCheck className="size-3" />
+                Appointment
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+
+      {compact ? (
+        <div className="flex gap-2">
+          {primary && (
+            <Button className="flex-1 px-3" loading={pending} onClick={() => onAct(primary.action)}>
+              {primary.label}
+            </Button>
+          )}
+          {entry.status !== "skipped" && (
+            <Button variant="secondary" className="px-4" onClick={() => onAct("skip")}>
+              Skip
+            </Button>
+          )}
+          <Button variant="ghost" className="px-4" onClick={() => onAct("remove")}>
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {opensCompletion(entry.status) && (
+            <Button fullWidth variant="accent" onClick={onComplete}>
+              Complete visit
+            </Button>
+          )}
+          {primary && (
+            <Button fullWidth loading={pending} onClick={() => onAct(primary.action)}>
+              {primary.label}
+            </Button>
+          )}
+          <div className="flex gap-2">
+            {entry.status === "called" && (
+              <Button variant="secondary" className="flex-1" onClick={() => onAct("recall")}>
+                Recall
+              </Button>
+            )}
+            {entry.status !== "skipped" && (
+              <Button variant="secondary" className="flex-1" onClick={() => onAct("skip")}>
+                Skip
+              </Button>
+            )}
+            <Button variant="ghost" className="flex-1" onClick={() => onAct("remove")}>
+              Remove
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
-import { CalendarRange, Copy, Plus, Sun, Sunset } from "lucide-react";
+import { Check, Clock, Copy, Plus, Sun, Sunset, X } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BackToMore } from "@/components/admin/back-to-more";
 import { BookingList } from "@/components/appointments/booking-list";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
+import { ErrorState, Skeleton } from "@/components/ui/feedback";
 import { useToast } from "@/components/ui/toast";
 import type { ClinicSessionSchedule, SessionPreset, UUID } from "@/lib/api";
 import { getBrowserApi } from "@/lib/api/browser";
@@ -17,7 +17,6 @@ import {
   errorMessage,
   formatClock,
   formatDayShort,
-  formatSession,
   formatTimeRange,
   parseClockInput,
   weekStart,
@@ -26,14 +25,34 @@ import { useLiveRefresh } from "@/lib/realtime/use-live-refresh";
 
 const DAYS_SHOWN = 14;
 
+const sameTimes = (
+  a: { startTime: string; endTime: string },
+  b: { startTime: string; endTime: string }
+) => a.startTime.slice(0, 5) === b.startTime.slice(0, 5) && a.endTime.slice(0, 5) === b.endTime.slice(0, 5);
+
+/**
+ * One row on the selected day: a preset (Morning, Evening) whether or not it's
+ * open, or a custom session that is. A session shows up exactly once.
+ */
+interface Slot {
+  key: string;
+  label: string | null;
+  startTime: string;
+  endTime: string;
+  presetIndex: number | null;
+  session: ClinicSessionSchedule | null;
+}
+
 export default function AvailabilityPage() {
   const toast = useToast();
   const [clinicId, setClinicId] = useState<UUID | null>(null);
   const [today, setToday] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [presets, setPresets] = useState<SessionPreset[]>([]);
-  const [sessions, setSessions] = useState<ClinicSessionSchedule[] | null>(null);
+  // Every session in the 14 days shown, so the day strip can show which days are open.
+  const [schedule, setSchedule] = useState<ClinicSessionSchedule[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
 
   useEffect(() => {
     const api = getBrowserApi();
@@ -52,16 +71,16 @@ export default function AvailabilityPage() {
   }, [toast]);
 
   const refresh = useCallback(() => {
-    if (!clinicId || !date) return Promise.resolve();
+    if (!clinicId || !today) return Promise.resolve();
     return getBrowserApi()
-      .appointments.listClinicSchedule(clinicId, date, date)
-      .then(setSessions)
+      .appointments.listClinicSchedule(clinicId, today, addDays(today, DAYS_SHOWN - 1))
+      .then(setSchedule)
       .catch((caught) => {
         const message = errorMessage(caught);
         setLoadError(message);
         toast(message, "error");
       });
-  }, [clinicId, date, toast]);
+  }, [clinicId, today, toast]);
 
   useEffect(() => {
     void refresh();
@@ -91,21 +110,37 @@ export default function AvailabilityPage() {
     if (!clinicId || !date) return Promise.resolve(false);
     return change(
       () => getBrowserApi().appointments.createSession({ clinicId, date, startTime, endTime }),
-      `${label} added for ${formatDayShort(date)}`
+      `${label} opened for ${formatDayShort(date)}`
     );
   }
 
   const days = today
     ? Array.from({ length: DAYS_SHOWN }, (_, index) => addDays(today, index))
     : [];
+  const sessionsOn = (day: string) => (schedule ?? []).filter((session) => session.date === day);
+  const daySessions = date ? sessionsOn(date) : [];
+  const bookedOnDay = daySessions.reduce((sum, session) => sum + session.bookedCount, 0);
 
-  // A preset that's already open that day shows as added rather than as a button to press again.
-  const isOpen = (preset: SessionPreset) =>
-    (sessions ?? []).some(
-      (session) =>
-        session.startTime.slice(0, 5) === preset.startTime.slice(0, 5) &&
-        session.endTime.slice(0, 5) === preset.endTime.slice(0, 5)
-    );
+  const slots: Slot[] = [
+    ...presets.map((preset, index) => ({
+      key: `preset-${preset.label}`,
+      label: preset.label,
+      startTime: preset.startTime,
+      endTime: preset.endTime,
+      presetIndex: index,
+      session: daySessions.find((session) => sameTimes(session, preset)) ?? null,
+    })),
+    ...daySessions
+      .filter((session) => !presets.some((preset) => sameTimes(session, preset)))
+      .map((session) => ({
+        key: session.sessionId,
+        label: null,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        presetIndex: null,
+        session,
+      })),
+  ].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
     <div className="flex flex-1 flex-col">
@@ -115,137 +150,105 @@ export default function AvailabilityPage() {
           <h1 className="text-2xl font-bold text-foreground">Availability</h1>
         </div>
         <p className="text-sm text-foreground-muted">
-          Open the sessions parents can book. Any number of children can book a session;
-          walk-ins still come any time.
+          Pick a day, then open the sessions parents can book. Walk-ins still come any time.
         </p>
       </header>
 
-      <div className="flex gap-2 overflow-x-auto px-5 py-2">
-        {days.map((day) => (
-          <button
-            key={day}
-            type="button"
-            onClick={() => setDate(day)}
-            aria-pressed={date === day}
-            className={cn(
-              "min-h-12 shrink-0 rounded-lg border-2 px-3 text-sm font-semibold",
-              date === day
-                ? "border-primary-600 bg-primary-50 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200"
-                : "border-border text-foreground"
-            )}
-          >
-            {day === today ? "Today" : formatDayShort(day)}
-          </button>
-        ))}
+      <div className="flex gap-2 overflow-x-auto px-5 pb-1 pt-2" role="group" aria-label="Day">
+        {days.map((day) => {
+          const open = sessionsOn(day);
+          const selected = date === day;
+          const weekday = new Date(`${day}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short" });
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => {
+                setDate(day);
+                setCustomOpen(false);
+              }}
+              aria-pressed={selected}
+              aria-label={`${formatDayShort(day)}: ${open.length === 0 ? "no sessions" : `${open.length} open`}`}
+              className={cn(
+                "flex min-h-[4.5rem] w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 transition-colors",
+                selected
+                  ? "border-primary-600 bg-primary-600 text-foreground-on-primary"
+                  : "border-border bg-surface-raised text-foreground hover:border-primary-300"
+              )}
+            >
+              <span className={cn("text-xs font-semibold uppercase", !selected && "text-foreground-muted")}>
+                {day === today ? "Today" : weekday}
+              </span>
+              <span className="text-lg font-bold leading-none tabular-nums">
+                {Number(day.slice(8, 10))}
+              </span>
+              <span className="flex h-1.5 gap-1" aria-hidden>
+                {open.map((session) => (
+                  <span
+                    key={session.sessionId}
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      session.bookedCount > 0
+                        ? selected ? "bg-accent-200" : "bg-accent-500"
+                        : selected ? "bg-neutral-0" : "bg-primary-600"
+                    )}
+                  />
+                ))}
+              </span>
+            </button>
+          );
+        })}
       </div>
+      <p className="flex items-center gap-4 px-5 pb-2 text-xs text-foreground-muted" aria-hidden>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-primary-600" /> Open
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-accent-500" /> Has bookings
+        </span>
+      </p>
 
       {date && clinicId && (
-        <div className="grid gap-3 px-5 py-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
-          <Card className="col-span-full flex flex-col gap-4">
-            <div>
-              <p className="font-semibold text-foreground">
-                Open a session on {date === today ? "today" : formatDayShort(date)}
+        <div className="flex flex-col gap-3 px-5 py-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <h2 className="text-lg font-bold text-foreground">
+              {date === today ? `Today, ${formatDayShort(date)}` : formatDayShort(date)}
+            </h2>
+            {schedule && (
+              <p className="text-sm text-foreground-muted">
+                {daySessions.length === 0
+                  ? "Closed for bookings"
+                  : `${daySessions.length} open · ${bookedOnDay} ${bookedOnDay === 1 ? "child" : "children"} booked`}
               </p>
-              <p className="text-sm text-foreground-muted">One tap adds it straight away.</p>
-            </div>
+            )}
+          </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
-              {presets.map((preset, index) => {
-                const Icon = index === 0 ? Sun : Sunset;
-                const added = isOpen(preset);
-                return (
-                  <PresetButton
-                    key={preset.label}
-                    icon={<Icon aria-hidden className="size-5" />}
-                    label={`${preset.label} (${formatTimeRange(preset.startTime, preset.endTime)})`}
-                    added={added}
-                    onAdd={() => addSession(preset.startTime, preset.endTime, preset.label)}
-                  />
-                );
-              })}
-            </div>
-
-            <CustomSessionForm
-              onAdd={(start, end) =>
-                addSession(start, end, `${formatTimeRange(start, end)} session`)
-              }
-            />
-
-            <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-              <Button
-                variant="secondary"
-                className="flex-1 px-3 text-sm"
-                onClick={() => {
-                  const target = weekStart(date);
-                  void change(
-                    () =>
-                      getBrowserApi().appointments.copyWeek(clinicId, addDays(target, -7), target),
-                    (created) =>
-                      created === 0
-                        ? "Nothing new to copy from last week"
-                        : `${created} session${created === 1 ? "" : "s"} copied from last week`
-                  );
-                }}
-              >
-                <Copy className="size-4" />
-                Copy last week
-              </Button>
-              {sessions && sessions.length > 0 && (
-                <ConfirmButton
-                  className="flex-1 px-3 text-sm"
-                  label="Mark day closed"
-                  confirmLabel={
-                    sessions.some((item) => item.bookedCount > 0)
-                      ? "Tap again — booked parents will be told"
-                      : "Tap again to close"
-                  }
-                  onConfirm={() =>
-                    change(
-                      () => getBrowserApi().appointments.closeDay(clinicId, date),
-                      (cancelled) =>
-                        cancelled === 0
-                          ? `${formatDayShort(date)} closed`
-                          : `${formatDayShort(date)} closed — ${cancelled} ${cancelled === 1 ? "parent" : "parents"} told`
-                    ).then(() => undefined)
-                  }
-                />
-              )}
-            </div>
-          </Card>
-
-          {sessions === null && loadError ? (
-            <div className="col-span-full">
-              <ErrorState message={loadError} onRetry={() => window.location.reload()} />
-            </div>
-          ) : sessions === null ? (
-            <Skeleton className="h-24 w-full" />
-          ) : sessions.length === 0 ? (
-            <EmptyState
-              icon={<CalendarRange className="size-8" />}
-              title="No sessions"
-              description={`Nothing open on ${formatDayShort(date)} yet — use a button above.`}
-            />
+          {schedule === null && loadError ? (
+            <ErrorState message={loadError} onRetry={() => window.location.reload()} />
+          ) : schedule === null ? (
+            <>
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </>
           ) : (
-            sessions.map((session) => (
-              <Card key={session.sessionId} className="flex flex-col gap-2">
-                <div>
-                  <p className="font-semibold text-foreground">{formatSession(session, presets)}</p>
-                  <p className="text-sm text-foreground-muted">
-                    {session.bookedCount === 0
-                      ? "No bookings yet"
-                      : `${session.bookedCount} ${session.bookedCount === 1 ? "child" : "children"} booked`}
-                  </p>
-                </div>
-                <BookingList appointments={session.appointments} />
-                <ConfirmButton
-                  variant="ghost"
-                  label="Cancel session"
-                  confirmLabel={
-                    session.bookedCount > 0
-                      ? `Tap again — ${session.bookedCount} ${session.bookedCount === 1 ? "parent" : "parents"} will be told`
-                      : "Tap again to cancel"
+            <div className="grid gap-3 @2xl:grid-cols-2">
+              {slots.map((slot) => (
+                <SlotCard
+                  key={slot.key}
+                  slot={slot}
+                  icon={
+                    slot.presetIndex === null ? (
+                      <Clock aria-hidden className="size-5" />
+                    ) : slot.presetIndex === 0 ? (
+                      <Sun aria-hidden className="size-5" />
+                    ) : (
+                      <Sunset aria-hidden className="size-5" />
+                    )
                   }
-                  onConfirm={() =>
+                  onOpen={() =>
+                    addSession(slot.startTime, slot.endTime, slot.label ?? `${formatTimeRange(slot.startTime, slot.endTime)} session`)
+                  }
+                  onCancel={(session) =>
                     change(
                       () => getBrowserApi().appointments.cancelSession(session.sessionId),
                       (cancelled) =>
@@ -255,44 +258,170 @@ export default function AvailabilityPage() {
                     ).then(() => undefined)
                   }
                 />
-              </Card>
-            ))
+              ))}
+            </div>
           )}
+
+          {customOpen ? (
+            <Card className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-foreground">Custom time on {formatDayShort(date)}</p>
+                <button
+                  type="button"
+                  aria-label="Close custom time"
+                  onClick={() => setCustomOpen(false)}
+                  className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-sunken"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <CustomSessionForm
+                onAdd={async (start, end) => {
+                  const added = await addSession(start, end, `${formatTimeRange(start, end)} session`);
+                  if (added) setCustomOpen(false);
+                  return added;
+                }}
+              />
+            </Card>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCustomOpen(true)}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border font-semibold text-foreground-muted hover:border-primary-300 hover:text-foreground"
+            >
+              <Plus className="size-4" />
+              Add a custom time
+            </button>
+          )}
+
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            <Button
+              variant="secondary"
+              className="flex-1 px-3 text-sm"
+              onClick={() => {
+                const target = weekStart(date);
+                void change(
+                  () => getBrowserApi().appointments.copyWeek(clinicId, addDays(target, -7), target),
+                  (created) =>
+                    created === 0
+                      ? "Nothing new to copy from last week"
+                      : `${created} session${created === 1 ? "" : "s"} copied from last week`
+                );
+              }}
+            >
+              <Copy className="size-4" />
+              Copy last week into this week
+            </Button>
+            {daySessions.length > 0 && (
+              <ConfirmButton
+                className="flex-1 px-3 text-sm"
+                label="Close this day"
+                confirmLabel={bookedOnDay > 0 ? "Tap again — booked parents will be told" : "Tap again to close"}
+                onConfirm={() =>
+                  change(
+                    () => getBrowserApi().appointments.closeDay(clinicId, date),
+                    (cancelled) =>
+                      cancelled === 0
+                        ? `${formatDayShort(date)} closed`
+                        : `${formatDayShort(date)} closed — ${cancelled} ${cancelled === 1 ? "parent" : "parents"} told`
+                  ).then(() => undefined)
+                }
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {!date && !loadError && (
+        <div className="px-5 py-3">
+          <Skeleton className="h-24 w-full" />
+        </div>
+      )}
+      {!date && loadError && (
+        <div className="px-5 py-3">
+          <ErrorState message={loadError} onRetry={() => window.location.reload()} />
         </div>
       )}
     </div>
   );
 }
 
-function PresetButton({
+/**
+ * A session on the selected day. Not open: a dashed card with one "Open" tap.
+ * Open: a solid card with who booked and a two-tap cancel.
+ */
+function SlotCard({
+  slot,
   icon,
-  label,
-  added,
-  onAdd,
+  onOpen,
+  onCancel,
 }: {
+  slot: Slot;
   icon: ReactNode;
-  label: string;
-  added: boolean;
-  onAdd: () => Promise<boolean>;
+  onOpen: () => Promise<boolean>;
+  onCancel: (session: ClinicSessionSchedule) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const times = formatTimeRange(slot.startTime, slot.endTime);
+  const { session } = slot;
+
+  if (!session) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border p-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">{slot.label ?? "Custom"}</p>
+          <p className="text-sm text-foreground-muted">{times} · Not open</p>
+        </div>
+        <Button
+          className="shrink-0 px-4 text-sm"
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            await onOpen();
+            setBusy(false);
+          }}
+        >
+          Open
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Button
-      variant={added ? "secondary" : "primary"}
-      loading={busy}
-      disabled={added}
-      onClick={async () => {
-        setBusy(true);
-        await onAdd();
-        setBusy(false);
-      }}
-      // Full width, and the label wraps: on a narrow phone "Morning (10:00 am –
-      // 1:00 pm) — open" doesn't fit one line in the button font.
-      className="w-full min-w-0 justify-start py-2 text-left"
-    >
-      {icon}
-      <span className="min-w-0 leading-snug">{added ? `${label} — open` : label}</span>
-    </Button>
+    <Card className="flex flex-col gap-3 border-primary-300 dark:border-primary-800">
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-foreground-on-primary">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">{slot.label ?? "Custom"}</p>
+          <p className="text-sm text-foreground-muted">{times}</p>
+        </div>
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
+          <Check className="size-3.5" />
+          Open
+        </span>
+      </div>
+      <p className="text-sm font-semibold text-foreground">
+        {session.bookedCount === 0
+          ? "No bookings yet"
+          : `${session.bookedCount} ${session.bookedCount === 1 ? "child" : "children"} booked`}
+      </p>
+      {session.bookedCount > 0 && <BookingList appointments={session.appointments} />}
+      <ConfirmButton
+        variant="ghost"
+        label="Cancel session"
+        confirmLabel={
+          session.bookedCount > 0
+            ? `Tap again — ${session.bookedCount} ${session.bookedCount === 1 ? "parent" : "parents"} will be told`
+            : "Tap again to cancel"
+        }
+        onConfirm={() => onCancel(session)}
+      />
+    </Card>
   );
 }
 
@@ -335,7 +464,6 @@ function CustomSessionForm({
         }
       }}
     >
-      <p className="text-sm font-semibold text-foreground">Or a custom time</p>
       {/* grid-cols-1, not an automatic column: a text input's built-in width
           would otherwise stretch the column past a 320 px phone. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -359,9 +487,9 @@ function CustomSessionForm({
           error={endBeforeStart ? "Must be after the start" : undefined}
         />
       </div>
-      <Button type="submit" variant="secondary" loading={busy} disabled={!ready}>
+      <Button type="submit" loading={busy} disabled={!ready}>
         <Plus className="size-4" />
-        Add custom session
+        {ready ? `Open ${formatTimeRange(start, end)}` : "Open session"}
       </Button>
     </form>
   );
