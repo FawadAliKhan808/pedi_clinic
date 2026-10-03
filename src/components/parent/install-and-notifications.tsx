@@ -14,7 +14,7 @@ import {
   SquarePlus,
 } from "lucide-react";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
-import { brand, staffApp } from "@/brand";
+import { brand, staffApps, type StaffAppId } from "@/brand";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -75,13 +75,22 @@ const noSubscription = () => () => undefined;
 type BannerVariant = "card" | "bar";
 
 /**
- * Who's installing. Parents install the app for queue alerts; the doctor and
- * pharmacist install the staff app, which opens straight to /admin.
+ * Who's installing. Parents install the app for queue alerts; each clinic
+ * role installs its own app, which opens straight to its own screens.
  */
-type Audience = "parent" | "staff";
+type Audience = "parent" | StaffAppId;
+
+/** What every staff app shares; each role adds its own lines. */
+const staffReasons = (first: string) => [
+  { icon: ListOrdered, text: first },
+  { icon: Smartphone, text: "Its own icon on your home screen, next to your other apps" },
+  { icon: ShieldCheck, text: "Stays signed in on this device" },
+];
 
 const installCopy = {
   parent: {
+    // Where the app opens: the link to copy into Safari or Chrome.
+    path: "/",
     appName: brand.name,
     shortName: brand.shortName,
     barLine: "Get an alert when it's your turn",
@@ -94,18 +103,35 @@ const installCopy = {
       { icon: ShieldCheck, text: "No app store and no password — just your mobile number" },
     ],
   },
-  staff: {
-    appName: staffApp.name,
-    shortName: staffApp.shortName,
+  doctor: {
+    path: staffApps.doctor.base,
+    appName: staffApps.doctor.name,
+    shortName: staffApps.doctor.shortName,
     barLine: "Open the queue in one tap",
-    cardLine: "Install the staff app to open the queue in one tap from your home screen.",
+    cardLine: `Install ${staffApps.doctor.shortName} to open the queue in one tap from your home screen.`,
     intro:
       "Then the queue opens in one tap, full screen — no browser tab to find and no address to type.",
-    reasons: [
-      { icon: ListOrdered, text: "Opens straight to the queue, full screen" },
-      { icon: Smartphone, text: "Its own icon on your home screen, next to your other apps" },
-      { icon: ShieldCheck, text: "Stays signed in on this device" },
-    ],
+    reasons: staffReasons("Opens straight to the queue, full screen"),
+  },
+  pharmacist: {
+    path: staffApps.pharmacist.base,
+    appName: staffApps.pharmacist.name,
+    shortName: staffApps.pharmacist.shortName,
+    barLine: "Open prescriptions in one tap",
+    cardLine: `Install ${staffApps.pharmacist.shortName} to open today's prescriptions in one tap.`,
+    intro:
+      "Then today's prescriptions open in one tap, full screen — no browser tab to find and no address to type.",
+    reasons: staffReasons("Opens straight to today's prescriptions, full screen"),
+  },
+  receptionist: {
+    path: staffApps.receptionist.base,
+    appName: staffApps.receptionist.name,
+    shortName: staffApps.receptionist.shortName,
+    barLine: "Open the queue in one tap",
+    cardLine: `Install ${staffApps.receptionist.shortName} to open the queue in one tap from your home screen.`,
+    intro:
+      "Then the queue opens in one tap, full screen — no browser tab to find and no address to type.",
+    reasons: staffReasons("Opens straight to today's queue, full screen"),
   },
 };
 
@@ -276,10 +302,8 @@ function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
   async function copyLink() {
     try {
-      // Staff need the staff area; parents the app itself.
-      await navigator.clipboard.writeText(
-        copy === installCopy.staff ? `${window.location.origin}/admin` : window.location.origin
-      );
+      // Each app's own start page: staff their area, parents the app itself.
+      await navigator.clipboard.writeText(`${window.location.origin}${copy.path === "/" ? "" : copy.path}`);
       toast("Link copied — paste it into Safari or Chrome", "success");
     } catch {
       toast(`Open ${window.location.host} in Safari or Chrome`, "info");

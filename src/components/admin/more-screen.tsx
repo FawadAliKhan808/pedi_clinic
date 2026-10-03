@@ -5,19 +5,19 @@ import { useEffect, useState } from "react";
 import { ChangePasswordSheet } from "@/components/admin/change-password-sheet";
 import { useSignOut } from "@/components/layout/sign-out-button";
 import { MenuRow, MenuSection } from "@/components/ui/menu-list";
-import type { StaffRole } from "@/lib/api";
+import { staffAreas, type ClinicStaffRole } from "@/lib/auth/staff-areas";
 import { getBrowserApi } from "@/lib/api/browser";
 import { useUnreadNotificationCount } from "@/lib/notifications/unread";
 
 /**
  * Everything that isn't needed all day, so the tab bar stays short: the
  * doctor's notifications, availability, analytics and check-in QR, and the
- * account (change password, sign out) for doctor and pharmacist.
+ * account (change password, sign out) for every clinic role.
  */
-export function MoreScreen({ role }: { role: Exclude<StaffRole, "owner"> }) {
+export function MoreScreen({ role }: { role: ClinicStaffRole }) {
   const [email, setEmail] = useState<string | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
-  const { signOut, busy: signingOut } = useSignOut("/admin/login");
+  const { signOut, busy: signingOut } = useSignOut(staffAreas[role].login);
 
   useEffect(() => {
     void getBrowserApi()

@@ -55,6 +55,11 @@ const staffAccounts = [
     password: process.env.DEMO_PHARMACIST_PASSWORD ?? "pedi-pharmacist-demo",
   },
   {
+    role: "receptionist",
+    email: process.env.DEMO_RECEPTIONIST_EMAIL ?? "reception@pediclinic.test",
+    password: process.env.DEMO_RECEPTIONIST_PASSWORD ?? "pedi-reception-demo",
+  },
+  {
     role: "owner",
     email: process.env.DEMO_OWNER_EMAIL ?? "owner@pediclinic.test",
     password: process.env.DEMO_OWNER_PASSWORD ?? "pedi-owner-demo",

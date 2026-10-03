@@ -14,7 +14,7 @@ export type UUID = string;
 export type ISODateString = string;
 export type ISODateTimeString = string;
 
-export type StaffRole = "doctor" | "pharmacist" | "owner";
+export type StaffRole = "doctor" | "pharmacist" | "receptionist" | "owner";
 
 export interface Clinic {
   id: UUID;

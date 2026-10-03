@@ -30,11 +30,32 @@ function selectBrand(): Brand {
 /** This deployment's brand, fixed when the app is built. */
 export const brand: Brand = selectBrand();
 
-/** The staff app (doctor, pharmacist): installed from /admin, opens straight to it. */
-export const staffApp = {
-  name: `${brand.name} Staff`,
-  shortName: brand.staffShortName ?? `${brand.shortName} Staff`,
+/** The clinic roles that each get their own home-screen app. */
+export type StaffAppId = "doctor" | "pharmacist" | "receptionist";
+
+/**
+ * Next to the parents' app (brand.name), each clinic role installs its own:
+ * "Crescent Doctor" from /admin, "Crescent Pharmacy" from /pharmacy and
+ * "Crescent Desk" from /reception. Each opens straight to its own screens.
+ */
+export const staffApps: Record<StaffAppId, { name: string; shortName: string; base: string }> = {
+  doctor: { name: `${brand.shortName} Doctor`, shortName: `${brand.shortName} Doctor`, base: "/admin" },
+  pharmacist: {
+    name: `${brand.shortName} Pharmacy`,
+    shortName: `${brand.shortName} Pharmacy`,
+    base: "/pharmacy",
+  },
+  receptionist: { name: `${brand.shortName} Desk`, shortName: `${brand.shortName} Desk`, base: "/reception" },
 };
+
+/** The staff app a page belongs to, or null for the parents' app. */
+export function staffAppForPath(pathname: string): StaffAppId | null {
+  const ids = Object.keys(staffApps) as StaffAppId[];
+  return (
+    ids.find((id) => pathname === staffApps[id].base || pathname.startsWith(`${staffApps[id].base}/`)) ??
+    null
+  );
+}
 
 /** The base primary, for places that need a literal colour (manifest, icons). */
 const BASE_PRIMARY_600 = "#23716d";

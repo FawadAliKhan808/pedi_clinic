@@ -3,7 +3,7 @@ import { staffManifestResponse } from "@/lib/pwa/staff-manifest";
 // Built once per deployment, like the parent manifest.
 export const dynamic = "force-static";
 
-/** "<Clinic> Doctor": installed from /admin, opens straight to the doctor's queue. */
+/** "<Clinic> Pharmacy": installed from /pharmacy, opens straight to it. */
 export function GET() {
-  return staffManifestResponse("doctor");
+  return staffManifestResponse("pharmacist");
 }

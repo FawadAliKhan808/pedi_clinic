@@ -3,7 +3,7 @@
 import { CheckCircle2, Smartphone } from "lucide-react";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { brand, staffApp } from "@/brand";
+import { brand, staffAppForPath, staffApps } from "@/brand";
 import { getBrowserApi } from "@/lib/api/browser";
 import { useJustInstalled } from "@/lib/pwa/install-prompt";
 
@@ -15,9 +15,10 @@ import { useJustInstalled } from "@/lib/pwa/install-prompt";
  */
 export function AppInstalledOverlay() {
   const installed = useJustInstalled();
-  // Installed from a staff page: that's the staff app, and not a parent install.
-  const staff = usePathname().startsWith("/admin");
-  const appName = staff ? staffApp.name : brand.name;
+  // Installed from a staff page: that's a staff app, and not a parent install.
+  const staffAppId = staffAppForPath(usePathname());
+  const staff = staffAppId !== null;
+  const appName = staffAppId ? staffApps[staffAppId].name : brand.name;
 
   useEffect(() => {
     if (!installed || staff) return;

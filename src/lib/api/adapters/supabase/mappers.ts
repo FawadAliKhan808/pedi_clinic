@@ -94,5 +94,7 @@ export function mapNotificationRow(row: NotificationRow): AppNotification {
 }
 
 export function isStaffRole(value: string): value is StaffRole {
-  return value === "doctor" || value === "pharmacist" || value === "owner";
+  return (
+    value === "doctor" || value === "pharmacist" || value === "receptionist" || value === "owner"
+  );
 }

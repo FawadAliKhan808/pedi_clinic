@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { getStaffContext, terminalHomeFor } from "@/lib/auth/staff";
+import { getStaffContext } from "@/lib/auth/staff";
+import { homeFor } from "@/lib/auth/staff-areas";
 
+/** Sends each signed-in account to its own home (pharmacy, reception and owner included). */
 export default async function AdminIndex() {
   const staff = await getStaffContext();
 
   if (!staff) redirect("/admin/login");
-  if (staff.role === "owner") redirect("/owner");
-  redirect(terminalHomeFor(staff.role));
+  redirect(homeFor(staff.role));
 }

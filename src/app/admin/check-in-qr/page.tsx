@@ -14,6 +14,7 @@ export default async function CheckInQrPage() {
   const staff = await getStaffContext();
 
   if (!staff) redirect("/admin/login");
+  // Every clinic role can show and print it (reception most of all).
   if (staff.role === "owner") redirect("/owner");
 
   return <CheckInQrScreen canReplace={staff.role === "doctor"} />;

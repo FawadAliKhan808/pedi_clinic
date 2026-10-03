@@ -5,19 +5,20 @@ import type { ReactNode } from "react";
 import { NavShell, type NavItem } from "@/components/layout/nav-shell";
 import { InstallPrompt } from "@/components/parent/install-and-notifications";
 import { SignOutButton } from "@/components/layout/sign-out-button";
-import type { StaffRole } from "@/lib/api";
+import { staffAreas, type ClinicStaffRole } from "@/lib/auth/staff-areas";
 import { useUnreadNotificationCount } from "@/lib/notifications/unread";
 import { useActiveQueueCount } from "@/lib/realtime/use-active-queue";
 
-/** Frame for the staff terminal, with each role's own tabs. */
-export function StaffShell({ role, children: page }: { role: StaffRole; children: ReactNode }) {
-  const signOut = <SignOutButton redirectTo="/admin/login" variant="sidebar" />;
+/** Frame for each staff role's terminal, with that role's own tabs. */
+export function StaffShell({ role, children: page }: { role: ClinicStaffRole; children: ReactNode }) {
+  // Back to the sign-in page this role uses.
+  const signOut = <SignOutButton redirectTo={staffAreas[role].login} variant="sidebar" />;
   // In a browser tab, every staff screen asks to install the staff app
   // (popup once per visit, then this card). The installed app shows neither.
   const children = (
     <>
       <div className="px-5 pt-[calc(1rem+env(safe-area-inset-top))] empty:hidden">
-        <InstallPrompt audience="staff" />
+        <InstallPrompt audience={role} />
       </div>
       {page}
     </>
@@ -31,14 +32,37 @@ export function StaffShell({ role, children: page }: { role: StaffRole; children
     );
   }
 
+  if (role === "receptionist") {
+    return <ReceptionShell signOut={signOut}>{children}</ReceptionShell>;
+  }
+
   return <DoctorShell signOut={signOut}>{children}</DoctorShell>;
 }
 
 const pharmacistNav: NavItem[] = [
-  { href: "/admin/feed", label: "Feed", icon: Pill },
-  { href: "/admin/stock", label: "Stock", icon: Package },
-  { href: "/admin/more", label: "More", icon: Menu },
+  { href: "/pharmacy/feed", label: "Feed", icon: Pill },
+  { href: "/pharmacy/stock", label: "Stock", icon: Package },
+  { href: staffAreas.pharmacist.more, label: "More", icon: Menu },
 ];
+
+/** Reception: today's queue (with Add walk-in) and the account. */
+function ReceptionShell({ signOut, children }: { signOut: ReactNode; children: ReactNode }) {
+  const inQueue = useActiveQueueCount();
+  const nav: NavItem[] = [
+    {
+      href: staffAreas.receptionist.home,
+      label: "Queue",
+      icon: ListOrdered,
+      dot: inQueue > 0 && `${inQueue} in the queue`,
+    },
+    { href: staffAreas.receptionist.more, label: "More", icon: Menu },
+  ];
+  return (
+    <NavShell items={nav} sidebarFooter={signOut}>
+      {children}
+    </NavShell>
+  );
+}
 
 /** Screens reached from the doctor's More tab; More stays highlighted on them. */
 export const DOCTOR_MORE_SCREENS = [

@@ -1607,7 +1607,7 @@ export type Database = {
         | "token_removed"
       payment_mode: "cash" | "upi" | "card"
       pharmacy_order_status: "pending" | "dispensed" | "skipped"
-      staff_role: "doctor" | "pharmacist" | "owner"
+      staff_role: "doctor" | "pharmacist" | "owner" | "receptionist"
       visit_reason: "vaccination" | "general_checkup"
       visit_source: "app" | "walk_in"
       visit_status:
@@ -1769,7 +1769,7 @@ export const Constants = {
       ],
       payment_mode: ["cash", "upi", "card"],
       pharmacy_order_status: ["pending", "dispensed", "skipped"],
-      staff_role: ["doctor", "pharmacist", "owner"],
+      staff_role: ["doctor", "pharmacist", "owner", "receptionist"],
       visit_reason: ["vaccination", "general_checkup"],
       visit_source: ["app", "walk_in"],
       visit_status: [
